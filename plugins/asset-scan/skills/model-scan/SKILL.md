@@ -1,6 +1,8 @@
 ---
 name: model-scan
 description: Security-scan an open-weights AI model before you trust it — check Hugging Face's published weight scans (protectAI, ClamAV, picklescan, VirusTotal, JFrog) for a hosted repo, and run Promptfoo ModelAudit locally on downloaded or unscanned weight files (unsafe pickles, embedded executables, backdoors). Use when asked to scan/vet a model, check model weights for malware, review a Hugging Face model, or before downloading/deploying open weights.
+license: MIT
+compatibility: requires network access (read-only Hugging Face Hub API queries)
 ---
 
 # Model scan (open-weights supply chain)
@@ -34,6 +36,8 @@ uvx modelaudit scan <path-to-weights-or-dir> --format sarif --output .ai-securit
 2. Summarize: verdict per source (HF unsafe files / ModelAudit findings / unscanned), and a recommendation
    (safe to use / review / do not load). Save SARIF to `.ai-security/results/asset-scan/`.
 3. Hand off to `security-remediation`.
+
+**Network access:** this skill queries the Hugging Face Hub API over HTTPS (read-only metadata; never downloads weights) and, for ModelAudit, reads local files only.
 
 ## Rules
 - Never load or execute a model to test it. Both checks are read-only/static.

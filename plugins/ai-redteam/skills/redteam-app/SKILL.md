@@ -1,6 +1,7 @@
 ---
 name: redteam-app
 description: Adversarially red-team an LLM application with Promptfoo — multi-turn, objective-driven attacks (jailbreak:hydra, crescendo, GOAT, mischievous-user, custom objectives) across OWASP LLM Top 10 / OWASP Agentic, prompt extraction, PII, injection, tool abuse and app-specific policies, configured from the app's security profile. Use when asked to red team, attack, jailbreak-test, "DAST for the AI layer", or find prompt-injection/agent-abuse weaknesses in a chatbot, agent, RAG or coding-agent app.
+license: MIT
 ---
 
 # Red team the app (Promptfoo)

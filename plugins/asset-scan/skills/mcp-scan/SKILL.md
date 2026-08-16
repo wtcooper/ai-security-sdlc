@@ -1,6 +1,8 @@
 ---
 name: mcp-scan
 description: Security-scan an MCP (Model Context Protocol) server's source for malicious or unsafe tools before you trust it — using Cisco's mcp-scanner (YARA rules + LLM-as-judge behavioral analysis + dependency CVEs), on a server you're building or one you're about to install. Results as SARIF. Use when asked to scan/vet an MCP server, review MCP tools for prompt injection or data exfiltration, or check an MCP server before adding it.
+license: MIT
+compatibility: requires network access (model endpoint; public vulnerability databases)
 ---
 
 # MCP server scan
@@ -40,6 +42,8 @@ only — never launches the server** (no live tool execution against untrusted c
    ```
 4. Summarize findings by severity (mcp-scanner's top severity is **HIGH**, no CRITICAL) and
    recommend trust/review/reject. Hand off to `security-remediation`.
+
+**Network access:** the behavioral analyzer sends source snippets to the model endpoint you configure; dependency scanning queries public vulnerability databases.
 
 ## Rules
 - Never use the `stdio`/`remote` live modes on untrusted servers — that executes their code. Source scan only.

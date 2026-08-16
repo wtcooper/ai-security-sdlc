@@ -1,6 +1,7 @@
 ---
 name: security-remediation
 description: Triage and fix the security findings produced by the ai-security-sdlc testing skills — ingest every result in .ai-security/results (SARIF from the code scan, CodeQL and Strix; Promptfoo eval and red-team JSON), dedupe and prioritize, then fix each issue, add a regression test, and re-verify. Use when asked to remediate, fix the vulnerabilities/findings, "address the scan results", or after running evals/redteam/pentest/SAST.
+license: MIT
 ---
 
 # Security remediation

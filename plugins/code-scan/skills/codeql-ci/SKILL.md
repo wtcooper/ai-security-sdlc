@@ -1,6 +1,7 @@
 ---
 name: codeql-ci
 description: Configure GitHub CodeQL code scanning for this repository — detect the languages, write a repo-specific advanced-setup workflow (github/codeql-action v4) and a CodeQL config file (security-extended queries, path filters), so scans run on the next push/PR. Use when asked to set up CodeQL, add SAST to CI, enable GitHub code scanning, or "make security scans run in CI".
+license: MIT
 ---
 
 # CodeQL setup (CI code scanning)

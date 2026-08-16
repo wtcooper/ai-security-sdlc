@@ -1,6 +1,8 @@
 ---
 name: code-review
 description: Perform a thorough, model-driven security code review of a repository or diff — the reviewer profiles the code, decides for itself which classes of security issues matter for this app, deep-dives each, and writes scanner-style findings (severity, file:line, snippet, description, remediation) as markdown and SARIF. Tool-agnostic; works with any capable foundation model. Use when asked to review code for security, do SAST / a static security scan, "find vulnerabilities in this code", audit a codebase, or check a change for security issues before merge.
+license: MIT
+compatibility: requires network access (sends code to your configured model endpoint only)
 ---
 
 # Code review — model-driven security scan
@@ -41,6 +43,8 @@ No agent? Run the review through any OpenAI-compatible endpoint:
 `python3 scripts/run_scan.py --path . --out .ai-security/results/code-scan` — it packs the code, sends
 [references/scan-prompt.md](references/scan-prompt.md) to `$AISEC_MODEL` at `$AISEC_GATEWAY_BASE_URL`,
 and writes the report + SARIF. Good for CI or non-Claude models; a strong model finds more.
+
+**Network access:** the standalone runner sends your code to the model endpoint you configure (`AISEC_GATEWAY_BASE_URL`) and nowhere else. In agent mode nothing leaves your session beyond the model call.
 
 ## Rules
 - Do not restrict the review to a fixed CWE checklist — let the model reason about this app.

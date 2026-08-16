@@ -1,6 +1,8 @@
 ---
 name: skill-scan
 description: Security-scan an agent skill (SKILL.md + its scripts/references) for prompt injection, data exfiltration and malicious code before you trust it — using Cisco's skill-scanner (static + YARA + behavioral dataflow + LLM-as-judge + OSV deps), on a skill you're authoring or one you're about to install. Native SARIF output. Use when asked to scan/vet a skill, review a skill for safety, or check a skill/plugin before adding it.
+license: MIT
+compatibility: requires network access (model endpoint; public OSV database)
 ---
 
 # Agent skill scan
@@ -40,6 +42,8 @@ analysis of a skill directory (no execution). Emits SARIF natively.
    The scanner runs its own meta-analyzer to cut false positives and reports an overall verdict.
 3. Summarize by severity (this scanner **does** emit CRITICAL) and honor its `is_safe` verdict;
    recommend trust/review/reject. Hand off to `security-remediation`.
+
+**Network access:** the LLM analyzer sends skill content to the model endpoint you configure; `--use-osv` queries the public OSV vulnerability database.
 
 ## Rules
 - Static scan only; do not run the skill's scripts to test it.

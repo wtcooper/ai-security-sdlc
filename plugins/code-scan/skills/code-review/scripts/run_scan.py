@@ -26,6 +26,10 @@ SKIP_EXT = {".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".lock", ".min.js",
 
 
 def tracked_files(root: Path, diff_base: str | None) -> list[Path]:
+    # diff_base is passed to git as a list element (no shell, so no command injection), but a value
+    # starting with "-" would still be read by git as an OPTION rather than a revision.
+    if diff_base and (diff_base.startswith("-") or any(c in diff_base for c in " \t\n;|&$`")):
+        raise SystemExit(f"refusing unsafe --diff-base value: {diff_base!r}")
     try:
         if diff_base:
             out = subprocess.check_output(["git", "-C", str(root), "diff", "--name-only", f"{diff_base}...HEAD"], text=True)

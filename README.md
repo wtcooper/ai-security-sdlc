@@ -78,6 +78,28 @@ Some skills depend on upstream OSS plugins (installed on first use if missing):
 - `HF_TOKEN` only for gated Hugging Face datasets/models (b3's public slice and public model scans need none).
 - **No external LLM keys are required** to build or test locally.
 
+## Dogfooding: we scan ourselves
+
+We point this toolkit at its own repository — a security toolkit that has never been run against
+itself is an untested claim. CodeQL runs on every push, and the skill/code scanners are run against
+our own skills and helper scripts.
+
+| Scanner | Findings | After remediation |
+|---|---|---|
+| CodeQL (python + actions) | 0 | 0 |
+| `skill-scan` over all 13 skills | 16 | **clean** |
+| `code-review` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
+
+The most useful result: our sample app contains a deliberately planted path traversal reachable
+through an **LLM tool-call argument**. CodeQL scanned that file and found nothing — an LLM API
+response is not one of its taint sources — while the model-driven `code-review` caught it. That gap
+is precisely why this repo ships both a fixed-query CI scanner and an open-ended, model-driven one.
+
+**→ [docs/security-evaluations.md](docs/security-evaluations.md)** for the full report: every finding,
+the remediation, the regression checks, and the one false positive that a careless reader would have
+"fixed" by rewriting safe code.
+
+
 ## Typical flow
 
 ```
@@ -99,7 +121,7 @@ plugins/<phase>/            spec plugin.json (source of truth) + client manifest
 testbed/                    LiteLLM gateway + sample target app
 scripts/sync_manifests.py   regenerate client manifests + marketplaces from each plugin.json
 scripts/validate.sh         manifests in sync, JSON parses, SKILL frontmatter, `claude plugin validate`
-docs/                       architecture.md, gateway.md
+docs/                       architecture.md, gateway.md, security-evaluations.md
 ```
 
 Edit a plugin's `plugin.json`, then `uv run python scripts/sync_manifests.py` and `bash scripts/validate.sh`.

@@ -1,6 +1,7 @@
 ---
 name: compliant-build-plan
 description: Produce a Compliant Build Plan — security requirements, applicable Project CodeGuard secure-by-design rules and a verification checklist — whenever planning, specifying or designing a new feature, service, endpoint, tool/agent capability, or significant refactor of an app. Run it before writing implementation code so the plan is secure by construction; also use when asked to "make this plan secure", "security requirements for X", or "which CodeGuard rules apply".
+license: MIT
 ---
 
 # Compliant Build Plan (CBP)

@@ -1,6 +1,8 @@
 ---
 name: cyber-benchmark-evals
 description: Run curated cybersecurity benchmark suites against an LLM app or its backbone model with Promptfoo — b3 Backbone Breaker (Lakera/UK AISI agent prompt-injection), CyberSecEval 4 prompt-injection and false-refusal slices, JailbreakBench harmful/benign, and Promptfoo's dataset plugins (HarmBench, XSTest, DoNotAnswer, Pliny). Use when asked for security benchmarks, prompt-injection resistance scores, jailbreak robustness, over-refusal rate, "how does our model/app score on CyberSecEval or b3", or a security baseline before red teaming.
+license: MIT
+compatibility: requires network access (downloads public benchmark datasets over HTTPS; calls your configured model endpoint)
 ---
 
 # Cyber benchmark evals
@@ -48,3 +50,5 @@ BaxBench, CWEval, SecCodePLT — run those with Inspect/Docker if the question i
 - Report **attack success rate** per suite/task type and **false-refusal rate** side by side.
 - A local grader (e.g. `qwen35`) is fine for development; state the grader — scores are only
   comparable across runs with the same grader. Backbone-mode scores are comparable across models.
+
+**Network access:** this skill downloads public benchmark datasets over HTTPS (huggingface.co, raw.githubusercontent.com) via `scripts/fetch_benchmarks.py`, and sends prompts to the model endpoint you configure. No data is sent anywhere else.

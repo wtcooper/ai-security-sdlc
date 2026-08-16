@@ -1,6 +1,7 @@
 ---
 name: codeql-report
 description: Read GitHub CodeQL / code-scanning results back for a repository — fetch open alerts (optionally for a branch or PR), download the latest analysis SARIF, summarize by severity, and save it for remediation. Use when asked to check CodeQL findings, review code-scanning alerts, "what did CodeQL find", or pull CI SAST results into the remediation flow.
+license: MIT
 ---
 
 # CodeQL results

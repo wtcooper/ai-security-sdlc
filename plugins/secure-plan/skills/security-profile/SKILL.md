@@ -1,6 +1,7 @@
 ---
 name: security-profile
 description: Create or update the per-app security profile at .ai-security/profile.md (app type, languages, LLM/tool surfaces, data sensitivity, trust boundaries, endpoints, rules of engagement). Use at the start of any security work on an application, when a downstream ai-security skill reports the profile is missing, or when the app's architecture, tools, data or endpoints change.
+license: MIT
 ---
 
 # Security profile

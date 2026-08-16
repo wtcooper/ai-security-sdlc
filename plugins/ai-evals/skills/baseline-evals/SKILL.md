@@ -1,6 +1,7 @@
 ---
 name: baseline-evals
 description: Set up and run a Promptfoo baseline evaluation of an LLM application — benign, representative test cases plus an AI-quality metrics pack (relevance, faithfulness, factuality, instruction/persona adherence, over-refusal, toxicity, JSON/tool-call validity, latency, cost, consistency) — and save the benchmark for regression comparison. Use when asked to evaluate, benchmark, measure quality/performance of, or add evals to an AI app, or before/after a model, prompt or retrieval change.
+license: MIT
 ---
 
 # Baseline evals (Promptfoo)

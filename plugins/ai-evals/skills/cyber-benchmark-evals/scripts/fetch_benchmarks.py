@@ -27,6 +27,7 @@ import argparse
 import csv
 import io
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -38,8 +39,16 @@ JBB_HARM = "https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors/resolve
 JBB_BENIGN = "https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors/resolve/main/data/benign-behaviors.csv"
 
 
+def _safe_name(name: str) -> str:
+    """Cache filenames can come from a remote API listing, so never let one escape the cache dir."""
+    base = os.path.basename(name.replace("\\", "/"))
+    if not base or base in (".", "..") or base.startswith("."):
+        raise ValueError(f"unsafe cache filename from remote listing: {name!r}")
+    return base
+
+
 def fetch(url: str, raw: Path, name: str) -> bytes:
-    p = raw / name
+    p = raw / _safe_name(name)
     if p.exists():
         return p.read_bytes()
     req = urllib.request.Request(url, headers={"User-Agent": "ai-security-sdlc"})
