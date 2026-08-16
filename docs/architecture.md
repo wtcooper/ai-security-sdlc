@@ -1,8 +1,13 @@
 # Architecture
 
 ## Design decisions
-- **One plugin per SDLC phase** (7), each independently installable. Scanning is split by *what* is scanned: `code-scan` for the source you write, `asset-scan` for packaged AI assets (models, MCP servers, skills) you build or download. The repo root is a Claude Code
+- **One plugin per SDLC phase** (8), each independently installable. Scanning is split by *what* is scanned: `code-scan` for the source you write, `asset-scan` for packaged AI assets (models, MCP servers, skills) you build or download. The repo root is a Claude Code
   marketplace and a Codex marketplace.
+- **`build-guidance` vs `secure-plan`.** Both are Plan/Code. `secure-plan` answers *what rules apply
+  while I build* (profile + Secure Build Plan). `build-guidance` answers *how is my environment
+  configured and what do I start from*: `agent-setup` hardens the developer's own coding/agent tool;
+  `secure-starter` copies an architecture-matched skeleton whose TODOs cite the same control-family
+  vocabulary as `ai-controls.md`, then hands off to `secure-plan`. MCP/skill vetting stays in `asset-scan`.
 - **Orchestrate, don't vendor.** Skills call upstream OSS (CodeGuard, Promptfoo, Strix, CodeQL) and
   defer to their own skills for tool syntax. We add the connective tissue: a shared profile, model
   routing, benchmark conversion, SARIF normalization, and the phase workflow.
@@ -14,10 +19,14 @@
   - `.ai-security/profile.md` — the app security profile (written by `secure-plan:security-profile`).
   - `.ai-security/results/<phase>/…` — findings, SARIF where the tool provides it.
   - `.ai-security/plans/…` — Secure Build Plans.
+  - `.ai-security/starter.md` — which starter template was applied and its open TODOs (written by
+    `build-guidance:secure-starter`, read by `secure-build-plan`).
   `remediate` reads `results/**` and normalizes everything into one triage table.
 
 ## Data flow
 ```
+agent-setup (developer machine, no repo state)
+secure-starter ──▶ .ai-security/starter.md ──▶ secure-build-plan
 security-profile ──▶ .ai-security/profile.md
        │                     │
        ▼                     ├────────────┬─────────────┬───────────────┐
@@ -39,6 +48,8 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
 [gateway.md](gateway.md). The bundled testbed lets the whole flow run on free local models.
 
 ## Why these tools (Aug 2026)
+- **build-guidance** wraps no tool by design: vendor setup facts are dated (`asOf`) and sourced from
+  live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps.
 - **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules
   read JIT) and multi-client. We scope it to a feature and turn it into a build-plan artifact.
 - **Promptfoo** covers both benign evals and adaptive red teaming, targets arbitrary HTTP apps with

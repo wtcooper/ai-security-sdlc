@@ -77,7 +77,7 @@ def main() -> int:
         })
     claude_mp = {
         "name": MARKETPLACE_NAME,
-        "description": "Agent plugins for securing an AI-first SDLC: secure-by-design planning, AI evals, red teaming, pentest, SAST and remediation.",
+        "description": "Agent plugins for securing an AI-first SDLC: secure agent setup and starter templates, secure-by-design planning, AI evals, red teaming, pentest, SAST and remediation.",
         "owner": OWNER,
         "plugins": entries,
     }

@@ -1,6 +1,6 @@
 # ai-security-sdlc
 
-Agent plugins for securing an **AI-first SDLC**. Seven plugins, one per phase — including scanning both the code you write and the AI assets (models, MCP servers, skills) you build or download. Each phase of building on top of LLMs gets a
+Agent plugins for securing an **AI-first SDLC**. Eight plugins across the phases — from securing your own agent tooling and starting from secure templates, to scanning both the code you write and the AI assets (models, MCP servers, skills) you build or download. Each phase of building on top of LLMs gets a
 plugin that orchestrates a best-of-breed open-source tool rather than reinventing it — inspired by
 [how Anthropic secures its AI-native SDLC](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle).
 
@@ -10,6 +10,7 @@ Principle: **use well-maintained OSS skills/tools; only build our own where prov
 
 | Phase | Plugin | Wraps | What it does |
 |-------|--------|-------|--------------|
+| Plan / Code | **build-guidance** | — | **agent-setup** (secure config of your AI coding/agent tools: permissions, sandbox, egress, MCP trust) + **secure-starter** (architecture-aware secure-by-design scaffolds with control-family TODOs) |
 | Plan / Code | **secure-plan** | [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) | An app **security profile**, and **Secure Build Plans** — secure-by-design requirements + applicable CodeGuard rules for a feature, before code is written |
 | Test — quality | **ai-evals** | [Promptfoo](https://promptfoo.dev) | Baseline **evals** (AI-metrics pack) + curated **cyber benchmark** suites (b3, CyberSecEval 4, JailbreakBench, HarmBench/XSTest/DoNotAnswer/Pliny) |
 | Test — adversarial (AI) | **ai-redteam** | Promptfoo red team | Multi-turn, objective-driven **red teaming** (OWASP LLM/Agentic, PII, injection, tool abuse) configured from the profile |
@@ -51,10 +52,11 @@ Claude Code (this repo is a marketplace):
 
 ```
 /plugin marketplace add wtcooper/ai-security-sdlc      # or a local path
+/plugin install ai-security-build-guidance@ai-security-sdlc
 /plugin install ai-security-secure-plan@ai-security-sdlc
 /plugin install ai-security-code-scan@ai-security-sdlc
 /plugin install ai-security-asset-scan@ai-security-sdlc
-# …one per phase, or install all seven
+# …one per phase, or install all eight
 ```
 
 The plugins ship **multi-client manifests** (Agent Plugins 1.0 `plugin.json` + `mcp.json`, plus
@@ -87,7 +89,7 @@ our own skills and helper scripts.
 | Scanner | Findings | After remediation |
 |---|---|---|
 | CodeQL (python + actions) | 0 | 0 |
-| `scan-skill` over all 13 skills | 16 | **clean** |
+| `scan-skill` over all 15 skills | 16 | **clean** |
 | `scan-code` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
 
 The most useful result: our sample app contains a deliberately planted path traversal reachable
@@ -107,6 +109,8 @@ the remediation, the regression checks, and the one false positive that a carele
 ## Typical flow
 
 ```
+agent-setup                # once per developer machine: harden the coding agent itself
+secure-starter             # new service: scaffold from a secure-by-design template
 security-profile           # once per app
 secure-build-plan       # per feature, at planning time
 eval-baseline             # establish quality benchmark

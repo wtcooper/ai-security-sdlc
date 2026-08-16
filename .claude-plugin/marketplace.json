@@ -1,6 +1,6 @@
 {
   "name": "ai-security-sdlc",
-  "description": "Agent plugins for securing an AI-first SDLC: secure-by-design planning, AI evals, red teaming, pentest, SAST and remediation.",
+  "description": "Agent plugins for securing an AI-first SDLC: secure agent setup and starter templates, secure-by-design planning, AI evals, red teaming, pentest, SAST and remediation.",
   "owner": {
     "name": "Wade Cooper",
     "email": "wadetcooper@gmail.com"
@@ -33,6 +33,17 @@
       "description": "Scan a packaged AI asset \u2014 an open-weights model, an MCP server, or an agent skill \u2014 that you are building or about to download and trust. Wraps Hugging Face's published weight scans + Promptfoo ModelAudit, Cisco mcp-scanner, and Cisco skill-scanner; results as SARIF for the remediation flow.",
       "version": "0.1.0",
       "source": "./plugins/asset-scan",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-build-guidance",
+      "description": "Plan/Code phase: secure setup of your AI coding/agent tools (permissions, sandboxing, egress, MCP trust) and architecture-aware secure-by-design starter templates you build on, then harden with secure-plan.",
+      "version": "0.1.0",
+      "source": "./plugins/build-guidance",
       "category": "security",
       "author": {
         "name": "Wade Cooper",
