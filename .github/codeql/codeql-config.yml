@@ -1,0 +1,23 @@
+name: "ai-security-sdlc CodeQL config"
+
+# security-extended = default + lower-severity security queries.
+# security-and-quality also adds maintainability/reliability (noisier).
+queries:
+  - uses: security-extended
+
+# NOTE: testbed/target-app is a DELIBERATELY vulnerable sample app used to exercise the
+# scanning skills. It is intentionally NOT ignored: CodeQL finding its planted bugs is how we
+# verify this setup works. Triage those alerts as "used in tests" via the codeql-report skill.
+paths-ignore:
+  - "**/node_modules"
+  - "**/.venv/**"
+  - "**/__pycache__/**"
+
+# Optionally trim noise:
+# query-filters:
+#   - exclude:
+#       problem.severity: [recommendation]
+
+# Extra query packs (comma-separated in the workflow input, or here per language):
+# packs:
+#   - codeql/javascript-queries
