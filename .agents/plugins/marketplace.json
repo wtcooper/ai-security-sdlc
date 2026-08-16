@@ -1,0 +1,80 @@
+{
+  "name": "ai-security-sdlc",
+  "interface": {
+    "displayName": "AI Security SDLC"
+  },
+  "plugins": [
+    {
+      "name": "ai-security-ai-evals",
+      "source": {
+        "source": "url",
+        "url": "./plugins/ai-evals"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "ai-security-ai-redteam",
+      "source": {
+        "source": "url",
+        "url": "./plugins/ai-redteam"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "ai-security-pentest",
+      "source": {
+        "source": "url",
+        "url": "./plugins/pentest"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "ai-security-remediate",
+      "source": {
+        "source": "url",
+        "url": "./plugins/remediate"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "ai-security-sast",
+      "source": {
+        "source": "url",
+        "url": "./plugins/sast"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "ai-security-secure-plan",
+      "source": {
+        "source": "url",
+        "url": "./plugins/secure-plan"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    }
+  ]
+}

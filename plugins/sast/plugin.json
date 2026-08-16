@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ai-security-sast",
+  "version": "0.1.0",
+  "description": "Test phase: tool-agnostic LLM-driven code security scan (SARIF + markdown report), CodeQL CI setup for the repo, and reading CodeQL results back.",
+  "author": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "homepage": "https://github.com/GitWCoop/ai-security-sdlc",
+  "repository": "https://github.com/GitWCoop/ai-security-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "ai-sdlc",
+    "sast",
+    "codeql",
+    "code-review"
+  ]
+}

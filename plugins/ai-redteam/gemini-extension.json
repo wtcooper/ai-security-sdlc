@@ -1,0 +1,6 @@
+{
+  "name": "ai-security-ai-redteam",
+  "description": "Test phase: Promptfoo multi-turn adversarial red teaming of your LLM app, configured from its security profile (OWASP LLM/Agentic, PII, injection, tool abuse).",
+  "version": "0.1.0",
+  "contextFileName": "GEMINI.md"
+}

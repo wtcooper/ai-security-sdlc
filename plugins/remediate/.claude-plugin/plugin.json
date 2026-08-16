@@ -1,0 +1,18 @@
+{
+  "name": "ai-security-remediate",
+  "version": "0.1.0",
+  "description": "Remediation phase: ingest every finding in .ai-security/results (SARIF + promptfoo JSON), triage, fix, add regressions and close the loop into planning rules.",
+  "author": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "homepage": "https://github.com/GitWCoop/ai-security-sdlc",
+  "repository": "https://github.com/GitWCoop/ai-security-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "ai-sdlc",
+    "remediation",
+    "triage"
+  ]
+}

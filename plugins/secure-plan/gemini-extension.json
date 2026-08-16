@@ -1,0 +1,6 @@
+{
+  "name": "ai-security-secure-plan",
+  "description": "Plan/Code phase: app security profile and CodeGuard-backed Compliant Build Plans so features are specified secure-by-design before code is written.",
+  "version": "0.1.0",
+  "contextFileName": "GEMINI.md"
+}

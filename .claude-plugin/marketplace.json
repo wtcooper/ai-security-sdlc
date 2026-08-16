@@ -1,0 +1,76 @@
+{
+  "name": "ai-security-sdlc",
+  "description": "Agent plugins for securing an AI-first SDLC: secure-by-design planning, AI evals, red teaming, pentest, SAST and remediation.",
+  "owner": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "ai-security-ai-evals",
+      "description": "Test phase: Promptfoo baseline quality evals with an AI-metrics pack, plus curated cybersecurity benchmark suites (b3, CyberSecEval 4, HarmBench, XSTest, JBB) run against your LLM app.",
+      "version": "0.1.0",
+      "source": "./plugins/ai-evals",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-ai-redteam",
+      "description": "Test phase: Promptfoo multi-turn adversarial red teaming of your LLM app, configured from its security profile (OWASP LLM/Agentic, PII, injection, tool abuse).",
+      "version": "0.1.0",
+      "source": "./plugins/ai-redteam",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-pentest",
+      "description": "Test phase: autonomous DAST penetration testing of your app with Strix, scoped from the security profile, with SARIF results.",
+      "version": "0.1.0",
+      "source": "./plugins/pentest",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-remediate",
+      "description": "Remediation phase: ingest every finding in .ai-security/results (SARIF + promptfoo JSON), triage, fix, add regressions and close the loop into planning rules.",
+      "version": "0.1.0",
+      "source": "./plugins/remediate",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-sast",
+      "description": "Test phase: tool-agnostic LLM-driven code security scan (SARIF + markdown report), CodeQL CI setup for the repo, and reading CodeQL results back.",
+      "version": "0.1.0",
+      "source": "./plugins/sast",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-secure-plan",
+      "description": "Plan/Code phase: app security profile and CodeGuard-backed Compliant Build Plans so features are specified secure-by-design before code is written.",
+      "version": "0.1.0",
+      "source": "./plugins/secure-plan",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    }
+  ]
+}
