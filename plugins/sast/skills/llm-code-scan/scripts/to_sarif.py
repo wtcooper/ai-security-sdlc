@@ -48,7 +48,7 @@ def to_sarif(findings: list[dict], tool: str = "llm-code-scan") -> dict:
     return {
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
         "version": "2.1.0",
-        "runs": [{"tool": {"driver": {"name": tool, "informationUri": "https://github.com/GitWCoop/ai-security-sdlc", "rules": rules}}, "results": results}],
+        "runs": [{"tool": {"driver": {"name": tool, "informationUri": "https://github.com/wtcooper/ai-security-sdlc", "rules": rules}}, "results": results}],
     }
 
 

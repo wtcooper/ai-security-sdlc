@@ -49,7 +49,7 @@ curl -s -X POST localhost:8010/chat -H 'content-type: application/json' -d '{"me
 Claude Code (this repo is a marketplace):
 
 ```
-/plugin marketplace add GitWCoop/ai-security-sdlc      # or a local path
+/plugin marketplace add wtcooper/ai-security-sdlc      # or a local path
 /plugin install ai-security-secure-plan@ai-security-sdlc
 /plugin install ai-security-ai-evals@ai-security-sdlc
 # …one per phase, or install all six
@@ -57,7 +57,7 @@ Claude Code (this repo is a marketplace):
 
 The plugins ship **multi-client manifests** (Agent Plugins 1.0 `plugin.json` + `mcp.json`, plus
 `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `gemini-extension.json`). Codex:
-`codex plugin marketplace add GitWCoop/ai-security-sdlc`. Cursor/Copilot/Kiro read the spec
+`codex plugin marketplace add wtcooper/ai-security-sdlc`. Cursor/Copilot/Kiro read the spec
 `plugin.json` + `skills/`.
 
 Some skills depend on upstream OSS plugins (installed on first use if missing):
