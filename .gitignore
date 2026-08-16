@@ -222,3 +222,4 @@ testbed/.env
 testbed/.venv-gateway/
 .ai-security/results/
 strix_runs/
+.ai-security/cache/
