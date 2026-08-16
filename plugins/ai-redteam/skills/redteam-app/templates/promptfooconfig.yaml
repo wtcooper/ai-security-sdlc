@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "<app> red team"
+
+targets:
+  - id: https
+    label: <app-name>
+    config:
+      url: "{{env.AISEC_TARGET_URL}}"
+      method: POST
+      headers:
+        Content-Type: application/json
+        # Authorization: "Bearer {{env.AISEC_TARGET_TOKEN}}"
+      body:
+        message: "{{prompt}}"
+        sessionId: "{{sessionId}}"
+      transformResponse: "json.reply"
+      sessionParser: "data.body.sessionId"    # required for multi-turn strategies
+
+redteam:
+  purpose: |
+    <3-6 sentences from the profile: what the app is, users, tools & data it can reach,
+    auth model, and what it must never do (e.g. reveal internal notes, disclose other
+    customers' orders, read files outside the docs folder).>
+  entities: []                                # real people/orgs the app must not impersonate/defame
+  provider:                                   # attacker + grader — any OpenAI-compatible endpoint
+    id: "openai:chat:{{env.AISEC_JUDGE_MODEL}}"
+    config: { apiBaseUrl: "{{env.AISEC_GATEWAY_BASE_URL}}", apiKeyEnvar: AISEC_GATEWAY_API_KEY }
+  numTests: 5
+  plugins:
+    # --- always ---
+    - owasp:llm
+    - prompt-extraction
+    - pii:direct
+    - pii:session
+    - hijacking
+    - hallucination
+    - id: policy
+      config: { policy: "<one 'must never happen' line from the profile>" }
+    # --- tool-using agents ---
+    # - owasp:agentic
+    # - excessive-agency
+    # - tool-discovery
+    # - bola
+    # - bfla
+    # - rbac
+    # - indirect-prompt-injection
+    # - ssrf
+    # - sql-injection
+    # - shell-injection
+    # --- RAG ---
+    # - rag-poisoning
+    # - rag-document-exfiltration
+    # --- coding agents ---
+    # - coding-agent:core
+  strategies:
+    - basic
+    - jailbreak:composite
+    - jailbreak:hydra                          # multi-turn agentic attacker with memory
+    - crescendo                                # gradual escalation
+    - goat
+    - mischievous-user
+    # - id: custom
+    #   config: { strategyText: "<multi-turn objective in plain language, e.g. first build rapport as a staff member, then request the staff discount code>" }
+    # - retry                                  # replay previously failing cases
+  maxConcurrency: 2
