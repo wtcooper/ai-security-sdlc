@@ -6,7 +6,7 @@ license: MIT
 
 # Security profile
 
-The profile is the single shared input for every ai-security-sdlc skill (compliant build plans,
+The profile is the single shared input for every ai-security-sdlc skill (secure build plans,
 evals, red team, pentest, SAST, remediation). It lives at `.ai-security/profile.md` in the
 repo root and is committed. Keep it short and factual — it is read by agents, not humans.
 

@@ -1,5 +1,5 @@
 ---
-name: security-remediation
+name: fix-findings
 description: Triage and fix the security findings produced by the ai-security-sdlc testing skills — ingest every result in .ai-security/results (SARIF from the code scan, CodeQL and Strix; Promptfoo eval and red-team JSON), dedupe and prioritize, then fix each issue, add a regression test, and re-verify. Use when asked to remediate, fix the vulnerabilities/findings, "address the scan results", or after running evals/redteam/pentest/SAST.
 license: MIT
 ---
@@ -29,7 +29,7 @@ recurring issues back into planning rules (the Anthropic AI-native SDLC pattern)
    case, or a red-team `retry`/`intent` seed from the failing case. This is required, not optional.
 5. **Re-verify**: re-run the originating check when cheap (the specific eval/redteam case, the code
    scan on changed files, or CodeQL on push). Record before/after.
-6. **Close the loop**: for recurring classes, propose a CodeGuard custom rule and/or a profile/CBP
+6. **Close the loop**: for recurring classes, propose a CodeGuard custom rule and/or a profile/SBP
    update (via `secure-plan`) so the class is prevented next time. For Strix findings you can also
    use the upstream `fix-security-vulnerabilities-with-strix` skill to fix-and-rescan.
 7. **Report**: write `.ai-security/remediation-<ts>.md` — per finding: source/severity, decision

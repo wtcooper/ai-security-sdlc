@@ -1,5 +1,5 @@
 ---
-name: code-review
+name: scan-code
 description: Perform a thorough, model-driven security code review of a repository or diff — the reviewer profiles the code, decides for itself which classes of security issues matter for this app, deep-dives each, and writes scanner-style findings (severity, file:line, snippet, description, remediation) as markdown and SARIF. Tool-agnostic; works with any capable foundation model. Use when asked to review code for security, do SAST / a static security scan, "find vulnerabilities in this code", audit a codebase, or check a change for security issues before merge.
 license: MIT
 compatibility: requires network access (sends code to your configured model endpoint only)

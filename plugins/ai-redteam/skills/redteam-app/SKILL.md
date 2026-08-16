@@ -7,7 +7,7 @@ license: MIT
 # Red team the app (Promptfoo)
 
 Adaptive, multi-turn adversarial testing of *your* application (prompt + guardrails + tools),
-graded per objective. Complements the fixed `cyber-benchmark-evals` suites and Strix's
+graded per objective. Complements the fixed `eval-security` suites and Strix's
 infrastructure-level pentest.
 
 ## Inputs / outputs
@@ -34,7 +34,7 @@ infrastructure-level pentest.
    Run `npx promptfoo@latest redteam discover` if unsure what the app exposes.
 3. **Plugins**: pick from [references/plugin-matrix.md](references/plugin-matrix.md) by app type;
    add a `policy` plugin per "must never happen" line and `intent` seeds from failing benchmark
-   cases (`cyber-benchmark-evals`). Set `severity` overrides for the app's critical assets.
+   cases (`eval-security`). Set `severity` overrides for the app's critical assets.
 4. **Strategies**: multi-turn by default — `jailbreak:hydra`, `crescendo`, `goat`,
    `mischievous-user`, plus `custom-strategy` objectives written from the profile; keep `basic` and
    `jailbreak:composite` for single-turn coverage. Start with `numTests: 5`; scale up after a clean run.

@@ -10,12 +10,12 @@ Principle: **use well-maintained OSS skills/tools; only build our own where prov
 
 | Phase | Plugin | Wraps | What it does |
 |-------|--------|-------|--------------|
-| Plan / Code | **secure-plan** | [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) | An app **security profile**, and **Compliant Build Plans** — secure-by-design requirements + applicable CodeGuard rules for a feature, before code is written |
+| Plan / Code | **secure-plan** | [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) | An app **security profile**, and **Secure Build Plans** — secure-by-design requirements + applicable CodeGuard rules for a feature, before code is written |
 | Test — quality | **ai-evals** | [Promptfoo](https://promptfoo.dev) | Baseline **evals** (AI-metrics pack) + curated **cyber benchmark** suites (b3, CyberSecEval 4, JailbreakBench, HarmBench/XSTest/DoNotAnswer/Pliny) |
 | Test — adversarial (AI) | **ai-redteam** | Promptfoo red team | Multi-turn, objective-driven **red teaming** (OWASP LLM/Agentic, PII, injection, tool abuse) configured from the profile |
 | Test — adversarial (pentest) | **pentest** | [Strix](https://github.com/usestrix/strix) | Autonomous **DAST** pentest of the app/API/repo, SARIF results |
-| Test — code review | **code-scan** | model-agnostic + [CodeQL](https://github.com/github/codeql-action) | **code-review** (open-ended model-driven scan, SARIF), **codeql-ci** setup, **codeql-report** read-back |
-| Test — asset scan | **asset-scan** | [HF](https://huggingface.co) scans + [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), [Cisco mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner), [Cisco skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) | Vet a packaged AI asset — **model-scan**, **mcp-scan**, **skill-scan** — that you're building or downloading |
+| Test — code review | **code-scan** | model-agnostic + [CodeQL](https://github.com/github/codeql-action) | **scan-code** (open-ended model-driven scan, SARIF), **codeql-ci** setup, **codeql-report** read-back |
+| Test — asset scan | **asset-scan** | [HF](https://huggingface.co) scans + [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), [Cisco mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner), [Cisco skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) | Vet a packaged AI asset — **scan-model**, **scan-mcp**, **scan-skill** — that you're building or downloading |
 | Remediation | **remediate** | — | Ingest every finding, **triage → fix → regression → re-verify**, and close the loop into planning |
 
 All testing skills share a per-app profile at `.ai-security/profile.md` and write findings to
@@ -87,13 +87,17 @@ our own skills and helper scripts.
 | Scanner | Findings | After remediation |
 |---|---|---|
 | CodeQL (python + actions) | 0 | 0 |
-| `skill-scan` over all 13 skills | 16 | **clean** |
-| `code-review` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
+| `scan-skill` over all 13 skills | 16 | **clean** |
+| `scan-code` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
 
 The most useful result: our sample app contains a deliberately planted path traversal reachable
 through an **LLM tool-call argument**. CodeQL scanned that file and found nothing — an LLM API
-response is not one of its taint sources — while the model-driven `code-review` caught it. That gap
+response is not one of its taint sources — while the model-driven `scan-code` caught it. That gap
 is precisely why this repo ships both a fixed-query CI scanner and an open-ended, model-driven one.
+
+One caveat the exercise surfaced: `skill-scan`'s LLM-backed false-positive filter is
+**non-deterministic** — the same unchanged skill scanned clean, then flagged, then clean. Treat a
+single clean scan as weak evidence and prefer deterministic settings for CI gating.
 
 **→ [docs/security-evaluations.md](docs/security-evaluations.md)** for the full report: every finding,
 the remediation, the regression checks, and the one false positive that a careless reader would have
@@ -104,14 +108,14 @@ the remediation, the regression checks, and the one false positive that a carele
 
 ```
 security-profile           # once per app
-compliant-build-plan       # per feature, at planning time
-baseline-evals             # establish quality benchmark
-cyber-benchmark-evals      # security benchmark scores
+secure-build-plan       # per feature, at planning time
+eval-baseline             # establish quality benchmark
+eval-security      # security benchmark scores
 redteam-app                # adaptive adversarial attacks
-app-pentest                # DAST pentest
-code-review / codeql-ci + codeql-report          # scan the code you write
-model-scan / mcp-scan / skill-scan               # vet models, MCP servers, skills (yours or downloaded)
-security-remediation       # fix everything, add regressions, close the loop
+pentest-app                # DAST pentest
+scan-code / codeql-ci + codeql-report          # scan the code you write
+scan-model / scan-mcp / scan-skill               # vet models, MCP servers, skills (yours or downloaded)
+fix-findings       # fix everything, add regressions, close the loop
 ```
 
 ## Repo layout & development

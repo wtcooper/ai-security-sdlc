@@ -3,7 +3,7 @@
 
   python3 normalize_findings.py [--results .ai-security/results] [--format table|json]
 
-Ingests SARIF (llm-code-scan, CodeQL, Strix) and Promptfoo eval/redteam JSON, producing a unified
+Ingests SARIF (scan-code, CodeQL, Strix) and Promptfoo eval/redteam JSON, producing a unified
 list of {source, tool, severity, title, location, metric/rule, status, ref}. No model calls.
 """
 from __future__ import annotations

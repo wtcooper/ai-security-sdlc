@@ -1,7 +1,7 @@
 {
   "name": "ai-security-secure-plan",
   "version": "0.1.0",
-  "description": "Plan/Code phase: app security profile and CodeGuard-backed Compliant Build Plans so features are specified secure-by-design before code is written.",
+  "description": "Plan/Code phase: app security profile and CodeGuard-backed Secure Build Plans so features are specified secure-by-design before code is written.",
   "author": {
     "name": "Wade Cooper",
     "email": "wadetcooper@gmail.com"
@@ -19,7 +19,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "ai-security-secure-plan",
-    "shortDescription": "Plan/Code phase: app security profile and CodeGuard-backed Compliant Build Plans so features are specified secure-by-design before code is written.",
+    "shortDescription": "Plan/Code phase: app security profile and CodeGuard-backed Secure Build Plans so features are specified secure-by-design before code is written.",
     "developerName": "Wade Cooper",
     "category": "Security"
   }

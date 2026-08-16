@@ -11,19 +11,19 @@ real assessment of our code. Everything below is reproducible with the commands 
 | Skill (plugin) | Wraps | What it scanned |
 |---|---|---|
 | `codeql-ci` + `codeql-report` (code-scan) | GitHub CodeQL `codeql-action@v4`, `security-extended` | whole repo — Python + GitHub Actions |
-| `code-review` (code-scan) | model-driven review, any OpenAI-compatible model (`gemma4` locally) | our 8 Python helper scripts; separately the sample app |
-| `skill-scan` (asset-scan) | `cisco-ai-skill-scanner` (static + YARA + dataflow + OSV + meta) | all 13 of our own SKILL.md packages |
+| `scan-code` (code-scan) | model-driven review, any OpenAI-compatible model (`gemma4` locally) | our 8 Python helper scripts; separately the sample app |
+| `scan-skill` (asset-scan) | `cisco-ai-skill-scanner` (static + YARA + dataflow + OSV + meta) | all 13 of our own SKILL.md packages |
 
-Not run here: `mcp-scan` (we ship no MCP server), `model-scan` (no model weights in this repo),
-`app-pentest` (needs a long Strix Docker run).
+Not run here: `scan-mcp` (we ship no MCP server), `scan-model` (no model weights in this repo),
+`pentest-app` (needs a long Strix Docker run).
 
 ## Results summary
 
 | Scanner | Findings (initial) | After remediation |
 |---|---|---|
 | CodeQL (python + actions) | **0** | 0 |
-| skill-scan (13 skills) | **16** — 12 `MANIFEST_MISSING_LICENSE`, 3 `PYCACHE_FILES_DETECTED`, 1 `TOOL_ABUSE_UNDECLARED_NETWORK` | **0 — clean** |
-| code-review (our scripts) | **3** — 1 command-injection (FP), 1 path traversal, 1 unvalidated JSON | 2 fixed, 1 accepted |
+| scan-skill (13 skills) | **16** — 12 `MANIFEST_MISSING_LICENSE`, 3 `PYCACHE_FILES_DETECTED`, 1 `TOOL_ABUSE_UNDECLARED_NETWORK` | **0 — clean** |
+| scan-code (our scripts) | **3** — 1 command-injection (FP), 1 path traversal, 1 unvalidated JSON | 2 fixed, 1 accepted |
 
 ## The headline finding: CodeQL missed what the model-driven review caught
 
@@ -39,7 +39,7 @@ def read_doc(name: str) -> dict:
 ```
 
 - **CodeQL scanned this file and reported 0 results.**
-- **`code-review` found it**, correctly describing the traversal and the fix.
+- **`scan-code` found it**, correctly describing the traversal and the fix.
 
 Why: `name` arrives from `json.loads(call.function.arguments)` — an **LLM tool-call argument**.
 CodeQL's Python taint analysis has a well-defined set of *remote* sources (HTTP request data, etc.);
@@ -48,18 +48,18 @@ who can prompt-inject the model controls that value.
 
 **This is the argument for running both.** CodeQL is precise and cheap on known source→sink patterns;
 it does not model AI-specific trust boundaries. The model-driven review reasons about architecture and
-catches the unknown-unknowns — which is exactly why `code-review` is written to profile the app and
+catches the unknown-unknowns — which is exactly why `scan-code` is written to profile the app and
 choose its own categories rather than follow a fixed CWE list.
 
 ## Findings and remediation
 
-### skill-scan — 16 findings → clean
+### scan-skill — 16 findings → clean
 
 1. **`MANIFEST_MISSING_LICENSE` × 12** (note). Our `SKILL.md` frontmatter carried no `license`.
    *Fixed:* added `license: MIT` to all 13 skills.
 2. **`PYCACHE_FILES_DETECTED` × 3** (note). `__pycache__` left on disk by local test runs.
    Never committed (`.gitignore` already covers it). *Fixed:* removed from the working tree.
-3. **`TOOL_ABUSE_UNDECLARED_NETWORK` × 1** (warning) on `cyber-benchmark-evals` — **true positive**.
+3. **`TOOL_ABUSE_UNDECLARED_NETWORK` × 1** (warning) on `eval-security` — **true positive**.
    `fetch_benchmarks.py` downloads datasets over HTTPS, but the skill never declared network access.
 
    Worth recording how this was fixed, because the first attempt was wrong: adding a prose
@@ -70,7 +70,7 @@ choose its own categories rather than follow a fixed CWE list.
    `compatibility: requires network access (...)` to the five skills that make network calls, and
    kept the prose as user-facing documentation. **Re-scan: all 13 skills clean.**
 
-### code-review on our own scripts — 3 findings
+### scan-code on our own scripts — 3 findings
 
 | # | Finding | Verdict | Action |
 |---|---|---|---|
@@ -86,17 +86,48 @@ run_scan.py --diff-base='--upload-pack=evil'  ->  refusing unsafe --diff-base va
 run_scan.py --diff-base=origin/main           ->  accepted (still works)
 ```
 
+## Caveat found while re-testing: the meta-analyzer is non-deterministic
+
+Re-scanning after a rename produced two `DATA_EXFIL_NETWORK_REQUESTS` findings on a skill that had
+scanned clean minutes earlier. Scanning that same unchanged skill three times in a row:
+
+```
+run 1: ['DATA_EXFIL_NETWORK_REQUESTS', 'DATA_EXFIL_NETWORK_REQUESTS']
+run 2: clean
+run 3: clean
+```
+
+`skill-scanner`'s `--enable-meta` false-positive filter is LLM-backed, so with a small local model
+(`gemma4`) the same input can produce different verdicts run to run. Practical consequences:
+
+- **A single clean scan is not authoritative.** Treat one clean run as weak evidence.
+- **For CI gating**, prefer deterministic configurations: drop `--enable-meta` (more raw findings,
+  stable), or pin a stronger, more consistent judge model, and gate on `--fail-on-severity`.
+- The underlying pattern match is a *true* observation — `fetch_benchmarks.py` does make network
+  requests — it is the *suppression* decision that varies. The requests are the skill's declared
+  purpose (downloading public benchmark datasets), now declared via `compatibility`.
+
+This is a property of any LLM-as-judge stage, including our own `scan-code`, and is the reason the
+severity rubric asks for a stated confidence rather than a bare verdict.
+
+## Naming
+
+After this evaluation the skills were renamed to a consistent verb-first scheme
+(`scan-code`, `scan-model`, `scan-mcp`, `scan-skill`, `pentest-app`, `redteam-app`, `eval-baseline`,
+`eval-security`, `fix-findings`), partly because the old `code-review` name collided with Claude
+Code's built-in `/code-review` command. All scans above were re-run after the rename.
+
 ## What this exercise validates
 
 - The **CodeQL setup works end-to-end**: `codeql-ci` generated a repo-specific workflow (matrix trimmed
   to the languages actually present), the run succeeded in 48s, and `codeql-report` read the alerts and
   SARIF back through the GitHub API.
-- **`skill-scan` finds real issues in real skills** — including our own — and the remediation loop
+- **`scan-skill` finds real issues in real skills** — including our own — and the remediation loop
   (fix → re-scan → clean) closes.
-- **`code-review` catches what CodeQL structurally cannot**, and its findings still need human triage:
+- **`scan-code` catches what CodeQL structurally cannot**, and its findings still need human triage:
   1 of 3 was a false positive that a careless reader would have "fixed" by rewriting safe code.
-- The **honest caveat**: a local `gemma4` grader is weaker than a frontier model. These results are a
-  floor, not a ceiling.
+- The **honest caveats**: a local `gemma4` grader is weaker than a frontier model (these results are a
+  floor, not a ceiling), and the LLM-backed meta-analyzer is non-deterministic — see above.
 
 ## Reproducing
 
@@ -104,7 +135,7 @@ run_scan.py --diff-base=origin/main           ->  accepted (still works)
 cd testbed && docker compose up -d gateway          # free local models
 export AISEC_GATEWAY_BASE_URL=http://localhost:4010/v1 AISEC_GATEWAY_API_KEY=sk-local AISEC_MODEL=gemma4
 
-# skill-scan over every skill in this repo
+# scan-skill over every skill in this repo
 export SKILL_SCANNER_LLM_BASE_URL="$AISEC_GATEWAY_BASE_URL" \
        SKILL_SCANNER_LLM_API_KEY="$AISEC_GATEWAY_API_KEY" \
        SKILL_SCANNER_LLM_MODEL="openai/$AISEC_MODEL"
@@ -114,7 +145,7 @@ for s in plugins/*/skills/*/; do
 done
 
 # model-driven code review of our own scripts
-python3 plugins/code-scan/skills/code-review/scripts/run_scan.py --path . --out .ai-security/results/code-scan
+python3 plugins/code-scan/skills/scan-code/scripts/run_scan.py --path . --out .ai-security/results/code-scan
 
 # CodeQL results (runs automatically on push)
 gh api -X GET repos/wtcooper/ai-security-sdlc/code-scanning/alerts -f state=open -f tool_name=CodeQL

@@ -1,5 +1,5 @@
 ---
-name: baseline-evals
+name: eval-baseline
 description: Set up and run a Promptfoo baseline evaluation of an LLM application — benign, representative test cases plus an AI-quality metrics pack (relevance, faithfulness, factuality, instruction/persona adherence, over-refusal, toxicity, JSON/tool-call validity, latency, cost, consistency) — and save the benchmark for regression comparison. Use when asked to evaluate, benchmark, measure quality/performance of, or add evals to an AI app, or before/after a model, prompt or retrieval change.
 license: MIT
 ---
@@ -7,7 +7,7 @@ license: MIT
 # Baseline evals (Promptfoo)
 
 Establishes *how well the app works* on normal traffic and records it as a benchmark. Security
-suites live in `cyber-benchmark-evals`; adversarial testing in the `ai-redteam` plugin.
+suites live in `eval-security`; adversarial testing in the `ai-redteam` plugin.
 
 ## Inputs / outputs
 - Reads `.ai-security/profile.md` (§6 endpoints, §3 app type). Missing → run `security-profile`.

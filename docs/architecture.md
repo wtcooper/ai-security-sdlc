@@ -13,7 +13,7 @@
 - **Shared state on disk.**
   - `.ai-security/profile.md` — the app security profile (written by `secure-plan:security-profile`).
   - `.ai-security/results/<phase>/…` — findings, SARIF where the tool provides it.
-  - `.ai-security/plans/…` — Compliant Build Plans.
+  - `.ai-security/plans/…` — Secure Build Plans.
   `remediate` reads `results/**` and normalizes everything into one triage table.
 
 ## Data flow
@@ -21,8 +21,8 @@
 security-profile ──▶ .ai-security/profile.md
        │                     │
        ▼                     ├────────────┬─────────────┬───────────────┐
-compliant-build-plan         ▼            ▼             ▼               ▼
- (CodeGuard rules)      baseline-evals  redteam-app  app-pentest   code-review/codeql   asset-scan
+secure-build-plan         ▼            ▼             ▼               ▼
+ (CodeGuard rules)      eval-baseline  redteam-app  pentest-app   scan-code/codeql   asset-scan
 (model/mcp/skill)
        │                     │            │             │               │
        ▼                     └──────┬─────┴──────┬──────┴───────┬───────┘
@@ -45,7 +45,7 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   stateful sessions, and ships its own Claude Code skills + MCP.
 - **Strix** is an actively maintained autonomous pentester that validates findings with PoCs and
   emits SARIF.
-- **CodeQL** is the standard for CI SAST; `code-review` complements it with open-ended,
+- **CodeQL** is the standard for CI SAST; `scan-code` complements it with open-ended,
   model-driven review for the unknown-unknowns a fixed query set misses.
 - **Asset scanners** (supply chain) wrap Hugging Face's published weight scans + Promptfoo
   ModelAudit (local weights), and Cisco's `mcp-scanner` / `skill-scanner` (both OSS CLIs, source

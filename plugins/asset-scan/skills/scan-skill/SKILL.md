@@ -1,5 +1,5 @@
 ---
-name: skill-scan
+name: scan-skill
 description: Security-scan an agent skill (SKILL.md + its scripts/references) for prompt injection, data exfiltration and malicious code before you trust it — using Cisco's skill-scanner (static + YARA + behavioral dataflow + LLM-as-judge + OSV deps), on a skill you're authoring or one you're about to install. Native SARIF output. Use when asked to scan/vet a skill, review a skill for safety, or check a skill/plugin before adding it.
 license: MIT
 compatibility: requires network access (model endpoint; public OSV database)
@@ -13,7 +13,7 @@ analysis of a skill directory (no execution). Emits SARIF natively.
 ## Inputs / outputs
 - Input: a **local skill directory** (a `skills/<name>/` dir, `.claude/commands`, or a skill repo).
   For a remote repo, clone it safely first (below).
-- Output: SARIF in `.ai-security/results/asset-scan/`, consumed by `security-remediation`.
+- Output: SARIF in `.ai-security/results/asset-scan/`, consumed by `fix-findings`.
 
 ## Preflight
 - `uvx --from cisco-ai-skill-scanner skill-scanner --help` (Python ≥ 3.10). Or `pipx install cisco-ai-skill-scanner`.
@@ -41,7 +41,7 @@ analysis of a skill directory (no execution). Emits SARIF natively.
    `--lenient` also scans non-standard layouts (Claude `.claude/commands/*.md`, flat markdown).
    The scanner runs its own meta-analyzer to cut false positives and reports an overall verdict.
 3. Summarize by severity (this scanner **does** emit CRITICAL) and honor its `is_safe` verdict;
-   recommend trust/review/reject. Hand off to `security-remediation`.
+   recommend trust/review/reject. Hand off to `fix-findings`.
 
 **Network access:** the LLM analyzer sends skill content to the model endpoint you configure; `--use-osv` queries the public OSV vulnerability database.
 

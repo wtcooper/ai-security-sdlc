@@ -14,7 +14,7 @@ LEVEL = {"critical": "error", "high": "error", "medium": "warning", "low": "note
 RANK = {"critical": 100, "high": 80, "medium": 50, "low": 20, "info": 5}
 
 
-def to_sarif(findings: list[dict], tool: str = "llm-code-scan") -> dict:
+def to_sarif(findings: list[dict], tool: str = "scan-code") -> dict:
     rules, results, seen = [], [], {}
     for f in findings:
         rid = f.get("id") or f.get("category") or f.get("title", "finding")
@@ -56,7 +56,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("findings", type=Path)
     ap.add_argument("-o", "--out", type=Path, required=True)
-    ap.add_argument("--tool", default="llm-code-scan")
+    ap.add_argument("--tool", default="scan-code")
     a = ap.parse_args()
     data = json.loads(a.findings.read_text())
     findings = data.get("findings", data) if isinstance(data, dict) else data

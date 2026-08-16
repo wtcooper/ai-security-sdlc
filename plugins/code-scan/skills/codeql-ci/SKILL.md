@@ -7,7 +7,7 @@ license: MIT
 # CodeQL setup (CI code scanning)
 
 Adds a repo-specific CodeQL advanced-setup workflow so every push/PR is statically scanned by
-GitHub code scanning. Pairs with `codeql-report` (reads alerts back) and `code-review` (local).
+GitHub code scanning. Pairs with `codeql-report` (reads alerts back) and `scan-code` (local).
 
 ## Preflight
 - GitHub repo with Actions + code scanning available (public repo, or private with GitHub

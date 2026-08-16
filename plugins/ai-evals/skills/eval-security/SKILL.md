@@ -1,5 +1,5 @@
 ---
-name: cyber-benchmark-evals
+name: eval-security
 description: Run curated cybersecurity benchmark suites against an LLM app or its backbone model with Promptfoo — b3 Backbone Breaker (Lakera/UK AISI agent prompt-injection), CyberSecEval 4 prompt-injection and false-refusal slices, JailbreakBench harmful/benign, and Promptfoo's dataset plugins (HarmBench, XSTest, DoNotAnswer, Pliny). Use when asked for security benchmarks, prompt-injection resistance scores, jailbreak robustness, over-refusal rate, "how does our model/app score on CyberSecEval or b3", or a security baseline before red teaming.
 license: MIT
 compatibility: requires network access (downloads public benchmark datasets over HTTPS; calls your configured model endpoint)

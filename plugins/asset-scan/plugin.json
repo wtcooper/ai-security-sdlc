@@ -7,5 +7,5 @@
   "homepage": "https://github.com/wtcooper/ai-security-sdlc",
   "repository": "https://github.com/wtcooper/ai-security-sdlc",
   "license": "MIT",
-  "keywords": ["security", "ai-sdlc", "supply-chain", "model-scan", "mcp", "skill", "scanner"]
+  "keywords": ["security", "ai-sdlc", "supply-chain", "scan-model", "mcp", "skill", "scanner"]
 }

@@ -1,5 +1,5 @@
 ---
-name: mcp-scan
+name: scan-mcp
 description: Security-scan an MCP (Model Context Protocol) server's source for malicious or unsafe tools before you trust it — using Cisco's mcp-scanner (YARA rules + LLM-as-judge behavioral analysis + dependency CVEs), on a server you're building or one you're about to install. Results as SARIF. Use when asked to scan/vet an MCP server, review MCP tools for prompt injection or data exfiltration, or check an MCP server before adding it.
 license: MIT
 compatibility: requires network access (model endpoint; public vulnerability databases)
@@ -12,7 +12,7 @@ only — never launches the server** (no live tool execution against untrusted c
 
 ## Inputs / outputs
 - Input: a **local directory** of MCP server source. For a remote repo, clone it safely first (below).
-- Output: SARIF in `.ai-security/results/asset-scan/`, consumed by `security-remediation`.
+- Output: SARIF in `.ai-security/results/asset-scan/`, consumed by `fix-findings`.
 
 ## Preflight
 - `uvx --from cisco-ai-mcp-scanner mcp-scanner --help` (Python ≥ 3.11). Or `pipx install cisco-ai-mcp-scanner`.
@@ -41,7 +41,7 @@ only — never launches the server** (no live tool execution against untrusted c
    python3 scripts/mcp_to_sarif.py raw.json -o .ai-security/results/asset-scan/mcp-scan-<name>-<ts>.sarif
    ```
 4. Summarize findings by severity (mcp-scanner's top severity is **HIGH**, no CRITICAL) and
-   recommend trust/review/reject. Hand off to `security-remediation`.
+   recommend trust/review/reject. Hand off to `fix-findings`.
 
 **Network access:** the behavioral analyzer sends source snippets to the model endpoint you configure; dependency scanning queries public vulnerability databases.
 
