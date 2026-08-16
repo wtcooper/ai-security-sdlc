@@ -1,0 +1,14 @@
+# Tool catalogue — a VERSIONED SECURITY ARTIFACT. Descriptions and error text execute as instruction inside the
+# caller's model. TODO(prompt-injection): adversarially review every string here before release; change-control this file.
+version: 1
+tools:
+  lookup_record:
+    scope: records:read
+    description: "Look up a single record by id in the caller's tenant. Returns id, status and title only."
+    max_result_bytes: 4096
+  write_record:
+    scope: records:write
+    confirm: true                       # TODO(excessive-agency): declared confirmation semantics — the caller must confirm with its user; you cannot enforce it from here
+    idempotent_by: request_id
+    description: "Update the status of a record in the caller's tenant. Irreversible; call only after the user confirms."
+    max_result_bytes: 1024

@@ -23,6 +23,7 @@ Not run here: `scan-mcp` (we ship no MCP server), `scan-model` (no model weights
 |---|---|---|
 | CodeQL (python + actions) | **0** | 0 |
 | scan-skill (13 skills) | **16** — 12 `MANIFEST_MISSING_LICENSE`, 3 `PYCACHE_FILES_DETECTED`, 1 `TOOL_ABUSE_UNDECLARED_NETWORK` | **0 — clean** |
+| scan-skill (build-guidance, 2 skills, 2026-08-16) | **10** — 4 `SECRET_PASSWORD_VAR`, 1 `PIPELINE_TAINT_FLOW`, 1 `TOOL_ABUSE_UNDECLARED_NETWORK`, 2 `DATA_EXFIL_NETWORK_REQUESTS`, 1 `COMMAND_INJECTION_OS_SYSTEM`, 1 `SOCIAL_ENG_MISLEADING_DESC` | 6 fixed, **4 accepted** (template code, see below) |
 | scan-code (our scripts) | **3** — 1 command-injection (FP), 1 path traversal, 1 unvalidated JSON | 2 fixed, 1 accepted |
 
 ## The headline finding: CodeQL missed what the model-driven review caught
@@ -69,6 +70,28 @@ choose its own categories rather than follow a fixed CWE list.
    words "network"/"internet" — a structured declaration, not prose. *Fixed:* added
    `compatibility: requires network access (...)` to the five skills that make network calls, and
    kept the prose as user-facing documentation. **Re-scan: all 13 skills clean.**
+
+### scan-skill on `build-guidance` (added 2026-08-16) — 10 findings → 4 accepted
+
+Scanned without `--enable-meta` (deterministic run). `agent-setup`: 1 → 0. `secure-starter`: 9 → 4.
+
+- **`SECRET_PASSWORD_VAR` × 4** on template code — the placeholder `api_key="handled-by-gateway"`
+  in LangChain client constructors. *Fixed:* read `AISEC_GATEWAY_API_KEY` from env with a
+  non-secret default; added the name to each template's `.env.example`.
+- **`PIPELINE_TAINT_FLOW` × 1** on `personal-agents.md` — a quoted vendor install command
+  (`curl … | bash`). *Fixed:* reworded to "download, read, then run"; the guide should not model
+  the pattern it warns against.
+- **`TOOL_ABUSE_UNDECLARED_NETWORK` × 1** — the skill bundles template code that uses `httpx`.
+  *Fixed:* `compatibility:` on `secure-starter` states the skill itself needs no network and that
+  the network code is in the copied templates. This declaration cleared the finding.
+- **Accepted × 4** (all inherent to shipping starter *code* inside a skill's `references/`):
+  `COMMAND_INJECTION_OS_SYSTEM` on `agent-workflow/executor/run.py` (a sandboxed executor
+  whose purpose is running model-authored Python via list-form `subprocess.run(["python","-I","-c",src])`
+  — no shell, and compose gives it no network, read-only root, dropped caps);
+  `DATA_EXFIL_NETWORK_REQUESTS` × 2 on `gateway/main.py` and `orchestrator/tools/registry.py`
+  (the tool gateway *is* the egress point by design); `SOCIAL_ENG_MISLEADING_DESC` on the
+  SKILL.md (heuristic: description says "scaffold", body ships network code — the
+  `compatibility:` line documents exactly that). Re-run `scan-skill` on any template change.
 
 ### scan-code on our own scripts — 3 findings
 

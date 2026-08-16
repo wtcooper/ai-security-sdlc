@@ -1,0 +1,57 @@
+name: rag-assistant
+
+x-hardened: &hardened
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: ["/tmp:size=64m,noexec,nosuid"]
+  user: "10001:10001"
+  pids_limit: 256
+  mem_limit: 512m
+  restart: unless-stopped
+
+services:
+  app:
+    <<: *hardened
+    build: ./app
+    environment:
+      AISEC_GATEWAY_BASE_URL: ${AISEC_GATEWAY_BASE_URL:-http://gateway:8080}
+      AISEC_MODEL: ${AISEC_MODEL:-default}
+      AISEC_EMBED_MODEL: ${AISEC_EMBED_MODEL:-default-embed}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-docs}
+    networks: [index, egress]     # egress ONLY to reach the gateway. TODO(model-gateway-trust): host-level allowlist = gateway host only
+    ports: ["127.0.0.1:8000:8000"]   # TODO(codeguard:authentication): real ingress + auth in front
+    depends_on: [qdrant]
+
+  ingest:
+    <<: *hardened
+    build: ./ingest
+    profiles: [ingest]            # `docker compose --profile ingest run ingest`; not a long-running service
+    restart: "no"
+    environment:
+      AISEC_GATEWAY_BASE_URL: ${AISEC_GATEWAY_BASE_URL:-http://gateway:8080}
+      AISEC_EMBED_MODEL: ${AISEC_EMBED_MODEL:-default-embed}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-docs}
+    secrets: [ingest_source_token]   # TODO(memory-rag-integrity): the ONLY identity allowed to write the collection
+    networks: [index, egress]
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.0   # TODO(codeguard:supply-chain): pin @sha256; check hub.docker.com/r/qdrant/qdrant
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [index]             # internal only: never reachable from outside the compose project
+    volumes: [qdrant-data:/qdrant/storage]
+    # TODO(memory-rag-integrity): enable the API key + RBAC/JWT so `app` is read-only and `ingest` is write-only; see qdrant security docs
+    # TODO(codeguard:tls): TLS on the store if it leaves this host
+
+networks:
+  index: { internal: true }
+  egress: {}
+
+secrets:
+  ingest_source_token: { environment: INGEST_SOURCE_TOKEN }   # dev only
+
+volumes:
+  qdrant-data: {}

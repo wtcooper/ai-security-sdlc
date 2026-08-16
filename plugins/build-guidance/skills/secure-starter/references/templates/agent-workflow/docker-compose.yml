@@ -1,0 +1,82 @@
+# Hosted agent workflow — hardened compose skeleton. Every `TODO(<family>)` is a decision for you;
+# every hardening line has a comment saying what it buys so you know what you give up if you drop it.
+name: agent-workflow
+
+x-hardened: &hardened
+  # TODO(codeguard:supply-chain): pin every image by digest (see each service `image:`).
+  security_opt:
+    - no-new-privileges:true      # setuid/caps cannot be regained after exec
+  cap_drop: [ALL]                 # nothing needs Linux capabilities here
+  read_only: true                 # root fs immutable; writable paths are explicit tmpfs below
+  tmpfs:
+    - /tmp:size=64m,noexec,nosuid
+  user: "10001:10001"             # non-root; matches USER in Dockerfiles
+  restart: unless-stopped
+  pids_limit: 256                 # bounds fork bombs from a steered agent
+  mem_limit: 512m                 # TODO(denial-of-wallet): size per service
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  orchestrator:
+    <<: *hardened
+    build: ./orchestrator
+    environment:
+      AISEC_GATEWAY_BASE_URL: ${AISEC_GATEWAY_BASE_URL:-http://gateway:8080}
+      AISEC_MODEL: ${AISEC_MODEL:-default}
+      # TODO(model-gateway-trust): the orchestrator gets NO provider keys — model calls go via gateway.
+    networks: [agents]            # internal only: can reach gateway, cannot reach the internet
+    depends_on: [gateway]
+    ports:
+      - "127.0.0.1:8000:8000"     # local ingress; TODO(codeguard:authentication) put real ingress/auth in front
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request as u;u.urlopen('http://127.0.0.1:8000/healthz')"], interval: 30s }
+
+  gateway:
+    <<: *hardened
+    build: ./gateway
+    environment:
+      GATEWAY_MODEL_PROVIDER_BASE_URL: ${GATEWAY_MODEL_PROVIDER_BASE_URL:-}
+      GATEWAY_CALLER_JWT_ISSUER: ${GATEWAY_CALLER_JWT_ISSUER:-}
+    secrets:
+      - model_provider_api_key    # TODO(secrets-system-prompt): swap file secret for a broker (Vault/cloud SM) issuing short-lived creds
+    networks:
+      - agents                    # serves orchestrator/executor
+      - egress                    # the ONLY service on the network that can leave; TODO(model-gateway-trust): pair with a host/network egress allowlist
+      - audit
+    volumes:
+      - ./gateway/allowlist.yaml:/app/allowlist.yaml:ro
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request as u;u.urlopen('http://127.0.0.1:8080/healthz')"], interval: 30s }
+
+  executor:                       # OPTIONAL — delete with orchestrator/tools/registry.py::run_code if unused
+    <<: *hardened
+    build: ./executor
+    networks: [agents]            # TODO(tool-least-privilege): if the executor must never talk to gateway, give it its own network reachable only from gateway
+    tmpfs:
+      - /tmp:size=256m,nosuid     # workspace; noexec dropped ON PURPOSE because it runs code — TODO(excessive-agency): consider gVisor/Kata/microVM runtime here
+    cpus: "1.0"
+    mem_limit: 1g
+
+  audit:                          # OPTIONAL — Vector sink; default writes JSON lines to a volume
+    <<: *hardened
+    image: timberio/vector:0.57.0-alpine   # TODO(codeguard:supply-chain): pin @sha256 digest; check latest at hub.docker.com/r/timberio/vector
+    command: ["--config", "/etc/vector/vector.yaml"]
+    volumes:
+      - ./audit/vector.yaml:/etc/vector/vector.yaml:ro
+      - audit-data:/var/lib/audit
+    read_only: false              # Vector needs a data dir; keep everything else hardened
+    networks: [audit]
+
+networks:
+  agents:
+    internal: true                # no route out; default-deny egress for every agent-side service
+  audit:
+    internal: true
+  egress: {}                      # only `gateway` is attached — TODO(model-gateway-trust): restrict at the host/cloud level too
+
+secrets:
+  model_provider_api_key:
+    environment: GATEWAY_MODEL_PROVIDER_API_KEY   # dev only; TODO(secrets-system-prompt): production = external secret
+
+volumes:
+  audit-data: {}

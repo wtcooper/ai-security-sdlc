@@ -1,0 +1,23 @@
+# Audit sink: collect the gateway's JSON lines and write append-only files.
+# TODO(logging-audit): ship to your SIEM/object store with retention; make the sink write-only from the gateway's view.
+sources:
+  gateway_logs:
+    type: docker_logs
+    include_containers: ["agent-workflow-gateway-1"]   # TODO: match your compose project/container name; or switch to a `socket`/`http` source
+transforms:
+  only_audit:
+    type: filter
+    inputs: [gateway_logs]
+    condition: 'exists(parse_json!(.message).kind)'
+  redact:
+    type: remap
+    inputs: [only_audit]
+    source: |
+      . = parse_json!(.message)
+      # TODO(data-minimization): second-layer redaction of PII fields here (regexes / redact()).
+sinks:
+  files:
+    type: file
+    inputs: [redact]
+    path: /var/lib/audit/tool-calls-%Y-%m-%d.jsonl
+    encoding: { codec: json }

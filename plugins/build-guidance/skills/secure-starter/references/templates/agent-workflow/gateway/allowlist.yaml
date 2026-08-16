@@ -1,0 +1,30 @@
+# The tool catalogue of record. Nothing not listed here can be called, whatever the model asks for.
+# TODO(tool-least-privilege): one entry per tool; scope + bounds are enforced in policy.py.
+tools:
+  lookup_record:
+    scope: read
+    upstream: http://records.internal/api/records/{record_id}      # TODO: real downstream; must be reachable ONLY from gateway
+    tenant_bound: true                                             # token tenant must equal record tenant
+    per_agent: [supervisor]                                        # which agent ids may call it
+  update_record:
+    scope: write
+    upstream: http://records.internal/api/records/{record_id}
+    tenant_bound: true
+    requires_approval: true                                        # TODO(excessive-agency): the orchestrator's HITL gate + this flag = defense in depth
+    idempotency_key: run_id                                        # replay-safe: a durable engine may execute a step twice
+    per_agent: [supervisor]
+  run_code:
+    scope: execute
+    upstream: http://executor:9000/run
+    requires_approval: true
+    per_agent: [supervisor]
+
+model:
+  # TODO(model-gateway-trust): the only outbound model route; pin aliases → concrete model ids here.
+  aliases:
+    default: { provider_model: "TODO", max_tokens: 4096 }
+
+limits:
+  # TODO(denial-of-wallet): per-run and per-agent ceilings; the agents cannot end their own loops.
+  per_run: { max_tool_calls: 50, max_tokens: 200000, max_wall_seconds: 3600 }
+  per_agent_per_minute: { tool_calls: 60, model_calls: 30 }

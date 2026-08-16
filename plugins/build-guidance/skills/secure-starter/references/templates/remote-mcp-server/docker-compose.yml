@@ -1,0 +1,24 @@
+name: remote-mcp-server
+
+services:
+  mcp:
+    build: ./server
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,noexec,nosuid"]
+    user: "10001:10001"
+    pids_limit: 256
+    mem_limit: 512m                 # TODO(denial-of-wallet): machine callers retry and parallelise; size + add a rate limiter at the edge
+    restart: unless-stopped
+    environment:
+      MCP_ISSUER_URL: ${MCP_ISSUER_URL:-https://auth.example.com}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://127.0.0.1:8000/mcp}
+      MCP_JWKS_URL: ${MCP_JWKS_URL:-}
+      DOWNSTREAM_BASE_URL: ${DOWNSTREAM_BASE_URL:-}
+    ports: ["127.0.0.1:8000:8000"]  # TODO(codeguard:tls): put a TLS terminator / API gateway in front; never expose plain HTTP
+    networks: [egress]              # TODO(model-gateway-trust): egress allowlist = downstream + JWKS host only
+    volumes: ["./server/tools.yaml:/app/tools.yaml:ro"]
+
+networks:
+  egress: {}
