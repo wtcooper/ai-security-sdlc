@@ -52,22 +52,25 @@ def healthz():
 def call_tool(tool: str, body: dict, authorization: str | None = Header(default=None)):
     ident = verify_caller(authorization)
     run_id, args = body.get("run_id", "?"), body.get("args", {})
-    usage = USAGE.setdefault(run_id, {"tool_calls": 0})
+    usage = USAGE.setdefault(run_id, {"tool_calls": 0})   # TODO(denial-of-wallet): run_id is caller-supplied — key ceilings by verified identity too
     d = decide(tool=tool, agent_id=ident["agent_id"], tenant=ident["tenant"], args=args, allowlist=ALLOWLIST, usage=usage)
     audit({"kind": "tool_call", "run_id": run_id, "agent": ident["agent_id"], "tool": tool, "args": redact_for_audit(args), "allow": d.allow, "reason": d.reason})
     if not d.allow:
         raise HTTPException(403, d.reason)
     if d.needs_approval and not body.get("approved"):
-        raise HTTPException(428, "approval required")     # TODO(excessive-agency): approval token from a human, verified here
+        # STUB: `approved` is an unsigned caller flag — a steered orchestrator can set it. TODO(excessive-agency): replace with a
+        # signed approval token issued by the human-approval UI and verified here (subject = run_id + tool + args hash).
+        raise HTTPException(428, "approval required")
     usage["tool_calls"] += 1
     spec = ALLOWLIST["tools"][tool]
     headers = broker_credential(tool, ident)
-    # TODO(tool-least-privilege): build the upstream request from the validated args only; never forward raw model text.
+    # STUB: forwards `args` as received. TODO(tool-least-privilege): re-validate args against a per-tool schema HERE (the gateway
+    # must not trust the orchestrator's validation), URL-encode path params (SSRF/path injection), and send only allowed fields.
     try:
         r = httpx.post(spec["upstream"].format(**args), json=args, headers=headers, timeout=20.0)
         text = r.text
-    except Exception as e:  # stub: downstreams don't exist yet
-        text = f"upstream unavailable: {e}"
+    except Exception:  # stub: downstreams don't exist yet
+        text = "upstream unavailable"   # TODO(prompt-injection): never echo exception text into model context
     wrapped, flags = classify_tool_result(text)
     audit({"kind": "tool_result", "run_id": run_id, "tool": tool, "flags": flags, "bytes": len(text)})
     return {"result": wrapped, "flags": flags}

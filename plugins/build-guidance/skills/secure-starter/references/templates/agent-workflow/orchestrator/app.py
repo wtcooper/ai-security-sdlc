@@ -17,7 +17,7 @@ from langgraph.graph.message import add_messages
 from tools.registry import REGISTRY, call_tool
 
 MAX_STEPS = 12                     # TODO(excessive-agency): bound the loop; also set a per-run token/cost budget at the gateway
-HITL_REQUIRED = {"update_record", "run_code"}   # TODO(excessive-agency): every side-effecting tool needs a human gate or an explicit policy exemption
+HITL_REQUIRED = {n for n, s in REGISTRY.items() if s.side_effecting}   # single source of truth = registry; gateway allowlist `requires_approval` is defense in depth. TODO(excessive-agency): keep the two in sync
 
 
 class State(TypedDict):
@@ -50,18 +50,24 @@ def supervisor(state: State) -> dict:
 
 def act(state: State) -> dict:
     """Execute the tool the supervisor chose (stub: none). Side-effecting → HITL first."""
-    tool_name, args = None, {}       # TODO: parse tool_calls from the last message
+    last = state["messages"][-1]
+    calls = getattr(last, "tool_calls", None) or []
+    tool_name, args = (calls[0]["name"], calls[0]["args"]) if calls else (None, {})   # stub: first call only
     if tool_name is None:
         return {}
     if tool_name in HITL_REQUIRED and not state.get("pending_approval"):
         return {"pending_approval": {"tool": tool_name, "args": args}}   # graph interrupts; a human resumes
+    # TODO(tool-least-privilege): also pass the requesting *user* so the gateway can enforce per-user entitlements (IDOR), not just tenant.
     result = call_tool(tool_name, args, run_id=state["run_id"], agent_id=state["agent_id"], caller_token=workload_token())
     # TODO(data-minimization): redact secrets/PII from `result` before it is checkpointed — the journal outlives the run.
     return {"messages": [("tool", str(result))], "pending_approval": None}
 
 
 def route(state: State) -> str:
-    return END if state["steps"] >= MAX_STEPS or not state.get("pending_approval") else "act"
+    if state["steps"] >= MAX_STEPS:
+        return END
+    last = state["messages"][-1]
+    return "act" if getattr(last, "tool_calls", None) else END
 
 
 graph = StateGraph(State)

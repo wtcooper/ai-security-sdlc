@@ -35,6 +35,7 @@ docker-compose.yml   hardened defaults; internal-only networks; egress only from
 | denial-of-wallet | `gateway/policy.py` (rate/budget), `orchestrator/app.py` (recursion limit) |
 | model-gateway-trust | compose networks/egress, `orchestrator/app.py` (model via gateway URL) |
 | data-minimization | `orchestrator/app.py` (checkpoint redaction), `audit/vector.yaml` |
+| output-handling | `orchestrator/tools/registry.py` (validate model-produced args), `executor/run.py` (stdout is untrusted) |
 | codeguard:* | image digests, TLS, authn stub, non-root users |
 
 ## Auth boundary (documented stub)

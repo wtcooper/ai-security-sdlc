@@ -68,7 +68,7 @@ with TODOs, not runnable apps**: real structure, stub implementations, documente
 | `denial-of-wallet` | Denial of wallet/service |
 | `logging-audit` | Logging & audit |
 | `model-gateway-trust` | Model/gateway trust |
-| `codeguard:<topic>` | a Project CodeGuard topic (e.g. `supply-chain`, `authentication`, `tls`) |
+| `codeguard:<topic>` | a Project CodeGuard *topic hint* (e.g. `supply-chain`, `authentication`, `tls`) — not a rule id; `secure-build-plan` maps it to the real `codeguard-<tier>-<name>` rule |
 
 ## Rules
 - Templates are starting points, not compliance. The Secure Build Plan governs; do not claim a
