@@ -1,12 +1,12 @@
 ---
-name: codeql-setup
+name: codeql-ci
 description: Configure GitHub CodeQL code scanning for this repository — detect the languages, write a repo-specific advanced-setup workflow (github/codeql-action v4) and a CodeQL config file (security-extended queries, path filters), so scans run on the next push/PR. Use when asked to set up CodeQL, add SAST to CI, enable GitHub code scanning, or "make security scans run in CI".
 ---
 
-# CodeQL setup (CI SAST)
+# CodeQL setup (CI code scanning)
 
 Adds a repo-specific CodeQL advanced-setup workflow so every push/PR is statically scanned by
-GitHub code scanning. Pairs with `codeql-results` (reads alerts back) and `llm-code-scan` (local).
+GitHub code scanning. Pairs with `codeql-report` (reads alerts back) and `code-review` (local).
 
 ## Preflight
 - GitHub repo with Actions + code scanning available (public repo, or private with GitHub
@@ -29,7 +29,7 @@ GitHub code scanning. Pairs with `codeql-results` (reads alerts back) and `llm-c
    dirs discovered in the repo.
 3. **Explain & commit**: show the diff, note that scanning starts on the next push to a covered
    branch (or run `gh workflow run codeql.yml`), and that results appear under Security → Code
-   scanning and via `codeql-results`.
+   scanning and via `codeql-report`.
 
 ## Rules
 - Pin `github/codeql-action@v4` (v3 is deprecated, retiring with GHES 3.19 ~Dec 2026).

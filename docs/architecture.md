@@ -1,7 +1,7 @@
 # Architecture
 
 ## Design decisions
-- **One plugin per SDLC phase** (6), each independently installable. The repo root is a Claude Code
+- **One plugin per SDLC phase** (7), each independently installable. Scanning is split by *what* is scanned: `code-scan` for the source you write, `asset-scan` for packaged AI assets (models, MCP servers, skills) you build or download. The repo root is a Claude Code
   marketplace and a Codex marketplace.
 - **Orchestrate, don't vendor.** Skills call upstream OSS (CodeGuard, Promptfoo, Strix, CodeQL) and
   defer to their own skills for tool syntax. We add the connective tissue: a shared profile, model
@@ -22,11 +22,12 @@ security-profile ──▶ .ai-security/profile.md
        │                     │
        ▼                     ├────────────┬─────────────┬───────────────┐
 compliant-build-plan         ▼            ▼             ▼               ▼
- (CodeGuard rules)      baseline-evals  redteam-app  strix-pentest  llm-code-scan / codeql
+ (CodeGuard rules)      baseline-evals  redteam-app  app-pentest   code-review/codeql   asset-scan
+(model/mcp/skill)
        │                     │            │             │               │
        ▼                     └──────┬─────┴──────┬──────┴───────┬───────┘
  .ai-security/plans/                ▼            ▼              ▼
-                          .ai-security/results/{evals,redteam,pentest,sast}/**
+                          .ai-security/results/{evals,redteam,pentest,code-scan,asset-scan}/**
                                             │
                                             ▼
                              remediate (normalize → triage → fix →
@@ -44,8 +45,13 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   stateful sessions, and ships its own Claude Code skills + MCP.
 - **Strix** is an actively maintained autonomous pentester that validates findings with PoCs and
   emits SARIF.
-- **CodeQL** is the standard for CI SAST; `llm-code-scan` complements it with open-ended,
+- **CodeQL** is the standard for CI SAST; `code-review` complements it with open-ended,
   model-driven review for the unknown-unknowns a fixed query set misses.
+- **Asset scanners** (supply chain) wrap Hugging Face's published weight scans + Promptfoo
+  ModelAudit (local weights), and Cisco's `mcp-scanner` / `skill-scanner` (both OSS CLIs, source
+  analysis only — never executing the asset). Their LLM-as-judge points at the same gateway; all
+  emit SARIF (mcp-scanner via our converter) into the shared results dir. Same skills serve both
+  vetting a downloaded asset and scanning one you author before publishing.
 
 ## Benchmark selection
 Single-prompt / dataset-style benchmarks that test an *app on an LLM* (not just base-model

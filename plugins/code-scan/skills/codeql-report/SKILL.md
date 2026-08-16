@@ -1,16 +1,16 @@
 ---
-name: codeql-results
+name: codeql-report
 description: Read GitHub CodeQL / code-scanning results back for a repository — fetch open alerts (optionally for a branch or PR), download the latest analysis SARIF, summarize by severity, and save it for remediation. Use when asked to check CodeQL findings, review code-scanning alerts, "what did CodeQL find", or pull CI SAST results into the remediation flow.
 ---
 
 # CodeQL results
 
-Pulls GitHub code-scanning alerts and the latest CodeQL SARIF into `.ai-security/results/sast/`.
+Pulls GitHub code-scanning alerts and the latest CodeQL SARIF into `.ai-security/results/code-scan/`.
 
 ## Preflight
 - `gh auth status` (needs `security_events` or `public_repo` scope). Determine `owner/repo` from
   `gh repo view --json nameWithOwner -q .nameWithOwner`.
-- If no analyses exist yet, code scanning may not have run — point to `codeql-setup` and
+- If no analyses exist yet, code scanning may not have run — point to `codeql-ci` and
   `gh run list --workflow codeql.yml`.
 
 ## Steps
@@ -24,10 +24,10 @@ Pulls GitHub code-scanning alerts and the latest CodeQL SARIF into `.ai-security
    ```
    gh api -X GET repos/{owner}/{repo}/code-scanning/analyses -f tool_name=CodeQL -f ref=refs/heads/main
    gh api repos/{owner}/{repo}/code-scanning/analyses/<analysis_id> \
-     -H "Accept: application/sarif+json" > .ai-security/results/sast/codeql-<YYYYMMDD-HHMM>.sarif
+     -H "Accept: application/sarif+json" > .ai-security/results/code-scan/codeql-<YYYYMMDD-HHMM>.sarif
    ```
 3. **Summarize**: counts by `security_severity_level` and rule, with `path:start_line` and the alert
-   URL, into `.ai-security/results/sast/codeql-<ts>.md`. Note anything `dismissed`/`fixed`.
+   URL, into `.ai-security/results/code-scan/codeql-<ts>.md`. Note anything `dismissed`/`fixed`.
 4. **Triage (optional)**: dismiss false positives with
    `gh api -X PATCH repos/{o}/{r}/code-scanning/alerts/<n> -f state=dismissed -f dismissed_reason=false_positive -f dismissed_comment="..."`.
 5. Hand the SARIF to `remediate`.

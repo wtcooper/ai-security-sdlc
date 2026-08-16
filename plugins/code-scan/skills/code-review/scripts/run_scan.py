@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Standalone LLM security code review over any OpenAI-compatible endpoint.
 
-  python3 run_scan.py --path . --out .ai-security/results/sast [--diff-base origin/main]
+  python3 run_scan.py --path . --out .ai-security/results/code-scan [--diff-base origin/main]
 
 Packs the code (git-tracked text files, size-capped), sends the scan-prompt method with a JSON
 output contract to $AISEC_MODEL at $AISEC_GATEWAY_BASE_URL, and writes <ts>.md + <ts>.sarif.
@@ -91,7 +91,7 @@ def _parse(txt: str) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--path", type=Path, default=Path("."))
-    ap.add_argument("--out", type=Path, default=Path(".ai-security/results/sast"))
+    ap.add_argument("--out", type=Path, default=Path(".ai-security/results/code-scan"))
     ap.add_argument("--diff-base", default=None)
     a = ap.parse_args()
     from openai import OpenAI

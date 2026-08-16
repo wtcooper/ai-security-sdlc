@@ -29,6 +29,30 @@
       "category": "Security"
     },
     {
+      "name": "ai-security-asset-scan",
+      "source": {
+        "source": "url",
+        "url": "./plugins/asset-scan"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "ai-security-code-scan",
+      "source": {
+        "source": "url",
+        "url": "./plugins/code-scan"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
       "name": "ai-security-pentest",
       "source": {
         "source": "url",
@@ -45,18 +69,6 @@
       "source": {
         "source": "url",
         "url": "./plugins/remediate"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
-      "name": "ai-security-sast",
-      "source": {
-        "source": "url",
-        "url": "./plugins/sast"
       },
       "policy": {
         "installation": "AVAILABLE",

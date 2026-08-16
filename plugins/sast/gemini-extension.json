@@ -1,6 +1,0 @@
-{
-  "name": "ai-security-sast",
-  "description": "Test phase: tool-agnostic LLM-driven code security scan (SARIF + markdown report), CodeQL CI setup for the repo, and reading CodeQL results back.",
-  "version": "0.1.0",
-  "contextFileName": "GEMINI.md"
-}

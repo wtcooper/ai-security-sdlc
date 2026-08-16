@@ -1,0 +1,21 @@
+{
+  "name": "ai-security-code-scan",
+  "version": "0.1.0",
+  "description": "Test phase: scan the code you write for security issues \u2014 an open-ended, model-driven code review (SARIF + report), CodeQL CI setup, and reading CodeQL results back. Tool-agnostic.",
+  "author": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "homepage": "https://github.com/wtcooper/ai-security-sdlc",
+  "repository": "https://github.com/wtcooper/ai-security-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "ai-sdlc",
+    "code-review",
+    "codeql",
+    "scanner"
+  ],
+  "displayName": "ai-security-code-scan",
+  "skills": "./skills/"
+}

@@ -29,6 +29,28 @@
       }
     },
     {
+      "name": "ai-security-asset-scan",
+      "description": "Scan a packaged AI asset \u2014 an open-weights model, an MCP server, or an agent skill \u2014 that you are building or about to download and trust. Wraps Hugging Face's published weight scans + Promptfoo ModelAudit, Cisco mcp-scanner, and Cisco skill-scanner; results as SARIF for the remediation flow.",
+      "version": "0.1.0",
+      "source": "./plugins/asset-scan",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "ai-security-code-scan",
+      "description": "Test phase: scan the code you write for security issues \u2014 an open-ended, model-driven code review (SARIF + report), CodeQL CI setup, and reading CodeQL results back. Tool-agnostic.",
+      "version": "0.1.0",
+      "source": "./plugins/code-scan",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
       "name": "ai-security-pentest",
       "description": "Test phase: autonomous DAST penetration testing of your app with Strix, scoped from the security profile, with SARIF results.",
       "version": "0.1.0",
@@ -44,17 +66,6 @@
       "description": "Remediation phase: ingest every finding in .ai-security/results (SARIF + promptfoo JSON), triage, fix, add regressions and close the loop into planning rules.",
       "version": "0.1.0",
       "source": "./plugins/remediate",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
-      "name": "ai-security-sast",
-      "description": "Test phase: tool-agnostic LLM-driven code security scan (SARIF + markdown report), CodeQL CI setup for the repo, and reading CodeQL results back.",
-      "version": "0.1.0",
-      "source": "./plugins/sast",
       "category": "security",
       "author": {
         "name": "Wade Cooper",

@@ -1,7 +1,7 @@
 {
-  "name": "ai-security-sast",
+  "name": "ai-security-code-scan",
   "version": "0.1.0",
-  "description": "Test phase: tool-agnostic LLM-driven code security scan (SARIF + markdown report), CodeQL CI setup for the repo, and reading CodeQL results back.",
+  "description": "Test phase: scan the code you write for security issues \u2014 an open-ended, model-driven code review (SARIF + report), CodeQL CI setup, and reading CodeQL results back. Tool-agnostic.",
   "author": {
     "name": "Wade Cooper",
     "email": "wadetcooper@gmail.com"
@@ -12,10 +12,8 @@
   "keywords": [
     "security",
     "ai-sdlc",
-    "sast",
+    "code-review",
     "codeql",
-    "code-review"
-  ],
-  "displayName": "ai-security-sast",
-  "skills": "./skills/"
+    "scanner"
+  ]
 }

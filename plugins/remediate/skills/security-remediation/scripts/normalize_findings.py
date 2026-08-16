@@ -38,7 +38,8 @@ def from_sarif(path: Path) -> list[dict]:
                 ln = pl.get("region", {}).get("startLine")
                 if ln:
                     loc += f":{ln}"
-            out.append({"source": "sast" if "codeql" in tool.lower() or "scan" in tool.lower() else "pentest",
+            src = "asset" if "asset-scan" in str(path) else ("code" if "codeql" in tool.lower() or "code" in tool.lower() else "pentest")
+            out.append({"source": src,
                         "tool": tool, "severity": (sev or "medium").lower(),
                         "title": (res.get("message", {}).get("text", rid) or rid).split("\n")[0][:140],
                         "location": loc, "rule": rid, "status": res.get("properties", {}).get("status", "open"),
