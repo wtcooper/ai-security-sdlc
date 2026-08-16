@@ -1,0 +1,25 @@
+name: "Repo CodeQL config"
+
+# security-extended = default + lower-severity security queries.
+# security-and-quality also adds maintainability/reliability (noisier).
+queries:
+  - uses: security-extended
+
+paths-ignore:
+  - "**/node_modules"
+  - "**/vendor"
+  - "**/dist"
+  - "**/build"
+  - "**/*.min.js"
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/__tests__/**"
+
+# Optionally trim noise:
+# query-filters:
+#   - exclude:
+#       problem.severity: [recommendation]
+
+# Extra query packs (comma-separated in the workflow input, or here per language):
+# packs:
+#   - codeql/javascript-queries
