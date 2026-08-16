@@ -1,0 +1,55 @@
+# ai-security-sdlc local testbed: a LiteLLM gateway (one OpenAI-compatible endpoint for
+# every plugin) plus a small sample LLM app to point the eval/redteam/pentest/SAST skills at.
+#
+#   cp env.example .env      # optional; an empty .env boots
+#   docker compose up --build
+#   docker compose --profile local-models up   # run Ollama in-cluster instead of on the host
+#
+# Ports (loopback only): gateway 127.0.0.1:4010 -> /v1, target-app 127.0.0.1:8010.
+# 4010 avoids LiteLLM's conventional 4000 and the ai-security-governance gateway on 4001.
+
+name: ai-security-sdlc-testbed
+
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "127.0.0.1:4010:4000"
+    environment:
+      AISEC_GATEWAY_API_KEY: ${AISEC_GATEWAY_API_KEY:-sk-local}
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      # Optional real upstream keys, only if you uncomment routes in gateway/litellm_config.yaml.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/readiness',timeout=5).status==200 else 1)"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 40s
+
+  target-app:
+    build: ./target-app
+    ports:
+      - "127.0.0.1:8010:8000"
+    environment:
+      AISEC_GATEWAY_BASE_URL: http://gateway:4000/v1
+      AISEC_GATEWAY_API_KEY: ${AISEC_GATEWAY_API_KEY:-sk-local}
+      AISEC_MODEL: ${AISEC_MODEL:-gemma4}
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local-models"]
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:

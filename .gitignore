@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ai-security-sdlc
+testbed/.env
+testbed/.venv-gateway/
+.ai-security/results/
+strix_runs/

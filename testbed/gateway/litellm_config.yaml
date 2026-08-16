@@ -1,0 +1,69 @@
+# LiteLLM gateway config for the ai-security-sdlc TESTBED.
+#
+# Purpose: one OpenAI-compatible endpoint that every plugin (promptfoo evals/redteam,
+# Strix, the standalone LLM code scan) can point at, so building and testing the skills
+# costs nothing. Local Ollama models + mock routes; real upstreams are opt-in via env keys.
+#
+# The plugins only ever see the `model_name` ALIASES. Swap upstreams here, nothing else changes.
+# ALIAS RULE: no "/" or ":" in model_name (qwen3.5 -> qwen35).
+
+model_list:
+  # ---- Mock providers (zero keys; wiring proof only) --------------------------
+  - model_name: mock-target-compliant
+    litellm_params:
+      model: mock-target/compliant
+  - model_name: mock-target-refusal
+    litellm_params:
+      model: mock-target/refusal
+  - model_name: mock-target-policy-block
+    litellm_params:
+      model: mock-target/policy-block
+  - model_name: mock-judge
+    litellm_params:
+      model: mock-judge/judge
+
+  # ---- Local Ollama models (free) --------------------------------------------
+  # `ollama pull gemma4 qwen3.5` on the host. OLLAMA_API_BASE defaults to the host.
+  - model_name: gemma4
+    litellm_params:
+      model: ollama/gemma4
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 600
+      num_ctx: 16384
+  - model_name: gemma4-e2b
+    litellm_params:
+      model: ollama/gemma4:e2b
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 600
+      num_ctx: 16384
+  - model_name: qwen35
+    litellm_params:
+      model: ollama/qwen3.5
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 600
+      num_ctx: 16384
+  # Embeddings for promptfoo `similar` assertions. `ollama pull nomic-embed-text`.
+  - model_name: nomic-embed-text
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: os.environ/OLLAMA_API_BASE
+
+  # ---- Real upstreams (opt-in; keys from testbed/.env) ------------------------
+  # - model_name: claude-haiku-4-5
+  #   litellm_params:
+  #     model: anthropic/claude-haiku-4-5
+  #     api_key: os.environ/ANTHROPIC_API_KEY
+  # - model_name: gpt-5-mini
+  #   litellm_params:
+  #     model: openai/gpt-5-mini
+  #     api_key: os.environ/OPENAI_API_KEY
+
+litellm_settings:
+  custom_provider_map:
+    - provider: mock-target
+      custom_handler: mock_handlers.mock_target_llm
+    - provider: mock-judge
+      custom_handler: mock_handlers.mock_judge_llm
+
+general_settings:
+  master_key: os.environ/AISEC_GATEWAY_API_KEY
