@@ -36,12 +36,15 @@ model_list:
       api_base: os.environ/OLLAMA_API_BASE
       timeout: 600
       num_ctx: 16384
+  # qwen3.5 is a thinking model: with response_format=json_object it returns empty content
+  # unless thinking is off. Graders (promptfoo llm-rubric) need JSON, so disable it here.
   - model_name: qwen35
     litellm_params:
-      model: ollama/qwen3.5
+      model: ollama_chat/qwen3.5
       api_base: os.environ/OLLAMA_API_BASE
       timeout: 600
       num_ctx: 16384
+      think: false
   # Embeddings for promptfoo `similar` assertions. `ollama pull nomic-embed-text`.
   - model_name: nomic-embed-text
     litellm_params:

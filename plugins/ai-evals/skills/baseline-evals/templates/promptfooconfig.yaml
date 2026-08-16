@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Baseline eval — target an LLM app over HTTP (stateful) and grade with a gateway model.
+description: "<app> baseline quality evals"
+
+providers:
+  - id: https
+    label: app-under-test
+    config:
+      url: "{{env.AISEC_TARGET_URL}}"          # e.g. http://localhost:8010/chat
+      method: POST
+      headers:
+        Content-Type: application/json
+        # Authorization: "Bearer {{env.AISEC_TARGET_TOKEN}}"
+      body:
+        message: "{{prompt}}"
+        sessionId: "{{sessionId}}"
+      transformResponse: "json.reply"           # field holding the answer (profile §6)
+      sessionParser: "data.body.sessionId"      # where the session id comes back
+      maxRetries: 2
+
+# Grader / embedding models: any OpenAI-compatible endpoint (LiteLLM gateway, vLLM, provider).
+defaultTest:
+  options:
+    provider:
+      id: "openai:chat:{{env.AISEC_JUDGE_MODEL}}"
+      config:
+        apiBaseUrl: "{{env.AISEC_GATEWAY_BASE_URL}}"
+        apiKeyEnvar: AISEC_GATEWAY_API_KEY
+        temperature: 0
+    # For `similar` assertions:
+    # embeddingProvider:
+    #   id: "openai:embedding:{{env.AISEC_EMBEDDING_MODEL}}"
+    #   config: { apiBaseUrl: "{{env.AISEC_GATEWAY_BASE_URL}}", apiKeyEnvar: AISEC_GATEWAY_API_KEY }
+  assert: []   # <- paste the relevant rows from metrics-pack.yaml
+
+prompts:
+  - "{{message}}"
+
+tests: file://tests.yaml
+
+evaluateOptions:
+  maxConcurrency: 2
+  timeoutMs: 120000
+outputPath: results.json

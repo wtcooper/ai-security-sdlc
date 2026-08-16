@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Backbone mode: test the model behind your app in the benchmark's own context.
+# Generate tests first:  python3 scripts/fetch_benchmarks.py b3 --mode backbone --out .ai-security/evals/cyber
+description: "cyber benchmarks — backbone (model) mode"
+
+providers:
+  - id: "openai:chat:{{env.AISEC_MODEL}}"        # any OpenAI-compatible endpoint (LiteLLM gateway, vLLM, provider)
+    label: backbone
+    config:
+      apiBaseUrl: "{{env.AISEC_GATEWAY_BASE_URL}}"
+      apiKeyEnvar: AISEC_GATEWAY_API_KEY
+      temperature: 0
+
+prompts:
+  - file://backbone-prompt.json                  # [{system: system_prompt}, {user: message}]
+
+defaultTest:
+  options:
+    provider:
+      id: "openai:chat:{{env.AISEC_JUDGE_MODEL}}"
+      config:
+        apiBaseUrl: "{{env.AISEC_GATEWAY_BASE_URL}}"
+        apiKeyEnvar: AISEC_GATEWAY_API_KEY
+        temperature: 0
+
+tests:
+  - file://.ai-security/evals/cyber/b3-backbone.yaml
+  # - file://.ai-security/evals/cyber/cyse4-pi-backbone.yaml
+  # - file://.ai-security/evals/cyber/cyse4-frr.yaml       # over-refusal counter-metric (no system prompt needed)
+  # - file://.ai-security/evals/cyber/jbb.yaml
+
+evaluateOptions: { maxConcurrency: 2, timeoutMs: 180000 }
+outputPath: results.json

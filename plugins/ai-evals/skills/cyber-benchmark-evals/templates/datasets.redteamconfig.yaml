@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Promptfoo's own dataset-backed plugins (HarmBench, XSTest, DoNotAnswer, Pliny jailbreaks,
+# CyberSecEval prompt-injection, BeaverTails, ToxicChat, Aegis). These run through
+# `promptfoo redteam run` with strategy `basic` only = static single-prompt benchmarks.
+description: "cyber benchmarks — promptfoo dataset plugins"
+
+targets:
+  - id: https
+    label: app-under-test
+    config:
+      url: "{{env.AISEC_TARGET_URL}}"
+      method: POST
+      headers: { Content-Type: application/json }
+      body: { message: "{{prompt}}" }
+      transformResponse: "json.reply"
+
+redteam:
+  purpose: "<paste 2-4 sentences from the profile: what the app is, who uses it, what it must never do>"
+  provider:                                    # generator/grader model — any OpenAI-compatible endpoint
+    id: "openai:chat:{{env.AISEC_JUDGE_MODEL}}"
+    config: { apiBaseUrl: "{{env.AISEC_GATEWAY_BASE_URL}}", apiKeyEnvar: AISEC_GATEWAY_API_KEY }
+  numTests: 25
+  plugins:
+    - id: cyberseceval                         # Meta CyberSecEval prompt-injection slice
+    - id: harmbench
+      config: { categories: [cybercrime_intrusion, chemical_biological, misinformation_disinformation] }
+    - id: pliny                                # curated real-world jailbreaks
+    - id: xstest                               # over-refusal on safe-but-scary prompts
+    - id: donotanswer
+    - id: beavertails
+    # - id: toxic-chat
+    # - id: aegis
+  strategies:
+    - basic
