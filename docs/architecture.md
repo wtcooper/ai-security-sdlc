@@ -8,7 +8,8 @@
   configured and what do I start from*: `agent-setup` hardens the developer's own coding/agent tool;
   `secure-starter` copies an architecture-matched skeleton whose TODOs cite the same control-family
   vocabulary as `ai-controls.md`, then hands off to `secure-plan`. MCP/skill vetting stays in `asset-scan`.
-- **Orchestrate, don't vendor.** Skills call upstream OSS (CodeGuard, Promptfoo, Strix, CodeQL) and
+- **Orchestrate, don't vendor.** Skills call upstream OSS (CodeGuard, Promptfoo, Strix, CodeQL,
+  semgrep, Trivy, OSV-Scanner, zizmor) and
   defer to their own skills for tool syntax. We add the connective tissue: a shared profile, model
   routing, benchmark conversion, SARIF normalization, and the phase workflow.
 - **Multi-client packaging.** Every plugin carries an Agent Plugins 1.0 spec `plugin.json`
@@ -56,8 +57,15 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   stateful sessions, and ships its own Claude Code skills + MCP.
 - **Strix** is an actively maintained autonomous pentester that validates findings with PoCs and
   emits SARIF.
-- **CodeQL** is the standard for CI SAST; `scan-code` complements it with open-ended,
-  model-driven review for the unknown-unknowns a fixed query set misses.
+- **CodeQL** is the standard for CI SAST. `scan-code` runs it as one of six blind, parallel lanes —
+  semgrep (pattern/taint SAST), CodeQL (deep dataflow), Trivy (dep CVEs + IaC misconfig + secrets),
+  OSV-Scanner (OSV database), zizmor (GitHub Actions/CI compromise paths) and an open-ended
+  model-driven review for the unknown-unknowns a fixed query set misses. The lanes never see each
+  other's output, so cross-tool agreement is real evidence; the orchestrating agent then verifies
+  against the code and ranks by severity × exploitability rather than shipping six raw tool dumps.
+- **The profile is app-type agnostic.** `security-profile` reads the code and records entry points,
+  data flows, sinks, boundaries and dependency surface — no app-type taxonomy — so `scan-code` and
+  the other testing skills are never limited to pathways someone declared up front.
 - **Asset scanners** (supply chain) wrap Hugging Face's published weight scans + Promptfoo
   ModelAudit (local weights), and Cisco's `mcp-scanner` / `skill-scanner` (both OSS CLIs, source
   analysis only — never executing the asset). Their LLM-as-judge points at the same gateway; all

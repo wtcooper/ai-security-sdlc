@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ai-security-code-scan",
   "version": "0.1.0",
-  "description": "Test phase: scan the code you write for security issues \u2014 an open-ended, model-driven code review (SARIF + report), CodeQL CI setup, and reading CodeQL results back. Tool-agnostic.",
+  "description": "Test phase: scan the code you write for security issues \u2014 an ensemble of free scanners (semgrep, CodeQL, trivy, osv-scanner, zizmor) run blind and in parallel with an open-ended model-driven review, triaged into one ranked report (SARIF + markdown); plus CodeQL CI setup and reading CodeQL results back. Tool-agnostic.",
   "author": {
     "name": "Wade Cooper",
     "email": "wadetcooper@gmail.com"
@@ -13,8 +13,13 @@
   "keywords": [
     "security",
     "ai-sdlc",
+    "sast",
     "scan-code",
+    "semgrep",
     "codeql",
+    "trivy",
+    "osv-scanner",
+    "zizmor",
     "scanner"
   ]
 }

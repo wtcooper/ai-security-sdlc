@@ -3,7 +3,9 @@
 
   python3 to_sarif.py findings.json -o out.sarif
 
-Each finding: {id,title,severity,confidence,file,line,snippet,description,remediation,category}.
+Each finding: {id,title,severity,confidence,file,line,snippet,description,remediation,category};
+optional triage fields {priority,exploitability,verification,evidence:[{tool,rule}]} are carried
+into SARIF result properties.
 Severity maps to SARIF level: critical/high->error, medium->warning, low/info->note.
 """
 from __future__ import annotations
@@ -43,7 +45,10 @@ def to_sarif(findings: list[dict], tool: str = "scan-code") -> dict:
                 "region": {"startLine": int(f.get("line", 1) or 1),
                            "snippet": {"text": f.get("snippet", "")}},
             }}],
-            "properties": {"severity": sev, "confidence": f.get("confidence", ""), "category": f.get("category", "")},
+            "properties": {"severity": sev, "confidence": f.get("confidence", ""), "category": f.get("category", ""),
+                           "priority": f.get("priority", ""), "exploitability": f.get("exploitability", ""),
+                           "verification": f.get("verification", ""),
+                           "evidence": [e.get("tool", "") if isinstance(e, dict) else str(e) for e in f.get("evidence", [])]},
         })
     return {
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",

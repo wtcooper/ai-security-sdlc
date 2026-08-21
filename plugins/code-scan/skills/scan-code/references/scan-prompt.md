@@ -40,3 +40,11 @@ rather than omitting or overstating them.
 
 If asked for machine-readable output, also emit a findings JSON array with the fields above so it
 can be converted to SARIF.
+
+## Running as the `llm-code-scan` lane
+Inside `scan-code` this method is one blind lane of a six-scanner ensemble. When run that way:
+scan without knowledge of the other lanes' results, do not rank across tools or drop findings as
+"probably covered elsewhere" (the orchestrator triages), and write
+`{"tool": "llm-code-scan", "findings": [...]}` to the output path you were given. Lean into what
+only a model finds: broken authorization and tenant isolation, business-logic abuse, unsafe trust
+in another component's output, and controls that are missing rather than wrong.

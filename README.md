@@ -15,11 +15,13 @@ Principle: **use well-maintained OSS skills/tools; only build our own where prov
 | Test — quality | **ai-evals** | [Promptfoo](https://promptfoo.dev) | Baseline **evals** (AI-metrics pack) + curated **cyber benchmark** suites (b3, CyberSecEval 4, JailbreakBench, HarmBench/XSTest/DoNotAnswer/Pliny) |
 | Test — adversarial (AI) | **ai-redteam** | Promptfoo red team | Multi-turn, objective-driven **red teaming** (OWASP LLM/Agentic, PII, injection, tool abuse) configured from the profile |
 | Test — adversarial (pentest) | **pentest** | [Strix](https://github.com/usestrix/strix) | Autonomous **DAST** pentest of the app/API/repo, SARIF results |
-| Test — code review | **code-scan** | model-agnostic + [CodeQL](https://github.com/github/codeql-action) | **scan-code** (open-ended model-driven scan, SARIF), **codeql-ci** setup, **codeql-report** read-back |
+| Test — code review | **code-scan** | [semgrep](https://semgrep.dev), [CodeQL](https://github.com/github/codeql-action), [Trivy](https://trivy.dev), [OSV-Scanner](https://google.github.io/osv-scanner/), [zizmor](https://zizmor.sh) + model-agnostic review | **scan-code** (six scanners run blind in parallel, then correlated, verified and ranked into one triaged SARIF + report), **codeql-ci** setup, **codeql-report** read-back |
 | Test — asset scan | **asset-scan** | [HF](https://huggingface.co) scans + [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), [Cisco mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner), [Cisco skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) | Vet a packaged AI asset — **scan-model**, **scan-mcp**, **scan-skill** — that you're building or downloading |
 | Remediation | **remediate** | — | Ingest every finding, **triage → fix → regression → re-verify**, and close the loop into planning |
 
-All testing skills share a per-app profile at `.ai-security/profile.md` and write findings to
+All testing skills share a per-app profile at `.ai-security/profile.md` — derived from the code and
+deliberately app-type agnostic (entry points, flows, sinks, boundaries), so downstream scanners are
+not funnelled into pre-declared pathways — and write findings to
 `.ai-security/results/<phase>/…` (SARIF where the tool provides it), which `remediate` consumes.
 
 ## Model access — bring any OpenAI-compatible endpoint
@@ -69,6 +71,8 @@ Some skills depend on upstream OSS plugins (installed on first use if missing):
 - Promptfoo: `/plugin marketplace add promptfoo/promptfoo` → `promptfoo@promptfoo` (or just `npx promptfoo@latest`)
 - Strix: `pipx install strix-agent` (+ Docker); optional skills `npx skills add usestrix/strix`
 - Asset scanners (installed on first use via `uvx`): `cisco-ai-mcp-scanner`, `cisco-ai-skill-scanner`, promptfoo `modelaudit`
+- Code scanners for `scan-code` — all optional, each missing one is reported as a coverage gap:
+  `pipx install semgrep`, `brew install trivy osv-scanner zizmor`, CodeQL via `gh extensions install github/gh-codeql`
 
 ## Prerequisites
 

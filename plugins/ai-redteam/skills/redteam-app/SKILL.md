@@ -11,7 +11,7 @@ graded per objective. Complements the fixed `eval-security` suites and Strix's
 infrastructure-level pentest.
 
 ## Inputs / outputs
-- Reads `.ai-security/profile.md` (purpose, tools, data, roles, endpoint §6). Missing → `security-profile`.
+- Reads `.ai-security/profile.md` (§1 purpose, §3 entry points, §5 data/roles/boundaries, §6 test target). Missing → `security-profile`.
 - Writes `.ai-security/redteam/promptfooconfig.yaml`, generated cases `redteam.yaml`, and results
   to `.ai-security/results/redteam/redteam-<YYYYMMDD-HHMM>.json` (+ the HTML/UI report).
 

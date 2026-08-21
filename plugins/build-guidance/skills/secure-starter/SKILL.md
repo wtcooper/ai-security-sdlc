@@ -14,7 +14,7 @@ with TODOs, not runnable apps**: real structure, stub implementations, documente
 
 ## Inputs
 - The developer's description of the feature/service (or an existing draft plan).
-- `.ai-security/profile.md` if present (§2 app type, §3 AI surfaces, §5 trust boundaries) — used
+- `.ai-security/profile.md` if present (§1–§2 what it is and its stack, §3 entry points, §5 trust boundaries) — used
   to narrow the architecture match. Not required; `security-profile` runs after scaffolding.
 - [references/architectures.md](references/architectures.md) — distilled catalogue with
   "choose this when" discriminators and which template exists.

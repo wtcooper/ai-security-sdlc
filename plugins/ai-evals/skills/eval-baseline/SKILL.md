@@ -10,7 +10,7 @@ Establishes *how well the app works* on normal traffic and records it as a bench
 suites live in `eval-security`; adversarial testing in the `ai-redteam` plugin.
 
 ## Inputs / outputs
-- Reads `.ai-security/profile.md` (§6 endpoints, §3 app type). Missing → run `security-profile`.
+- Reads `.ai-security/profile.md` (§6 test targets, §1–§2 what the app does and its stack). Missing → run `security-profile`.
 - Writes `.ai-security/evals/baseline/promptfooconfig.yaml`, `tests.yaml`, and results to
   `.ai-security/results/evals/baseline-<YYYYMMDD-HHMM>.json`.
 

@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 scripts/sync_manifests.py --check
-for f in $(find . -name '*.json' -not -path './node_modules/*' -not -path './testbed/*'); do
+for f in $(find . -name '*.json' -not -path './node_modules/*' -not -path './testbed/*' -not -path './.ai-security/*'); do
   python3 -c "import json,sys; json.load(open('$f'))" || { echo "invalid JSON: $f"; exit 1; }
 done
 for s in plugins/*/skills/*/SKILL.md; do
