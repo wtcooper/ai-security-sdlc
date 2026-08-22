@@ -1,5 +1,8 @@
 # Plan: `build-guidance` plugin
 
+> Superseded by the 3-plugin consolidation of 2026-08-22 (see `docs/architecture.md`); paths and
+> plugin names here are historical.
+
 Status: **implemented 2026-08-16** (all four phases; see commits b840e58…). Notes on deviations at the end. Originally authored 2026-08-16 in a planning session of the sister project
 (`ai-security-framework-viz`); build this in a session in THIS repo.
 

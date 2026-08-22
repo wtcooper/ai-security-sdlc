@@ -1,28 +1,63 @@
 # ai-security-sdlc
 
-Agent plugins for securing an **AI-first SDLC**. Eight plugins across the phases — from securing your own agent tooling and starting from secure templates, to scanning both the code you write and the AI assets (models, MCP servers, skills) you build or download. Each phase of building on top of LLMs gets a
-plugin that orchestrates a best-of-breed open-source tool rather than reinventing it — inspired by
-[how Anthropic secures its AI-native SDLC](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle).
+Agent plugins for running an **AI-native SDLC that is secure by design**. Three plugins: a
+mandatory entry point that carries the plan → build → maintain loop (guidance, profile, standards
+corpus, planning, remediation) and two verification packs split by what they verify — the code
+you ship, and the AI layer/assets. Each capability orchestrates a best-of-breed open-source tool
+rather than reinventing it. The workflow model follows Anthropic's
+[AI-native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook) — advisory policy
+as skills, deterministic gates as hooks, institutional knowledge versioned and progressively
+disclosed — while staying client-agnostic (Claude Code, Codex, Cursor, Copilot, Kiro).
 
 Principle: **use well-maintained OSS skills/tools; only build our own where proven necessary.**
 
-## The phases
+## The SDLC map — stage → control point → skill
 
-| Phase | Plugin | Wraps | What it does |
-|-------|--------|-------|--------------|
-| Plan / Code | **build-guidance** | — | **agent-setup** (secure config of your AI coding/agent tools: permissions, sandbox, egress, MCP trust) + **secure-starter** (architecture-aware secure-by-design scaffolds with control-family TODOs) |
-| Plan / Code | **secure-plan** | [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) | An app **security profile**, and **Secure Build Plans** — secure-by-design requirements + applicable CodeGuard rules for a feature, before code is written |
-| Test — quality | **ai-evals** | [Promptfoo](https://promptfoo.dev) | Baseline **evals** (AI-metrics pack) + curated **cyber benchmark** suites (b3, CyberSecEval 4, JailbreakBench, HarmBench/XSTest/DoNotAnswer/Pliny) |
-| Test — adversarial (AI) | **ai-redteam** | Promptfoo red team | Multi-turn, objective-driven **red teaming** (OWASP LLM/Agentic, PII, injection, tool abuse) configured from the profile |
-| Test — adversarial (pentest) | **pentest** | [Strix](https://github.com/usestrix/strix) | Autonomous **DAST** pentest of the app/API/repo, SARIF results |
-| Test — code review | **code-scan** | [semgrep](https://semgrep.dev), [CodeQL](https://github.com/github/codeql-action), [Trivy](https://trivy.dev), [OSV-Scanner](https://google.github.io/osv-scanner/), [zizmor](https://zizmor.sh) + model-agnostic review | **scan-code** (six scanners run blind in parallel, then correlated, verified and ranked into one triaged SARIF + report), **codeql-ci** setup, **codeql-report** read-back |
-| Test — asset scan | **asset-scan** | [HF](https://huggingface.co) scans + [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), [Cisco mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner), [Cisco skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) | Vet a packaged AI asset — **scan-model**, **scan-mcp**, **scan-skill** — that you're building or downloading |
-| Remediation | **remediate** | — | Ingest every finding, **triage → fix → regression → re-verify**, and close the loop into planning |
+| Stage | Control point | Skill (plugin) | Wraps |
+|-------|--------------|----------------|-------|
+| Set up (once per machine) | the coding agent's own permissions, sandbox, egress, MCP trust | `security-guidance` agent-setup path (**secure-sdlc**) | live-doc-verified vendor guides |
+| Start (new service) | secure-by-design scaffold with control-family TODOs | `security-guidance` scaffold path (**secure-sdlc**) | 3 architecture-matched templates |
+| Profile (once per app) | `.ai-security/profile.md` — the contract every verifier reads | `security-profile` (**secure-sdlc**) | — |
+| Standards (continuous) | index-routed knowledge corpus, queried at plan time | `security-standards` (**secure-sdlc**) | llm-wiki pattern; [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) pointers |
+| Plan (per feature) | intent → spec → plan with approval stops; Secure Build Plans | `security-planner` (**secure-sdlc**) | CodeGuard rules, standards corpus |
+| Build | client's native plan mode implements `plan.md`; opt-in hooks gate the musts | `security-guidance` hooks path | secrets-in-diff, test-file protection, deploy gate |
+| Verify — code you ship | SAST ensemble → one triaged SARIF; CodeQL CI; DAST pentest | `scan-code`, `codeql-ci`, `codeql-report`, `pentest-app` (**verify**) | [semgrep](https://semgrep.dev), [CodeQL](https://github.com/github/codeql-action), [Trivy](https://trivy.dev), [OSV-Scanner](https://google.github.io/osv-scanner/), [zizmor](https://zizmor.sh), [Strix](https://github.com/usestrix/strix) |
+| Verify — AI layer | baseline evals + cyber benchmarks; adaptive red team | `eval-baseline`, `eval-security`, `redteam-app` (**verify-ai**) | [Promptfoo](https://promptfoo.dev) (b3, CyberSecEval 4, JailbreakBench…) |
+| Verify — AI assets | vet models, MCP servers, skills you build or download | `scan-model`, `scan-mcp`, `scan-skill` (**verify-ai**) | [HF](https://huggingface.co) scans, [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), Cisco [mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner)/[skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) |
+| Maintain | findings → fixes + regressions → written back into standards/profile/plans | `fix-findings` (**secure-sdlc**) | — |
 
-All testing skills share a per-app profile at `.ai-security/profile.md` — derived from the code and
-deliberately app-type agnostic (entry points, flows, sinks, boundaries), so downstream scanners are
-not funnelled into pre-declared pathways — and write findings to
-`.ai-security/results/<phase>/…` (SARIF where the tool provides it), which `remediate` consumes.
+All verifiers share the per-app profile at `.ai-security/profile.md` — derived from the code and
+deliberately app-type agnostic (entry points, flows, sinks, boundaries), so scanners are not
+funnelled into pre-declared pathways — and write findings to `.ai-security/results/<phase>/…`
+(SARIF where the tool provides it), which `fix-findings` consumes. Institutional knowledge lives
+in `.ai-security/knowledge/` (committed, org-owned, extensible beyond security).
+
+## Install
+
+Claude Code (this repo is a marketplace):
+
+```
+/plugin marketplace add wtcooper/ai-security-sdlc      # or a local path
+/plugin install secure-sdlc@ai-security-sdlc           # mandatory entry point
+/plugin install verify@ai-security-sdlc                # any app
+/plugin install verify-ai@ai-security-sdlc             # apps built on LLMs / AI assets
+```
+
+Codex: `codex plugin marketplace add wtcooper/ai-security-sdlc`. Cursor/Copilot/Kiro read each
+plugin's spec `plugin.json` + `skills/` directly — there are no per-client manifest wrappers
+(verified: install and skill discovery work without them; Gemini CLI extension manifests were
+dropped with them).
+
+Then say **"get started with ai-security"** — the `security-guidance` skill orients you, hardens
+your agent, and walks the setup order (standards init → profile → per-feature planning).
+
+Some skills depend on upstream OSS (installed on first use if missing):
+- CodeGuard: `/plugin marketplace add cosai-oasis/project-codeguard` → `codeguard-security@project-codeguard`
+- Promptfoo: `/plugin marketplace add promptfoo/promptfoo` → `promptfoo@promptfoo` (or just `npx promptfoo@latest`)
+- Strix: `pipx install strix-agent` (+ Docker); optional skills `npx skills add usestrix/strix`
+- Asset scanners (via `uvx`): `cisco-ai-mcp-scanner`, `cisco-ai-skill-scanner`, promptfoo `modelaudit`
+- Code scanners for `scan-code` — all optional, each missing one is reported as a coverage gap:
+  `pipx install semgrep`, `brew install trivy osv-scanner zizmor`, CodeQL via `gh extensions install github/gh-codeql`
 
 ## Model access — bring any OpenAI-compatible endpoint
 
@@ -48,32 +83,6 @@ curl -s localhost:4010/v1/models       # gateway up
 curl -s -X POST localhost:8010/chat -H 'content-type: application/json' -d '{"message":"Where is order 1001?"}'
 ```
 
-## Install
-
-Claude Code (this repo is a marketplace):
-
-```
-/plugin marketplace add wtcooper/ai-security-sdlc      # or a local path
-/plugin install ai-security-build-guidance@ai-security-sdlc
-/plugin install ai-security-secure-plan@ai-security-sdlc
-/plugin install ai-security-code-scan@ai-security-sdlc
-/plugin install ai-security-asset-scan@ai-security-sdlc
-# …one per phase, or install all eight
-```
-
-The plugins ship **multi-client manifests** (Agent Plugins 1.0 `plugin.json` + `mcp.json`, plus
-`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `gemini-extension.json`). Codex:
-`codex plugin marketplace add wtcooper/ai-security-sdlc`. Cursor/Copilot/Kiro read the spec
-`plugin.json` + `skills/`.
-
-Some skills depend on upstream OSS plugins (installed on first use if missing):
-- CodeGuard: `/plugin marketplace add cosai-oasis/project-codeguard` → `codeguard-security@project-codeguard`
-- Promptfoo: `/plugin marketplace add promptfoo/promptfoo` → `promptfoo@promptfoo` (or just `npx promptfoo@latest`)
-- Strix: `pipx install strix-agent` (+ Docker); optional skills `npx skills add usestrix/strix`
-- Asset scanners (installed on first use via `uvx`): `cisco-ai-mcp-scanner`, `cisco-ai-skill-scanner`, promptfoo `modelaudit`
-- Code scanners for `scan-code` — all optional, each missing one is reported as a coverage gap:
-  `pipx install semgrep`, `brew install trivy osv-scanner zizmor`, CodeQL via `gh extensions install github/gh-codeql`
-
 ## Prerequisites
 
 - **Docker** (Colima works on macOS) — testbed gateway and Strix.
@@ -88,12 +97,13 @@ Some skills depend on upstream OSS plugins (installed on first use if missing):
 
 We point this toolkit at its own repository — a security toolkit that has never been run against
 itself is an untested claim. CodeQL runs on every push, and the skill/code scanners are run against
-our own skills and helper scripts.
+our own skills and helper scripts. (Numbers below are from the 2026-08-16 run against the
+pre-consolidation layout; see the report for details.)
 
 | Scanner | Findings | After remediation |
 |---|---|---|
 | CodeQL (python + actions) | 0 | 0 |
-| `scan-skill` over all 15 skills | 16 | **clean** |
+| `scan-skill` over all skills | 16 | **clean** |
 | `scan-code` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
 
 The most useful result: our sample app contains a deliberately planted path traversal reachable
@@ -101,7 +111,7 @@ through an **LLM tool-call argument**. CodeQL scanned that file and found nothin
 response is not one of its taint sources — while the model-driven `scan-code` caught it. That gap
 is precisely why this repo ships both a fixed-query CI scanner and an open-ended, model-driven one.
 
-One caveat the exercise surfaced: `skill-scan`'s LLM-backed false-positive filter is
+One caveat the exercise surfaced: `scan-skill`'s LLM-backed false-positive filter is
 **non-deterministic** — the same unchanged skill scanned clean, then flagged, then clean. Treat a
 single clean scan as weak evidence and prefer deterministic settings for CI gating.
 
@@ -109,30 +119,29 @@ single clean scan as weak evidence and prefer deterministic settings for CI gati
 the remediation, the regression checks, and the one false positive that a careless reader would have
 "fixed" by rewriting safe code.
 
-
 ## Typical flow
 
 ```
-agent-setup                # once per developer machine: harden the coding agent itself
-secure-starter             # new service: scaffold from a secure-by-design template
+security-guidance          # once per machine: orient + harden the coding agent (+ scaffold a new service)
+security-standards (init)  # once per repo: seed the knowledge corpus
 security-profile           # once per app
-secure-build-plan       # per feature, at planning time
-eval-baseline             # establish quality benchmark
-eval-security      # security benchmark scores
-redteam-app                # adaptive adversarial attacks
-pentest-app                # DAST pentest
-scan-code / codeql-ci + codeql-report          # scan the code you write
-scan-model / scan-mcp / scan-skill               # vet models, MCP servers, skills (yours or downloaded)
-fix-findings       # fix everything, add regressions, close the loop
+security-planner           # per feature: intent → spec → plan (or inject an SBP into an existing plan)
+eval-baseline              # establish quality benchmark        (verify-ai)
+eval-security              # security benchmark scores          (verify-ai)
+redteam-app                # adaptive adversarial attacks       (verify-ai)
+pentest-app                # DAST pentest                       (verify)
+scan-code / codeql-ci + codeql-report            # scan the code you write   (verify)
+scan-model / scan-mcp / scan-skill               # vet models, MCP servers, skills (verify-ai)
+fix-findings               # fix everything, add regressions, close the loop into standards/plans
 ```
 
 ## Repo layout & development
 
 ```
-plugins/<phase>/            spec plugin.json (source of truth) + client manifests + skills/
+plugins/<name>/             spec plugin.json (the manifest) + skills/ (+ mcp.json where needed)
 testbed/                    LiteLLM gateway + sample target app
-scripts/sync_manifests.py   regenerate client manifests + marketplaces from each plugin.json
-scripts/validate.sh         manifests in sync, JSON parses, SKILL frontmatter, `claude plugin validate`
+scripts/sync_manifests.py   regenerate the two root marketplaces from each plugin.json
+scripts/validate.sh         marketplaces in sync, JSON parses, SKILL frontmatter, no stray wrappers
 docs/                       architecture.md, gateway.md, security-evaluations.md
 ```
 

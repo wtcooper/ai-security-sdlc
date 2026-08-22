@@ -2,6 +2,10 @@
 
 **Date:** 2026-08-16 · **Target:** `wtcooper/ai-security-sdlc` @ `3404fa3` · **Cost:** $0 (local models via the testbed gateway; GitHub-hosted CodeQL is free for public repos)
 
+> Historical report: paths, plugin names and counts below reflect the pre-consolidation 8-plugin
+> layout (≤ `e139b4a`). The current 3-plugin layout is in the README and `architecture.md`; only
+> the one runnable command below has been updated to the new path.
+
 We ran this repository's own scanning skills against this repository. A security toolkit that has
 never been pointed at itself is an untested claim, so this is both a validation of the skills and a
 real assessment of our code. Everything below is reproducible with the commands shown.
@@ -168,7 +172,7 @@ for s in plugins/*/skills/*/; do
 done
 
 # model-driven code review of our own scripts
-python3 plugins/code-scan/skills/scan-code/scripts/run_scan.py --path . --out .ai-security/results/code-scan
+python3 plugins/verify/skills/scan-code/scripts/run_scan.py --path . --out .ai-security/results/code-scan
 
 # CodeQL results (runs automatically on push)
 gh api -X GET repos/wtcooper/ai-security-sdlc/code-scanning/alerts -f state=open -f tool_name=CodeQL

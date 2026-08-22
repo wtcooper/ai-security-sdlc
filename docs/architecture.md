@@ -1,47 +1,68 @@
 # Architecture
 
 ## Design decisions
-- **One plugin per SDLC phase** (8), each independently installable. Scanning is split by *what* is scanned: `code-scan` for the source you write, `asset-scan` for packaged AI assets (models, MCP servers, skills) you build or download. The repo root is a Claude Code
-  marketplace and a Codex marketplace.
-- **`build-guidance` vs `secure-plan`.** Both are Plan/Code. `secure-plan` answers *what rules apply
-  while I build* (profile + Secure Build Plan). `build-guidance` answers *how is my environment
-  configured and what do I start from*: `agent-setup` hardens the developer's own coding/agent tool;
-  `secure-starter` copies an architecture-matched skeleton whose TODOs cite the same control-family
-  vocabulary as `ai-controls.md`, then hands off to `secure-plan`. MCP/skill vetting stays in `asset-scan`.
+- **Three plugins** (was eight; consolidated 2026-08-22 following the
+  [AI-native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook)'s layering —
+  advisory policy as skills, deterministic gates as hooks, knowledge versioned and progressively
+  disclosed). One mandatory entry point, `secure-sdlc`, carries the plan/knowledge/remediation
+  loop; two verification packs are split by *what is verified*: `verify` for the code you ship
+  (SAST ensemble, CodeQL CI, DAST pentest), `verify-ai` for the AI layer and packaged AI assets
+  (evals, red team, model/MCP/skill scans). The repo root is a Claude Code marketplace and a
+  Codex marketplace.
+- **Skill boundaries inside `secure-sdlc`.** `security-guidance` answers *how is my environment
+  configured, what do I start from, and where does security fit in the workflow* (agent hardening,
+  starter scaffolds, opt-in hooks, the SDLC map). `security-planner` answers *what requirements
+  apply to this feature* (intent → spec → plan workflow, Secure Build Plans). `security-standards`
+  answers *where does institutional knowledge live*: an index-routed corpus at
+  `.ai-security/knowledge/` (llm-wiki style — read the index, then only the matching pages),
+  seeded with the AI control families and a CodeGuard pointer page, extensible by the org beyond
+  security. `fix-findings` closes the loop back into all three. MCP/skill vetting stays in
+  `verify-ai`.
 - **Orchestrate, don't vendor.** Skills call upstream OSS (CodeGuard, Promptfoo, Strix, CodeQL,
   semgrep, Trivy, OSV-Scanner, zizmor) and
   defer to their own skills for tool syntax. We add the connective tissue: a shared profile, model
-  routing, benchmark conversion, SARIF normalization, and the phase workflow.
-- **Multi-client packaging.** Every plugin carries an Agent Plugins 1.0 spec `plugin.json`
-  (`$schema`, closed schema) + `mcp.json`, plus per-client manifests (`.claude-plugin/`,
-  `.codex-plugin/`, `.cursor-plugin/`, `gemini-extension.json`). The spec `plugin.json` is the source
-  of truth; `scripts/sync_manifests.py` regenerates the rest and the two marketplaces.
+  routing, benchmark conversion, SARIF normalization, and the phase workflow. The standards corpus
+  follows the same rule: pointer pages cite external rule ids, never vendored bodies.
+- **Packaging.** Every plugin is an Agent Plugins 1.0 spec `plugin.json` (`$schema`, closed
+  schema) + `skills/` (+ `mcp.json` where needed) — clients read these directly; install and
+  skill discovery were smoke-tested without per-client wrappers (2026-08-22). Per-plugin
+  `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `gemini-extension.json` manifests are no
+  longer shipped (Gemini CLI extension support was dropped with them);
+  `scripts/sync_manifests.py` now generates only the two root marketplaces.
 - **Shared state on disk.**
-  - `.ai-security/profile.md` — the app security profile (written by `secure-plan:security-profile`).
-  - `.ai-security/results/<phase>/…` — findings, SARIF where the tool provides it.
-  - `.ai-security/plans/…` — Secure Build Plans.
+  - `.ai-security/profile.md` — the app security profile (written by `security-profile`).
+  - `.ai-security/knowledge/` — the standards corpus (seeded by `security-standards` init;
+    **committed**, unlike results/cache — standards are policy the team versions).
+  - `.ai-security/results/<phase>/…` — findings, SARIF where the tool provides it. The phase
+    directory names (`evals`, `redteam`, `pentest`, `code-scan`, `asset-scan`) are a **stable
+    contract** predating the plugin consolidation — scripts and skills reference them by name;
+    they deliberately do not track plugin names.
+  - `.ai-security/plans/…` — Secure Build Plans (`<slug>-sbp.md`) and full planning artifacts
+    (`<slug>/intent.md`, `spec.md`, `plan.md`).
   - `.ai-security/starter.md` — which starter template was applied and its open TODOs (written by
-    `build-guidance:secure-starter`, read by `secure-build-plan`).
-  `remediate` reads `results/**` and normalizes everything into one triage table.
+    the `security-guidance` scaffold path, read by `security-planner`).
+  `fix-findings` reads `results/**` and normalizes everything into one triage table.
 
 ## Data flow
 ```
-agent-setup (developer machine, no repo state)
-secure-starter ──▶ .ai-security/starter.md ──▶ secure-build-plan
+security-guidance (agent hardening · scaffold ──▶ .ai-security/starter.md · opt-in hooks)
+security-standards ──▶ .ai-security/knowledge/ (index-routed corpus)
 security-profile ──▶ .ai-security/profile.md
        │                     │
-       ▼                     ├────────────┬─────────────┬───────────────┐
-secure-build-plan         ▼            ▼             ▼               ▼
- (CodeGuard rules)      eval-baseline  redteam-app  pentest-app   scan-code/codeql   asset-scan
-(model/mcp/skill)
-       │                     │            │             │               │
-       ▼                     └──────┬─────┴──────┬──────┴───────┬───────┘
- .ai-security/plans/                ▼            ▼              ▼
+       ▼                     ▼
+security-planner (intent → spec → plan; queries knowledge/ + CodeGuard rules)
+       │
+       ▼                 profile fans out to every verifier:
+ .ai-security/plans/     eval-baseline · eval-security · redteam-app   (verify-ai)
+                         pentest-app · scan-code · codeql-*            (verify)
+                         scan-model · scan-mcp · scan-skill            (verify-ai)
+                                            │
+                                            ▼
                           .ai-security/results/{evals,redteam,pentest,code-scan,asset-scan}/**
                                             │
                                             ▼
-                             remediate (normalize → triage → fix →
-                             regression → re-verify → close loop to secure-plan)
+                             fix-findings (normalize → triage → fix → regression →
+                             re-verify → close loop into knowledge/, profile, plans)
 ```
 
 ## Model access
@@ -49,8 +70,9 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
 [gateway.md](gateway.md). The bundled testbed lets the whole flow run on free local models.
 
 ## Why these tools (Aug 2026)
-- **build-guidance** wraps no tool by design: vendor setup facts are dated (`asOf`) and sourced from
-  live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps.
+- **security-guidance** wraps no tool by design: vendor setup facts are dated (`asOf`) and sourced from
+  live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps;
+  hook templates are inert scripts installed only with explicit approval.
 - **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules
   read JIT) and multi-client. We scope it to a feature and turn it into a build-plan artifact.
 - **Promptfoo** covers both benign evals and adaptive red teaming, targets arbitrary HTTP apps with

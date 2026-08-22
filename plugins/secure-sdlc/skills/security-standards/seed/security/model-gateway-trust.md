@@ -19,8 +19,8 @@ sources: [ai-controls.md@e139b4a]
   `scan-skill`) and pinned by version/digest.
 
 ## Verified by
-`scan-model` / `scan-mcp` / `scan-skill` (verify-ai), `agent-setup` egress sections
-(security-guidance), infra review during `security-planner`.
+`scan-model` / `scan-mcp` / `scan-skill` (verify-ai), the `security-guidance` agent-setup path's
+egress sections, infra review during `security-planner`.
 
 ## Related
 security/tool-least-privilege.md, security/codeguard.md (supply-chain, devops topics)
