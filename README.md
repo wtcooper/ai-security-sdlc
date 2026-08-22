@@ -97,14 +97,19 @@ curl -s -X POST localhost:8010/chat -H 'content-type: application/json' -d '{"me
 
 We point this toolkit at its own repository — a security toolkit that has never been run against
 itself is an untested claim. CodeQL runs on every push, and the skill/code scanners are run against
-our own skills and helper scripts. (Numbers below are from the 2026-08-16 run against the
-pre-consolidation layout; see the report for details.)
+our own skills and helper scripts.
 
-| Scanner | Findings | After remediation |
-|---|---|---|
-| CodeQL (python + actions) | 0 | 0 |
-| `scan-skill` over all skills | 16 | **clean** |
-| `scan-code` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
+| Run | Scanner | Findings | Outcome |
+|---|---|---|---|
+| 2026-08-16 | CodeQL (python + actions) | 0 | 0 |
+| 2026-08-16 | `scan-skill` over all skills | 16 | **clean** after remediation |
+| 2026-08-16 | `scan-code` over our helper scripts | 3 | 2 fixed, 1 triaged as a false positive |
+| 2026-08-22 (post-consolidation) | `scan-skill` over all 15 skills | 4 | all four = previously-accepted starter-template findings, carried by the merged `security-guidance` skill |
+| 2026-08-22 (post-consolidation) | `scan-code` model lane over helper + hook scripts | 14 (+1 crash) | 1 tooling bug **fixed with regression** (SARIF line-range coercion); 14 triaged accepted-by-design/hardening notes, 0 confirmed vulns |
+
+The re-scan also surfaced an operational lesson worth stealing: a context-truncated local model
+returns a *valid but empty* findings object — an empty "Categories examined" list means **not
+looked at**, never "clean". Scope scans to the model's context or use the agent-orchestrated lanes.
 
 The most useful result: our sample app contains a deliberately planted path traversal reachable
 through an **LLM tool-call argument**. CodeQL scanned that file and found nothing — an LLM API

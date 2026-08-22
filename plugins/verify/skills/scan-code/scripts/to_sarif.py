@@ -16,6 +16,14 @@ LEVEL = {"critical": "error", "high": "error", "medium": "warning", "low": "note
 RANK = {"critical": 100, "high": 80, "medium": 50, "low": 20, "info": 5}
 
 
+def _line(v) -> int:
+    # Models sometimes emit ranges ("31-32") or junk; SARIF needs a positive int.
+    try:
+        return max(1, int(str(v or 1).split("-")[0].strip()))
+    except ValueError:
+        return 1
+
+
 def to_sarif(findings: list[dict], tool: str = "scan-code") -> dict:
     rules, results, seen = [], [], {}
     for f in findings:
@@ -42,7 +50,7 @@ def to_sarif(findings: list[dict], tool: str = "scan-code") -> dict:
             "message": {"text": msg},
             "locations": [{"physicalLocation": {
                 "artifactLocation": {"uri": f.get("file", "")},
-                "region": {"startLine": int(f.get("line", 1) or 1),
+                "region": {"startLine": _line(f.get("line")),
                            "snippet": {"text": f.get("snippet", "")}},
             }}],
             "properties": {"severity": sev, "confidence": f.get("confidence", ""), "category": f.get("category", ""),

@@ -183,3 +183,57 @@ gh api -X GET repos/wtcooper/ai-security-sdlc/code-scanning/alerts -f state=open
 CodeQL code scanning is **free for public repositories** on personal accounts — no GitHub Advanced
 Security (now "GitHub Code Security") subscription needed. GHAS is only required to run code scanning
 on **private** repositories. This repo is public, so the workflow runs at no cost.
+
+---
+
+# Re-scan 2026-08-22 — post-consolidation (3-plugin layout)
+
+**Target:** `refactor/plugin-consolidation` @ `686c6e2` · **Cost:** $0 (gemma4 via the testbed gateway)
+
+Re-ran the dogfood after the 8→3 plugin consolidation: `scan-skill` over all 15 skills, and the
+model-driven `scan-code` lane over every helper script plus the new hook-gate scripts.
+
+## scan-skill (Cisco skill-scanner 2.0.13, `--use-osv --lenient --enable-meta`)
+
+14 of 15 skills clean. `security-guidance` — the merged setup/scaffold/hooks skill — drew 4
+findings: **the same four the 2026-08-16 report accepted on `secure-starter`** ("Accepted × 4"
+above), following the bundled templates into the merged skill:
+
+| Finding | Triage |
+|---|---|
+| `COMMAND_INJECTION_OS_SYSTEM` in `references/templates/agent-workflow/executor/run.py` | Known class: the **sandboxed-executor template stub** — deliberate skeleton code that only runs when a developer builds the scaffold; declared in the skill's `compatibility:` frontmatter (the remediation recorded in the 2026-08-16 report). Re-flagged after the file moved plugins — consistent with the scanner's documented meta-filter non-determinism. Accepted. |
+| 2 × `DATA_EXFIL_NETWORK_REQUESTS` (`httpx.post` in template gateway/orchestrator) | Same class, same declaration, same triage. Accepted. |
+| `SOCIAL_ENG_MISLEADING_DESC` on the SKILL.md | Accepted — same heuristic finding the 2026-08-16 report accepted (description says "scaffold"/"set up", body ships template network code); the merged description explicitly enumerates all four action classes and the `compatibility:` line documents the bundled code. |
+
+## scan-code, model-driven lane (gemma4, scoped runs)
+
+Two operational lessons first, both now recorded here:
+
+1. **Context truncation makes "clean" meaningless.** A whole-repo pack (400 KB cap) silently
+   exceeds the gateway's `num_ctx: 16384` for gemma4; Ollama truncates the prompt and the model
+   returns a *valid but empty* findings object. The tell is an empty "Categories examined" list —
+   treat that as "not looked at", never as "clean". Fix: scan subtrees sized to the model's
+   context (three scoped runs below), or use the agent-orchestrated lane.
+2. **A real tooling bug, found and fixed:** the model emitted a line *range* (`"31-32"`) and
+   `to_sarif.py` crashed on `int()`. Fixed with a coercing `_line()` helper + a regression test
+   (`_line('31-32')==31`, junk→1); the failing scope re-ran clean.
+
+Findings across the three scoped runs (repo `scripts/` + secure-sdlc scripts; verify scripts;
+verify-ai scripts): **14**, none a confirmed vulnerability after review —
+
+- `find-codeguard.sh` pinned-release download flagged as remote-content risk → **accepted by
+  design** (depend-don't-vendor: HTTPS, GitHub API, ref pinned `v1.4.0`, advisory markdown only).
+- Hardcoded `sk-local` fallback key in `run_scan.py` → accepted: documented local-testbed
+  convention, not a production credential.
+- `json.loads` without size limits on scanner-produced local files (`normalize.py`,
+  `normalize_findings.py`, `fetch_benchmarks.py`, `hf_harvest.py`) → hardening notes on
+  local/HTTPS-pinned inputs; accepted.
+- Remaining items restate code that is already correct (subprocess list-args, `_safe_name`
+  bounds) — false positives.
+
+## Summary table
+
+| Scanner | Findings | Outcome |
+|---|---|---|
+| `scan-skill` over all 15 skills | 4 (1 skill) | all 4 = the previously-accepted template-stub findings, carried by the merged skill |
+| `scan-code` model lane over helper + hook scripts | 14 (+1 crash) | 1 tooling bug **fixed with regression** (SARIF line coercion); 14 triaged: accepted-by-design or hardening notes, 0 confirmed vulns |
