@@ -17,22 +17,10 @@
       "category": "Security"
     },
     {
-      "name": "ai-security-remediate",
+      "name": "secure-sdlc",
       "source": {
         "source": "url",
-        "url": "./plugins/remediate"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
-      "name": "ai-security-secure-plan",
-      "source": {
-        "source": "url",
-        "url": "./plugins/secure-plan"
+        "url": "./plugins/secure-sdlc"
       },
       "policy": {
         "installation": "AVAILABLE",

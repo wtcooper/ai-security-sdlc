@@ -30,7 +30,7 @@ recurring issues back into planning rules (the Anthropic AI-native SDLC pattern)
 5. **Re-verify**: re-run the originating check when cheap (the specific eval/redteam case, the code
    scan on changed files, or CodeQL on push). Record before/after.
 6. **Close the loop**: for recurring classes, propose a CodeGuard custom rule and/or a profile/SBP
-   update (via `secure-plan`) so the class is prevented next time. For Strix findings you can also
+   update (via `security-planner`) so the class is prevented next time. For Strix findings you can also
    use the upstream `fix-security-vulnerabilities-with-strix` skill to fix-and-rescan.
 7. **Report**: write `.ai-security/remediation-<ts>.md` — per finding: source/severity, decision
    (fixed / mitigated / accepted / false-positive), the change, the regression added, verification result.

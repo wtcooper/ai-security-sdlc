@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "secure-sdlc",
+  "version": "0.2.0",
+  "description": "Entry point for the ai-security-sdlc toolkit: SDLC orientation and secure agent setup with starter templates and opt-in hooks (security-guidance), the shared app security profile, an index-routed security-standards knowledge corpus, intent-to-spec-to-plan security planning with CodeGuard-backed Secure Build Plans, and remediation that closes findings back into standards and plans.",
+  "author": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "homepage": "https://github.com/wtcooper/ai-security-sdlc",
+  "repository": "https://github.com/wtcooper/ai-security-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "ai-sdlc",
+    "secure-by-design",
+    "planning",
+    "codeguard",
+    "knowledge-base",
+    "remediation",
+    "agent-setup"
+  ]
+}
