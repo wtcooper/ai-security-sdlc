@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Generate per-client plugin manifests from each plugin's spec `plugin.json`.
+"""Generate the two root marketplaces from each plugin's spec `plugin.json`.
 
-Source of truth: plugins/<name>/plugin.json (Agent Plugins 1.0). Emits/refreshes:
-  .claude-plugin/plugin.json   (Claude Code)
-  .codex-plugin/plugin.json    (OpenAI Codex)
-  .cursor-plugin/plugin.json   (Cursor)
-  gemini-extension.json        (Gemini CLI)
-and the two marketplaces at the repo root:
-  .claude-plugin/marketplace.json, .agents/plugins/marketplace.json
+Source of truth: plugins/<name>/plugin.json (Agent Plugins 1.0). Clients read the
+spec manifest + skills/ directly — no per-plugin client wrappers are generated.
+Emits/refreshes:
+  .claude-plugin/marketplace.json   (Claude Code)
+  .agents/plugins/marketplace.json  (Codex)
 
 Usage:  uv run python scripts/sync_manifests.py [--check]
 --check exits 1 if any generated file is out of date (CI / validate.sh).
@@ -30,28 +28,6 @@ def dump(obj: dict) -> str:
     return json.dumps(obj, indent=2) + "\n"
 
 
-def client_manifests(spec: dict) -> dict[str, dict]:
-    base = {k: spec[k] for k in ("name", "version", "description", "author", "homepage", "repository", "license", "keywords") if k in spec}
-    codex = dict(base)
-    codex["skills"] = "./skills/"
-    codex["interface"] = {
-        "displayName": spec.get("displayName", spec["name"]),
-        "shortDescription": spec["description"],
-        "developerName": spec.get("author", {}).get("name", ""),
-        "category": "Security",
-    }
-    cursor = dict(base)
-    cursor["displayName"] = spec.get("displayName", spec["name"])
-    cursor["skills"] = "./skills/"
-    gemini = {"name": spec["name"], "description": spec["description"], "version": spec.get("version", "0.0.0"), "contextFileName": "GEMINI.md"}
-    return {
-        ".claude-plugin/plugin.json": base,
-        ".codex-plugin/plugin.json": codex,
-        ".cursor-plugin/plugin.json": cursor,
-        "gemini-extension.json": gemini,
-    }
-
-
 def main() -> int:
     check = "--check" in sys.argv
     stale: list[Path] = []
@@ -59,14 +35,6 @@ def main() -> int:
     for pdir in sorted(p for p in PLUGINS.iterdir() if (p / "plugin.json").exists()):
         spec = json.loads((pdir / "plugin.json").read_text())
         assert spec.get("$schema") == SPEC_SCHEMA, f"{pdir}: plugin.json must declare $schema {SPEC_SCHEMA}"
-        for rel, content in client_manifests(spec).items():
-            out = pdir / rel
-            text = dump(content)
-            if not out.exists() or out.read_text() != text:
-                stale.append(out)
-                if not check:
-                    out.parent.mkdir(parents=True, exist_ok=True)
-                    out.write_text(text)
         entries.append({
             "name": spec["name"],
             "description": spec["description"],

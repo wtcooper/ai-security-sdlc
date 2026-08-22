@@ -1,6 +1,0 @@
-{
-  "name": "ai-security-ai-evals",
-  "description": "Test phase: Promptfoo baseline quality evals with an AI-metrics pack, plus curated cybersecurity benchmark suites (b3, CyberSecEval 4, HarmBench, XSTest, JBB) run against your LLM app.",
-  "version": "0.1.0",
-  "contextFileName": "GEMINI.md"
-}

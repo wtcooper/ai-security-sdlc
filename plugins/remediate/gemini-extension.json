@@ -1,6 +1,0 @@
-{
-  "name": "ai-security-remediate",
-  "description": "Remediation phase: ingest every finding in .ai-security/results (SARIF + promptfoo JSON), triage, fix, add regressions and close the loop into planning rules.",
-  "version": "0.1.0",
-  "contextFileName": "GEMINI.md"
-}

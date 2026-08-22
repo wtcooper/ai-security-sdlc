@@ -1,6 +1,0 @@
-{
-  "name": "ai-security-build-guidance",
-  "description": "Plan/Code phase: secure setup of your AI coding/agent tools (permissions, sandboxing, egress, MCP trust) and architecture-aware secure-by-design starter templates you build on, then harden with secure-plan.",
-  "version": "0.1.0",
-  "contextFileName": "GEMINI.md"
-}
