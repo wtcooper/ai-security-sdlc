@@ -9,8 +9,8 @@ developer would *build* (or needs to tell apart from one they build) are listed.
 
 Ids are the viz ids. "Pins" are the security capabilities the architecture carries — the
 requirements a starter must leave room for. Family slugs in the last column are the
-`TODO(<family>)` markers the matching template uses (vocabulary: `security-planner`'s
-`ai-controls.md`).
+`TODO(<family>)` markers the matching template uses (vocabulary: the `security-standards`
+corpus pages under `knowledge/security/`).
 
 ## Templates available
 

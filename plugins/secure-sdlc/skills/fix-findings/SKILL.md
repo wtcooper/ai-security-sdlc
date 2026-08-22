@@ -1,6 +1,6 @@
 ---
 name: fix-findings
-description: Triage and fix the security findings produced by the ai-security-sdlc testing skills — ingest every result in .ai-security/results (SARIF from the code scan, CodeQL and Strix; Promptfoo eval and red-team JSON), dedupe and prioritize, then fix each issue, add a regression test, and re-verify. Use when asked to remediate, fix the vulnerabilities/findings, "address the scan results", or after running evals/redteam/pentest/SAST.
+description: Triage and fix the security findings produced by the ai-security-sdlc testing skills — ingest every result in .ai-security/results (SARIF from the code scan, CodeQL and Strix; Promptfoo eval and red-team JSON), dedupe and prioritize, then fix each issue, add a regression test, re-verify, and close the loop into the profile, the security-standards corpus and planner artifacts. Use when asked to remediate, fix the vulnerabilities/findings, "address the scan results", or after running evals/redteam/pentest/SAST.
 license: MIT
 ---
 
@@ -29,9 +29,11 @@ recurring issues back into planning rules (the Anthropic AI-native SDLC pattern)
    case, or a red-team `retry`/`intent` seed from the failing case. This is required, not optional.
 5. **Re-verify**: re-run the originating check when cheap (the specific eval/redteam case, the code
    scan on changed files, or CodeQL on push). Record before/after.
-6. **Close the loop**: for recurring classes, propose a CodeGuard custom rule and/or a profile/SBP
-   update (via `security-planner`) so the class is prevented next time. For Strix findings you can also
-   use the upstream `fix-security-vulnerabilities-with-strix` skill to fix-and-rescan.
+6. **Close the loop**: for recurring classes, prevent the next occurrence — propose a
+   `security-standards` ingest (a new or updated page in `.ai-security/knowledge/`), a profile
+   update, and/or a plan update via `security-planner`; where the class spans repos, also suggest
+   a CodeGuard custom rule. For Strix findings you can also use the upstream
+   `fix-security-vulnerabilities-with-strix` skill to fix-and-rescan.
 7. **Report**: write `.ai-security/remediation-<ts>.md` — per finding: source/severity, decision
    (fixed / mitigated / accepted / false-positive), the change, the regression added, verification result.
 
