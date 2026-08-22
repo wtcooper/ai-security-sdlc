@@ -72,7 +72,7 @@ Covers three developer-side surfaces: **VS Code Copilot Chat agent mode**, **Cop
 - VS Code: "Local MCP servers can run arbitrary code on your machine. Only add servers from trusted sources." Trust prompt before first start and after config changes; `MCP: Reset Trust` clears decisions; `chat.mcp.access` limits which servers may be used; turn off `chat.mcp.discovery.enabled` so configs from other apps aren't auto-imported. (asOf 2026-08-16, https://code.visualstudio.com/docs/copilot/customization/mcp-servers; https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
 - VS Code remote MCP: `"oauth": {"clientId": ...}` triggers a browser OAuth flow on first connect. (asOf 2026-08-16, https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
 - Copilot CLI: every MCP tool call needs explicit permission, even read-only; priority `--additional-mcp-config` > plugin servers > workspace `.mcp.json`/`.github/mcp.json` > `~/.copilot/mcp-config.json`; `--disable-mcp-server=NAME`, `--disable-builtin-mcps`; `--allow-all-mcp-server-instructions` injects all servers' instructions into the system prompt (default: allowlisted only). (asOf 2026-08-16, https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference)
-- Vet with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling any MCP server, skill, or plugin.
+- Vet with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling any MCP server, skill, or plugin.
 
 ## Secrets hygiene
 
@@ -140,7 +140,7 @@ env | grep -E '^COPILOT_(ALLOW_ALL|HOME|GITHUB_TOKEN)|^GITHUB_COPILOT_PROMPT_MOD
 - Cloud agent firewall doesn't cover MCP servers or setup-steps processes. (asOf 2026-08-16, https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-firewall)
 - Not verified live: exact wording/UI of the Copilot CLI folder-trust prompt (UNVERIFIED — docs reference it but the fetched pages don't describe it).
 
-Once configured, `secure-starter`/`security-profile`/`secure-build-plan` govern what you build.
+Once configured, `security-profile` / `security-planner` govern what you build.
 
 ## Sources
 

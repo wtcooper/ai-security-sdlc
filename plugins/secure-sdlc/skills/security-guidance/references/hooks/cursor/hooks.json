@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": ".ai-security/hooks/deploy_gate.sh", "matcher": "deploy|promote|release", "failClosed": true, "timeout": 10 },
+      { "command": ".ai-security/hooks/check_secrets_diff.sh", "matcher": "git commit", "failClosed": true, "timeout": 15 }
+    ],
+    "beforeReadFile": []
+  }
+}

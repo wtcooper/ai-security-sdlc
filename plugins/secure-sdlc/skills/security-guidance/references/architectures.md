@@ -9,7 +9,7 @@ developer would *build* (or needs to tell apart from one they build) are listed.
 
 Ids are the viz ids. "Pins" are the security capabilities the architecture carries — the
 requirements a starter must leave room for. Family slugs in the last column are the
-`TODO(<family>)` markers the matching template uses (vocabulary: `secure-build-plan`'s
+`TODO(<family>)` markers the matching template uses (vocabulary: `security-planner`'s
 `ai-controls.md`).
 
 ## Templates available
@@ -20,7 +20,7 @@ requirements a starter must leave room for. Family slugs in the last column are 
 | `archRagAssistant` | Embedded retrieval assistant | `templates/rag-assistant/` |
 | `archRemoteMcpServer` | Remote MCP server you publish | `templates/remote-mcp-server/` |
 
-Everything else below: no template yet — still scaffold by hand, then run `secure-build-plan`.
+Everything else below: no template yet — still scaffold by hand, then run `security-planner`.
 
 ---
 

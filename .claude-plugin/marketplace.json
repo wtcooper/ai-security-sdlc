@@ -7,17 +7,6 @@
   },
   "plugins": [
     {
-      "name": "ai-security-build-guidance",
-      "description": "Plan/Code phase: secure setup of your AI coding/agent tools (permissions, sandboxing, egress, MCP trust) and architecture-aware secure-by-design starter templates you build on, then harden with secure-plan.",
-      "version": "0.1.0",
-      "source": "./plugins/build-guidance",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
       "name": "secure-sdlc",
       "description": "Entry point for the ai-security-sdlc toolkit: SDLC orientation and secure agent setup with starter templates and opt-in hooks (security-guidance), the shared app security profile, an index-routed security-standards knowledge corpus, intent-to-spec-to-plan security planning with CodeGuard-backed Secure Build Plans, and remediation that closes findings back into standards and plans.",
       "version": "0.2.0",

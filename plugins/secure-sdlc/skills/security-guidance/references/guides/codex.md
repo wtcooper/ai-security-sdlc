@@ -25,10 +25,10 @@ Where CLI and IDE differ it is called out as **CLI:** / **IDE:**.
   `project_doc_max_bytes` = 32 KiB; there is no approval step for repo instructions, so read them for
   prompt-injection content (asOf 2026-08-16, https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 - `.agents/skills/` (cwd up to repo root) — skills are `SKILL.md` + optional `scripts/`; Codex detects them
-  automatically. Vet with `scan-skill` (asset-scan plugin) before enabling
+  automatically. Vet with `scan-skill` (verify-ai plugin) before enabling
   (asOf 2026-08-16, https://learn.chatgpt.com/docs/build-skills).
 - `[mcp_servers.*]` inside a project `.codex/config.toml` (trusted projects only) — vet with `scan-mcp`
-  (asset-scan plugin) before enabling (asOf 2026-08-16, https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+  (verify-ai plugin) before enabling (asOf 2026-08-16, https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 - On launch Codex detects whether the folder is version-controlled and recommends `Auto` (workspace-write +
   on-request) for git repos, `read-only` otherwise; it may stay read-only until you trust the directory
   via onboarding prompt or `/permissions` (asOf 2026-08-16, https://learn.chatgpt.com/docs/agent-approvals-security).
@@ -112,7 +112,7 @@ Where CLI and IDE differ it is called out as **CLI:** / **IDE:**.
 - `codex mcp list|get|add|remove|login|logout`; **IDE:** MCP panel can "enable recommended servers or add your own"
   and starts auth flows (asOf 2026-08-16, https://learn.chatgpt.com/docs/developer-commands?surface=cli; https://learn.chatgpt.com/docs/developer-settings?surface=ide).
 - MCP traffic is outside the network proxy and MCP tool calls are gated by `mcp_elicitations`/approval mode only —
-  vet with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling (asOf 2026-08-16, https://learn.chatgpt.com/docs/permissions).
+  vet with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling (asOf 2026-08-16, https://learn.chatgpt.com/docs/permissions).
 
 ## Secrets hygiene
 - Credentials: `cli_auth_credentials_store = file|keyring|auto`; `file` = plaintext `~/.codex/auth.json` — "treat it
@@ -192,4 +192,4 @@ codex --help | grep -E 'ask-for-approval|sandbox|yolo'      # confirm flags on i
 - https://learn.chatgpt.com/docs/agent-configuration/agents-md ; …/agent-configuration/rules ; https://learn.chatgpt.com/docs/build-skills
 - https://github.com/openai/codex/tree/main/docs (pointer files only, asOf 2026-08-16)
 
-Once configured, `secure-starter`/`security-profile`/`secure-build-plan` govern what you build.
+Once configured, `security-profile` / `security-planner` govern what you build.

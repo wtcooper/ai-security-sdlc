@@ -14,7 +14,7 @@ than six months. Developer-controlled surfaces only; org policy may override._
 - `.cursor/permissions.json` — plain-English `allow_instructions`/`block_instructions` steering the Auto-review classifier (asOf 2026-08-16, https://cursor.com/docs/agent/security/run-modes)
 - `.cursor/cli.json` — Cursor CLI `permissions.allow`/`permissions.deny` for the project (asOf 2026-08-16, https://cursor.com/docs/cli/reference/permissions)
 - `.cursorignore` / `.cursorindexingignore` — repo can *hide* files from the agent, but ignore rules never grant access, so these are low risk to receive (asOf 2026-08-16, https://cursor.com/docs/context/ignore-files)
-- Action: `git grep`/`ls` these paths before opening the repo in Cursor; read every hook script and MCP `command` line; vet MCP servers/skills with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling.
+- Action: `git grep`/`ls` these paths before opening the repo in Cursor; read every hook script and MCP `command` line; vet MCP servers/skills with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling.
 
 ## Permissions & approval modes
 
@@ -66,7 +66,7 @@ than six months. Developer-controlled surfaces only; org policy may override._
 - Toggle servers on/off from **Customize** in the sidebar without deleting them (asOf 2026-08-16, https://cursor.com/docs/context/mcp)
 - OAuth for remote servers via an `auth` block (`CLIENT_ID`, optional `CLIENT_SECRET`, `scopes`); desktop callback `http://localhost:8787/callback` (asOf 2026-08-16, https://cursor.com/docs/context/mcp)
 - CLI: `agent mcp list`, `agent mcp list-tools <id>`, `agent mcp login <id>`, `agent mcp enable|disable <id>`; avoid `--approve-mcps` on repos you did not author (asOf 2026-08-16, https://cursor.com/docs/cli/mcp)
-- Vet every server with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling. Terminal and MCP tools "cannot block access to code governed by `.cursorignore`" (asOf 2026-08-16, https://cursor.com/docs/context/ignore-files)
+- Vet every server with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling. Terminal and MCP tools "cannot block access to code governed by `.cursorignore`" (asOf 2026-08-16, https://cursor.com/docs/context/ignore-files)
 
 ## Secrets hygiene
 
@@ -150,4 +150,4 @@ agent mcp list
 - https://cursor.com/docs/cli/overview, https://cursor.com/docs/cli/reference/parameters, https://cursor.com/docs/cli/reference/permissions — CLI flags and permissions
 - https://cursor.com/help/security-and-privacy/privacy and https://cursor.com/security — Privacy Mode, ZDR
 
-Once configured, `secure-starter`/`security-profile`/`secure-build-plan` govern what you build.
+Once configured, `security-profile` / `security-planner` govern what you build.

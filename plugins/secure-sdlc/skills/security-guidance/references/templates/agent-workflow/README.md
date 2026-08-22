@@ -5,7 +5,7 @@ _Template version 0.1.0 · asOf 2026-08-16 (package/image versions checked on th
 A **skeleton, not an app**: docker-compose + a LangGraph orchestrator with a typed tool registry,
 where every tool call leaves through one gateway, code runs in a sandboxed executor, and every
 call is logged to an audit sink. Fill the `TODO(<family>)` markers; then run `security-profile`
-and `secure-build-plan`.
+and `security-planner`.
 
 ```
 orchestrator/   LangGraph app + typed tool registry (core)

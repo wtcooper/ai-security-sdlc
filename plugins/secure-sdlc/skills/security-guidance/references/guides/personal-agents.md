@@ -118,7 +118,7 @@ Inside the container, `./openclaw/openclaw.json` carries OpenClaw's own "hardene
 - Provider keys and all `OPENCLAW_*` keys are blocked from workspace `.env` files; they must come from process env, `~/.openclaw/.env`, or the config `env` block — so pass them into the container as env, never bake into the image (asOf 2026-08-16, https://docs.openclaw.ai/gateway/security).
 - Use per-agent, revocable credentials: a dedicated bot account per channel, a dedicated model API key with a spend cap, no reuse of personal tokens. Rotation on any suspicion: `gateway.auth.token`, `gateway.remote.token`, then every channel token and provider key (asOf 2026-08-16, https://docs.openclaw.ai/gateway/security).
 - Browser control hands the model "logged-in browser access"; use the dedicated `openclaw` profile, disable sync/password managers in it, keep it off for sandboxed agents (asOf 2026-08-16, https://docs.openclaw.ai/gateway/security).
-- Skills/plugins/MCP: pin exact versions (`@scope/pkg@1.2.3`), "inspect unpacked code before enabling", prefer ClawHub/bundled > pinned npm > git > local archive; `security.installPolicy` (`allow`/`warn`/`block`) gates sources (asOf 2026-08-16, https://docs.openclaw.ai/gateway/security). Vet every connector/skill with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling — ClawHavoc hid its dropper in doc "prerequisite blocks", which is precisely what these scanners read (asOf 2026-08-16, https://unit42.paloaltonetworks.com/openclaw-ai-supply-chain-risk/).
+- Skills/plugins/MCP: pin exact versions (`@scope/pkg@1.2.3`), "inspect unpacked code before enabling", prefer ClawHub/bundled > pinned npm > git > local archive; `security.installPolicy` (`allow`/`warn`/`block`) gates sources (asOf 2026-08-16, https://docs.openclaw.ai/gateway/security). Vet every connector/skill with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling — ClawHavoc hid its dropper in doc "prerequisite blocks", which is precisely what these scanners read (asOf 2026-08-16, https://unit42.paloaltonetworks.com/openclaw-ai-supply-chain-risk/).
 - Keep the gateway current: the 2026 CVEs above were fixed in 2026.1.29 and 2026.3.12; a pinned image tag means *you* own the upgrade cadence (asOf 2026-08-16, https://nvd.nist.gov/vuln/detail/CVE-2026-25253; https://www.sentinelone.com/vulnerability-database/cve-2026-33575/).
 
 ## Prompt-injection surface (messaging, email, web)
@@ -179,4 +179,4 @@ cat ~/.hermes/config.yaml; ls -l ~/.hermes/.env
 - https://hunt.io/blog/cve-2026-25253-openclaw-ai-agent-exposure
 - https://unit42.paloaltonetworks.com/openclaw-ai-supply-chain-risk/
 
-Once configured, `secure-starter`/`security-profile`/`secure-build-plan` govern what you build.
+Once configured, `security-profile` / `security-planner` govern what you build.

@@ -5,7 +5,7 @@ _Template version 0.1.0 · asOf 2026-08-16 (package/image versions checked on th
 A **skeleton, not an app**: an ingest job that sanitises documents and stamps permission metadata
 into a vector store, and an answer service that filters retrieval by the *live* caller
 entitlements before the model ever sees a chunk. Answers only — the moment you add a mutating tool
-this is `archActionAgent`; go re-map with `secure-starter`.
+this is `archActionAgent`; go re-map with `security-guidance`.
 
 ```
 app/        FastAPI answer path: authn stub → entitlement filter → retrieve → assemble → model via gateway → groundedness check (core)

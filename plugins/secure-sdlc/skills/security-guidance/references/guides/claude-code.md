@@ -16,7 +16,7 @@ Your org may override any of this via managed settings (`/Library/Application Su
 - `headersHelper` entries in `.mcp.json` run arbitrary shell commands under the same trust rule as hooks (asOf 2026-08-16, https://code.claude.com/docs/en/mcp).
 - `CLAUDE.md` / `.claude/CLAUDE.md` / `.claude/rules/` are loaded into context every session; they shape what Claude tries but "don't change what Claude Code allows" — still skim them for injected instructions (asOf 2026-08-16, https://code.claude.com/docs/en/memory; https://code.claude.com/docs/en/permissions).
 - `.claude/settings.local.json` that is *tracked* in git (or a symlinked `.claude`) is treated as repository-supplied and held until trust; normally it is your own untracked file (asOf 2026-08-16, https://code.claude.com/docs/en/permissions).
-- Skills, agents and plugins the repo ships: vet with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling.
+- Skills, agents and plugins the repo ships: vet with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling.
 
 ## Permissions & approval modes
 
@@ -78,7 +78,7 @@ Your org may override any of this via managed settings (`/Library/Application Su
 - Restrict tools with rules like `mcp__<server>__<tool>` or deny `mcp__*`; MCP tools with `anthropic/requiresUserInteraction` always prompt (asOf 2026-08-16, https://code.claude.com/docs/en/permissions; https://code.claude.com/docs/en/mcp).
 - OAuth: `/mcp` or `claude mcp login <name>`; "Clear authentication" in `/mcp` revokes; `.mcp.json` supports `${VAR}` / `${VAR:-default}` so tokens stay out of the file (asOf 2026-08-16, https://code.claude.com/docs/en/mcp).
 - Stdio servers inherit your shell env; `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1` spawns them with a safe baseline env plus their configured `env` (asOf 2026-08-16, https://code.claude.com/docs/en/env-vars).
-- Vet with `scan-mcp` / `scan-skill` (asset-scan plugin) before enabling.
+- Vet with `scan-mcp` / `scan-skill` (verify-ai plugin) before enabling.
 
 ## Secrets hygiene
 
@@ -169,4 +169,4 @@ git check-ignore -v .claude/settings.local.json CLAUDE.local.md
 - https://code.claude.com/docs/en/devcontainer
 - https://code.claude.com/docs/en/memory
 
-Once configured, `secure-starter`/`security-profile`/`secure-build-plan` govern what you build.
+Once configured, `security-profile` / `security-planner` govern what you build.

@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": ".ai-security/hooks/deploy_gate.sh", "timeout": 10 },
+          { "type": "command", "command": "jq -e '.tool_input.command // \"\" | test(\"git commit\")' >/dev/null && exec .ai-security/hooks/check_secrets_diff.sh; exit 0", "timeout": 15 }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": ".ai-security/hooks/protect_test_files.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}
