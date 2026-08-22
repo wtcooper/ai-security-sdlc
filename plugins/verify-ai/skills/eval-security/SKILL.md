@@ -8,7 +8,7 @@ compatibility: requires network access (downloads public benchmark datasets over
 # Cyber benchmark evals
 
 Single-prompt, dataset-driven security benchmarks — the *measured* counterpart to the adaptive
-`ai-redteam` plugin. Two modes, pick per question:
+`redteam-app` skill. Two modes, pick per question:
 
 | Mode | Target | Answers | Config template |
 |------|--------|---------|-----------------|
@@ -44,7 +44,7 @@ BaxBench, CWEval, SecCodePLT — run those with Inspect/Docker if the question i
    `npx promptfoo@latest view` or summarize per `metric` from the JSON (pass rate per suite/task type/level).
 5. Record to `.ai-security/results/evals/cyber-<mode>-<YYYYMMDD-HHMM>.json` and add a summary
    table (suite → pass rate, n, grader used) to `.ai-security/results/evals/README.md`. Failing
-   cases feed `ai-redteam` (as `retry`/`intent` seeds) and `remediate`.
+   cases feed `redteam-app` (as `retry`/`intent` seeds) and `fix-findings`.
 
 ## Interpreting
 - Report **attack success rate** per suite/task type and **false-refusal rate** side by side.

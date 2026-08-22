@@ -7,65 +7,10 @@
   },
   "plugins": [
     {
-      "name": "ai-security-ai-evals",
-      "description": "Test phase: Promptfoo baseline quality evals with an AI-metrics pack, plus curated cybersecurity benchmark suites (b3, CyberSecEval 4, HarmBench, XSTest, JBB) run against your LLM app.",
-      "version": "0.1.0",
-      "source": "./plugins/ai-evals",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
-      "name": "ai-security-ai-redteam",
-      "description": "Test phase: Promptfoo multi-turn adversarial red teaming of your LLM app, configured from its security profile (OWASP LLM/Agentic, PII, injection, tool abuse).",
-      "version": "0.1.0",
-      "source": "./plugins/ai-redteam",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
-      "name": "ai-security-asset-scan",
-      "description": "Scan a packaged AI asset \u2014 an open-weights model, an MCP server, or an agent skill \u2014 that you are building or about to download and trust. Wraps Hugging Face's published weight scans + Promptfoo ModelAudit, Cisco mcp-scanner, and Cisco skill-scanner; results as SARIF for the remediation flow.",
-      "version": "0.1.0",
-      "source": "./plugins/asset-scan",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
       "name": "ai-security-build-guidance",
       "description": "Plan/Code phase: secure setup of your AI coding/agent tools (permissions, sandboxing, egress, MCP trust) and architecture-aware secure-by-design starter templates you build on, then harden with secure-plan.",
       "version": "0.1.0",
       "source": "./plugins/build-guidance",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
-      "name": "ai-security-code-scan",
-      "description": "Test phase: scan the code you write for security issues \u2014 an ensemble of free scanners (semgrep, CodeQL, trivy, osv-scanner, zizmor) run blind and in parallel with an open-ended model-driven review, triaged into one ranked report (SARIF + markdown); plus CodeQL CI setup and reading CodeQL results back. Tool-agnostic.",
-      "version": "0.1.0",
-      "source": "./plugins/code-scan",
-      "category": "security",
-      "author": {
-        "name": "Wade Cooper",
-        "email": "wadetcooper@gmail.com"
-      }
-    },
-    {
-      "name": "ai-security-pentest",
-      "description": "Test phase: autonomous DAST penetration testing of your app with Strix, scoped from the security profile, with SARIF results.",
-      "version": "0.1.0",
-      "source": "./plugins/pentest",
       "category": "security",
       "author": {
         "name": "Wade Cooper",
@@ -88,6 +33,28 @@
       "description": "Plan/Code phase: app security profile and CodeGuard-backed Secure Build Plans so features are specified secure-by-design before code is written.",
       "version": "0.1.0",
       "source": "./plugins/secure-plan",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "verify",
+      "description": "Verify the code you ship: a six-lane blind scanner ensemble (semgrep, CodeQL, Trivy, OSV-Scanner, zizmor + model-driven review) triaged into one ranked SARIF, CodeQL CI setup and read-back, and autonomous Strix DAST pentesting \u2014 results into .ai-security/results for remediation.",
+      "version": "0.2.0",
+      "source": "./plugins/verify",
+      "category": "security",
+      "author": {
+        "name": "Wade Cooper",
+        "email": "wadetcooper@gmail.com"
+      }
+    },
+    {
+      "name": "verify-ai",
+      "description": "Verify the AI layer: Promptfoo baseline evals and curated cyber benchmarks (b3, CyberSecEval 4, JailbreakBench), multi-turn adversarial red teaming configured from the security profile, and supply-chain scans of packaged AI assets (models, MCP servers, skills) \u2014 findings into .ai-security/results for remediation.",
+      "version": "0.2.0",
+      "source": "./plugins/verify-ai",
       "category": "security",
       "author": {
         "name": "Wade Cooper",

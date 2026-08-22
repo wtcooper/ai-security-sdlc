@@ -42,7 +42,7 @@ infrastructure-level pentest.
    `npx promptfoo@latest redteam report` for severity + remediation view. Long runs → background.
 6. **Record & hand off**: copy results to `.ai-security/results/redteam/`, summarize failures by
    plugin/strategy/severity, and note regression seeds (`retry` strategy replays past failures).
-   Findings flow to `remediate`.
+   Findings flow to `fix-findings`.
 
 ## Rules
 - Only test environments listed in the profile; never production without written RoE.

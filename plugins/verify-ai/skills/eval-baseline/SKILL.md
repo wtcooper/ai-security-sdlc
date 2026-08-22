@@ -7,7 +7,7 @@ license: MIT
 # Baseline evals (Promptfoo)
 
 Establishes *how well the app works* on normal traffic and records it as a benchmark. Security
-suites live in `eval-security`; adversarial testing in the `ai-redteam` plugin.
+suites live in `eval-security`; adversarial testing in the `redteam-app` skill.
 
 ## Inputs / outputs
 - Reads `.ai-security/profile.md` (§6 test targets, §1–§2 what the app does and its stack). Missing → run `security-profile`.

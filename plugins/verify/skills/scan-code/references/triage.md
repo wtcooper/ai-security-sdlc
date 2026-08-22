@@ -72,4 +72,4 @@ with reasons. A reader must be able to tell the difference between "clean" and "
 Per finding: `id, title, severity, exploitability, priority (P0–P3), confidence, verification
 (confirmed|unconfirmed|false-positive), evidence: [{tool, rule}], file, line, snippet, description,
 impact, remediation, category, cwe`. Keep `evidence` — it is what makes the ranking auditable, and
-`remediate` uses it to decide what to trust.
+`fix-findings` uses it to decide what to trust.

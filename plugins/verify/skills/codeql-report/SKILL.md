@@ -31,7 +31,7 @@ Pulls GitHub code-scanning alerts and the latest CodeQL SARIF into `.ai-security
    URL, into `.ai-security/results/code-scan/codeql-<ts>.md`. Note anything `dismissed`/`fixed`.
 4. **Triage (optional)**: dismiss false positives with
    `gh api -X PATCH repos/{o}/{r}/code-scanning/alerts/<n> -f state=dismissed -f dismissed_reason=false_positive -f dismissed_comment="..."`.
-5. Hand the SARIF to `remediate`.
+5. Hand the SARIF to `fix-findings`.
 
 ## Rules
 - Read-only by default; only dismiss alerts when the user asks and with a reason.

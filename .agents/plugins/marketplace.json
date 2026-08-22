@@ -5,70 +5,10 @@
   },
   "plugins": [
     {
-      "name": "ai-security-ai-evals",
-      "source": {
-        "source": "url",
-        "url": "./plugins/ai-evals"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
-      "name": "ai-security-ai-redteam",
-      "source": {
-        "source": "url",
-        "url": "./plugins/ai-redteam"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
-      "name": "ai-security-asset-scan",
-      "source": {
-        "source": "url",
-        "url": "./plugins/asset-scan"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
       "name": "ai-security-build-guidance",
       "source": {
         "source": "url",
         "url": "./plugins/build-guidance"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
-      "name": "ai-security-code-scan",
-      "source": {
-        "source": "url",
-        "url": "./plugins/code-scan"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Security"
-    },
-    {
-      "name": "ai-security-pentest",
-      "source": {
-        "source": "url",
-        "url": "./plugins/pentest"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -93,6 +33,30 @@
       "source": {
         "source": "url",
         "url": "./plugins/secure-plan"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "verify",
+      "source": {
+        "source": "url",
+        "url": "./plugins/verify"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    },
+    {
+      "name": "verify-ai",
+      "source": {
+        "source": "url",
+        "url": "./plugins/verify-ai"
       },
       "policy": {
         "installation": "AVAILABLE",

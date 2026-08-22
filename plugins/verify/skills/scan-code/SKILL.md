@@ -19,7 +19,7 @@ encodes (authorization gaps, tenant isolation, business-logic abuse, missing con
 - Scope: whole repo, a subtree, or a diff (`git diff <base>...HEAD`) — ask if unspecified; default
   to the working-tree changes if there are any, else the whole repo.
 - Raw per-lane output → `.ai-security/cache/code-scan/<YYYYMMDD-HHMM>/raw/` (kept for audit, out of
-  `results/` so `remediate` doesn't double-count untriaged findings).
+  `results/` so `fix-findings` doesn't double-count untriaged findings).
 - Triaged output → `.ai-security/results/code-scan/scan-<ts>.md`, `scan-<ts>.findings.json`,
   `scan-<ts>.sarif`.
 
@@ -62,7 +62,7 @@ encodes (authorization gaps, tenant isolation, business-logic abuse, missing con
    dismissed-with-reason list, and an explicit coverage section naming lanes that did not run) plus
    the findings JSON, and convert with
    `python3 scripts/to_sarif.py scan-<ts>.findings.json -o scan-<ts>.sarif --tool scan-code`.
-   Hand off to `remediate`. Summarize to the user in ≤15 lines.
+   Hand off to `fix-findings`. Summarize to the user in ≤15 lines.
 
 ## Standalone / any-model mode
 No agent, or CI? Run the model-driven lane alone through any OpenAI-compatible endpoint:
@@ -77,4 +77,4 @@ and feed all their SARIF to `normalize.py`.
   omission. "Clean" and "not looked at" must be distinguishable in the report.
 - Every shipped finding needs concrete evidence (path + line + snippet) and its originating tool(s).
 - Don't restrict the model-driven lane to a fixed CWE checklist — it exists for the unknown-unknowns.
-- Don't modify code here; remediation is the `remediate` plugin's job.
+- Don't modify code here; remediation is the `fix-findings` skill's job.

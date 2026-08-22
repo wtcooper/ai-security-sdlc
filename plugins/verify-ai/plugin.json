@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "verify-ai",
+  "version": "0.2.0",
+  "description": "Verify the AI layer: Promptfoo baseline evals and curated cyber benchmarks (b3, CyberSecEval 4, JailbreakBench), multi-turn adversarial red teaming configured from the security profile, and supply-chain scans of packaged AI assets (models, MCP servers, skills) — findings into .ai-security/results for remediation.",
+  "author": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "homepage": "https://github.com/wtcooper/ai-security-sdlc",
+  "repository": "https://github.com/wtcooper/ai-security-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "ai-sdlc",
+    "promptfoo",
+    "evals",
+    "redteam",
+    "supply-chain",
+    "scan-model",
+    "mcp",
+    "skill"
+  ]
+}
