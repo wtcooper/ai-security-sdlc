@@ -53,7 +53,7 @@ def main() -> int:
         "name": MARKETPLACE_NAME,
         "interface": {"displayName": "AI Security SDLC"},
         "plugins": [
-            {"name": e["name"], "source": {"source": "url", "url": e["source"]}, "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Security"}
+            {"name": e["name"], "source": {"source": "local", "path": e["source"]}, "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Security"}
             for e in entries
         ],
     }

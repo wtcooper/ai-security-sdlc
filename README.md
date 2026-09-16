@@ -20,7 +20,7 @@ Principle: **use well-maintained OSS skills/tools; only build our own where prov
 | Profile (once per app) | `.ai-security/profile.md` — the contract every verifier reads | `security-profile` (**secure-sdlc**) | — |
 | Standards (continuous) | index-routed knowledge corpus, queried at plan time | `security-standards` (**secure-sdlc**) | llm-wiki pattern; [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) pointers |
 | Plan (per feature) | intent → spec → plan with approval stops; Secure Build Plans | `security-planner` (**secure-sdlc**) | CodeGuard rules, standards corpus |
-| Build | client's native plan mode implements `plan.md`; opt-in hooks gate the musts | `security-guidance` hooks path | secrets-in-diff, test-file protection, deploy gate |
+| Build | client's native plan mode implements `plan.md`; deterministic hooks gate the musts | `install-hooks` wires the built-in `mcp-install gate` into any client (`hooks/install.sh`); opt-in templates installed on request by `security-guidance`: `secrets-in-diff`, `test-file protection`, `deploy gate` (**secure-sdlc**) | — |
 | Verify — code you ship | SAST ensemble → one triaged SARIF; CodeQL CI; DAST pentest | `scan-code`, `codeql-ci`, `codeql-report`, `pentest-app` (**verify**) | [semgrep](https://semgrep.dev), [CodeQL](https://github.com/github/codeql-action), [Trivy](https://trivy.dev), [OSV-Scanner](https://google.github.io/osv-scanner/), [zizmor](https://zizmor.sh), [Strix](https://github.com/usestrix/strix) |
 | Verify — AI layer | baseline evals + cyber benchmarks; adaptive red team | `eval-baseline`, `eval-security`, `redteam-app` (**verify-ai**) | [Promptfoo](https://promptfoo.dev) (b3, CyberSecEval 4, JailbreakBench…) |
 | Verify — AI assets | vet models, MCP servers, skills you build or download | `scan-model`, `scan-mcp`, `scan-skill` (**verify-ai**) | [HF](https://huggingface.co) scans, [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), Cisco [mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner)/[skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) |
@@ -34,19 +34,33 @@ in `.ai-security/knowledge/` (committed, org-owned, extensible beyond security).
 
 ## Install
 
-Claude Code (this repo is a marketplace):
+This repo is a plugin marketplace (Claude Code, Codex, Copilot), and each plugin is an Agent Plugins 1.0
+package (`plugin.json` + `skills/`) that Cursor loads directly. Install `secure-sdlc` first (entry
+point), then `verify` (any app) and `verify-ai` (apps built on LLMs / AI assets).
 
-```
-/plugin marketplace add wtcooper/ai-security-sdlc      # or a local path
-/plugin install secure-sdlc@ai-security-sdlc           # mandatory entry point
-/plugin install verify@ai-security-sdlc                # any app
-/plugin install verify-ai@ai-security-sdlc             # apps built on LLMs / AI assets
-```
+| Client | Install the plugins | mcp-install gate (build-phase hook) |
+|---|---|---|
+| Claude Code | `/plugin marketplace add wtcooper/ai-security-sdlc` (or a local path) → `/plugin install secure-sdlc@ai-security-sdlc` | active automatically — the plugin ships `hooks/hooks.json` |
+| Codex | `codex plugin marketplace add wtcooper/ai-security-sdlc` → `codex plugin add secure-sdlc@ai-security-sdlc` | manual — Codex 0.153 does not load hooks from a spec-manifest plugin: copy `hooks/mcp_install_gate.sh` to `.ai-security/hooks/` and merge `hooks/clients/codex.hooks.json` into `.codex/hooks.json`, then trust it via `/hooks` |
+| Cursor | install the repo from Customize → Plugins, drop `plugins/<name>` into `~/.cursor/plugins/local`, or `agent --plugin-dir plugins/<name>` | manual — merge `hooks/clients/cursor.hooks.json` into `.cursor/hooks.json` (Cursor plugin hooks need a Cursor-specific manifest this repo does not ship) |
+| GitHub Copilot CLI | `copilot plugin marketplace add wtcooper/ai-security-sdlc` → `copilot plugin install secure-sdlc@ai-security-sdlc` (reads the Claude marketplace file) | bundled at `com.github.copilot/hooks/hooks.json`, the namespace Copilot reads for spec plugins; not yet verified live |
+| Gemini CLI | not a plugin client here (no `gemini-extension.json` is shipped — see repo layout) | manual — merge `hooks/clients/gemini.settings.json` into `.gemini/settings.json` |
 
-Codex: `codex plugin marketplace add wtcooper/ai-security-sdlc`. Cursor/Copilot/Kiro read each
-plugin's spec `plugin.json` + `skills/` directly — there are no per-client manifest wrappers
-(verified: install and skill discovery work without them; Gemini CLI extension manifests were
-dropped with them).
+To wire the gate into any client without hand-editing configs, run the `install-hooks` skill, or the
+script it drives: `sh plugins/secure-sdlc/hooks/install.sh [--scope user] <claude-code|codex|cursor|copilot|gemini|all>`
+(idempotent; `--dry-run` shows the files first). Admins: `--scope system` writes each client's machine-wide
+managed hook file — see [docs/playbooks/enterprise-rollout.md](docs/playbooks/enterprise-rollout.md) for
+admin-console and MDM rollout of both hooks and plugins.
+
+Fallback for any asset when neither a managed layer nor a plugin install is available (no repo access,
+air-gapped): copy files to the locations each client already reads. `plugins/secure-sdlc/hooks/install.sh
+--scope user <client>` places the gate script and hook stanza; `sh scripts/install_skills.sh all` copies the
+skills to `~/.claude/skills` and `~/.agents/skills` (read by Codex, Cursor, Copilot and Gemini). Locations
+for doing it by hand are in the playbook §2.2.
+
+There are no per-client manifest wrappers (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`,
+`gemini-extension.json`) inside the plugins; clients that need one are limited to what the spec
+package carries. Hook details, payload tests and the verification matrix: `plugins/secure-sdlc/hooks/README.md`.
 
 Then say **"get started with ai-security"** — the `security-guidance` skill orients you, hardens
 your agent, and walks the setup order (standards init → profile → per-feature planning).
@@ -129,6 +143,7 @@ the remediation, the regression checks, and the one false positive that a carele
 ```
 security-guidance          # once per machine: orient + harden the coding agent (+ scaffold a new service)
 security-standards (init)  # once per repo: seed the knowledge corpus
+install-hooks              # wire the mcp-install gate into Codex / Cursor / Copilot / Gemini (Claude Code: automatic)
 security-profile           # once per app
 security-planner           # per feature: intent → spec → plan (or inject an SBP into an existing plan)
 eval-baseline              # establish quality benchmark        (verify-ai)
@@ -147,7 +162,8 @@ plugins/<name>/             spec plugin.json (the manifest) + skills/ (+ mcp.jso
 testbed/                    LiteLLM gateway + sample target app
 scripts/sync_manifests.py   regenerate the two root marketplaces from each plugin.json
 scripts/validate.sh         marketplaces in sync, JSON parses, SKILL frontmatter, no stray wrappers
-docs/                       architecture.md, gateway.md, security-evaluations.md
+scripts/install_skills.sh   fallback: copy skills into each client's skill directories (user/project/system)
+docs/                       architecture.md, gateway.md, security-evaluations.md, playbooks/ (enterprise rollout)
 ```
 
 Edit a plugin's `plugin.json`, then `uv run python scripts/sync_manifests.py` and `bash scripts/validate.sh`.

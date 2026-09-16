@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command|write_file|replace|edit",
+        "hooks": [
+          { "name": "mcp-install-gate", "type": "command", "command": "$GEMINI_PROJECT_DIR/.ai-security/hooks/mcp_install_gate.sh", "timeout": 10000 }
+        ]
+      }
+    ]
+  }
+}

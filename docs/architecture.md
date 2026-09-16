@@ -72,7 +72,8 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
 ## Why these tools (Aug 2026)
 - **security-guidance** wraps no tool by design: vendor setup facts are dated (`asOf`) and sourced from
   live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps;
-  hook templates are inert scripts installed only with explicit approval.
+  hook templates are inert scripts installed only with explicit approval; the one built-in hook,
+  the `hooks/` mcp-install gate, is narrow (MCP installs only) and has an env-var approval path.
 - **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules
   read JIT) and multi-client. We scope it to a feature and turn it into a build-plan artifact.
 - **Promptfoo** covers both benign evals and adaptive red teaming, targets arbitrary HTTP apps with

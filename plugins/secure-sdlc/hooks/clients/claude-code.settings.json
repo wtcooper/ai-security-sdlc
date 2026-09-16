@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          { "type": "command", "command": ".ai-security/hooks/mcp_install_gate.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

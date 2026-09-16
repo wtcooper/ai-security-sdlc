@@ -142,6 +142,10 @@ config diff before writing, and use each client's fail-closed option where it ex
 `references/hooks/README.md`). An approval-style hook belongs at deploy time, not mid-build — a
 human prompt during the build puts a person back on the critical path.
 
+Separate from these: the **mcp-install gate** ships at the plugin level (`hooks/` in secure-sdlc),
+is active automatically in Claude Code once the plugin is enabled, and installs into the other
+clients from `hooks/clients/` — see `hooks/README.md`.
+
 ## Rules
 
 - Never widen permissions to make a task easier; the default direction is narrower.

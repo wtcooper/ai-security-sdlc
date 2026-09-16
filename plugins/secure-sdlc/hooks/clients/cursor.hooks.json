@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "mcp|config\\.toml|settings\\.json|\\.claude\\.json", "failClosed": true, "timeout": 10 }
+    ],
+    "preToolUse": [
+      { "command": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "Write", "failClosed": true, "timeout": 10 }
+    ]
+  }
+}

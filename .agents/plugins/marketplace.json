@@ -7,8 +7,8 @@
     {
       "name": "secure-sdlc",
       "source": {
-        "source": "url",
-        "url": "./plugins/secure-sdlc"
+        "source": "local",
+        "path": "./plugins/secure-sdlc"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -19,8 +19,8 @@
     {
       "name": "verify",
       "source": {
-        "source": "url",
-        "url": "./plugins/verify"
+        "source": "local",
+        "path": "./plugins/verify"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -31,8 +31,8 @@
     {
       "name": "verify-ai",
       "source": {
-        "source": "url",
-        "url": "./plugins/verify-ai"
+        "source": "local",
+        "path": "./plugins/verify-ai"
       },
       "policy": {
         "installation": "AVAILABLE",
