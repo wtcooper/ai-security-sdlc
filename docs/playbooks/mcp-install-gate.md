@@ -1,8 +1,8 @@
-# Wave 1: mcp-install gate on Claude, Cursor, Codex and GitHub Copilot
+# mcp-install gate playbook: Claude, Cursor, Codex and GitHub Copilot
 
-A focused runbook for the first rollout: the **mcp-install gate only**, on the four core tools, in two
-steps — a pilot this week on volunteer machines, then one managed method per tool for the fleet. Skills
-come in a later wave; every fleet method below is chosen so that adding them is a configuration change,
+A focused runbook for a tiered rollout of the **mcp-install gate only**, on the four core tools, in two
+tiers — a pilot on a small set of machines, then one managed method per tool for the fleet. Skills
+come in a later tier; every fleet method below is chosen so that adding them is a configuration change,
 not a new mechanism. The full reference (all methods, all clients, MDM paths, access model) is
 [enterprise-rollout.md](enterprise-rollout.md); this document only takes the decisions.
 
@@ -16,13 +16,13 @@ files per client: the script `mcp_install_gate.sh` and a hook stanza in that cli
 ## 0. Prerequisites
 
 - A copy of this repo on the machine doing the install: `git clone <your-mirror> /opt/ai-security-sdlc`
-  (a build box for the fleet payload; the volunteer's own machine for the pilot).
-- `jq` and a POSIX shell on every endpoint (macOS and Linux). Windows is out of scope for wave 1: the
+  (a build box for the fleet payload; the pilot user's own machine for the pilot).
+- `jq` and a POSIX shell on every endpoint (macOS and Linux). Windows is out of scope for this tier: the
   gate is a `sh` script; see the gaps in the full playbook.
-- Pilot volunteers: at least one user of each surface you care about — Claude Code terminal, Claude
+- Pilot users: at least one user of each surface in scope — Claude Code terminal, Claude
   Desktop (Cowork or Code tab), Cursor IDE, Codex CLI or IDE extension, Copilot in VS Code, Copilot CLI.
 
-## 1. Pilot (days 1–3): user-scope file copy
+## 1. Pilot tier: user-scope file copy
 
 No console, MDM or repo access needed; the same script and stanzas the fleet will get.
 
@@ -45,10 +45,10 @@ client's user-level hook config:
 Claude Code users who already have the `secure-sdlc` plugin enabled get the gate twice (plugin +
 settings); that is harmless.
 
-Then run §3. Pilot exit criteria: every volunteer reproduces cases 1, 4, 7 and 9 on each of their
-clients; no report of the gate blocking non-MCP work (cases 6–8) for three working days.
+Then run §3. Pilot exit criteria: every pilot user reproduces cases 1, 4, 7 and 9 on each of their
+clients, and no report of the gate blocking non-MCP work (cases 6–8) over the pilot period.
 
-## 2. Fleet: one managed method per tool
+## 2. Fleet tier: one managed method per tool
 
 Everything ships from one MDM payload. Build it once on the build box (no root needed):
 
@@ -65,7 +65,7 @@ the same commands as root on the device) and add the per-tool policy pieces.
 ### 2.1 Claude Code and Claude Desktop — endpoint-managed settings
 
 Why this method: it is the only one that also reaches **Cowork sessions in Claude Desktop** (they read
-the device's MDM policy or managed file, never the claude.ai console), and later waves add plugins to
+the device's MDM policy or managed file, never the claude.ai console), and later tiers add plugins to
 the same file with `extraKnownMarketplaces` + `enabledPlugins`.
 
 - The payload wrote the drop-in `/Library/Application Support/ClaudeCode/managed-settings.d/ai-security-mcp-gate.json`
@@ -86,7 +86,7 @@ the same file with `extraKnownMarketplaces` + `enabledPlugins`.
 
 Why: the enterprise `hooks.json` has the highest priority of all Cursor hook sources and needs no
 dashboard. Team hooks (Dashboard › Team Content › Hooks) are the console equivalent and sync on login;
-use them in addition if you want the dashboard as the source of truth. Later waves: Team Marketplace
+use them in addition if the dashboard should be the source of truth. Later tiers: Team Marketplace
 with install mode **Required** for plugins, or skills to `~/.agents/skills`.
 
 - The payload wrote `/Library/Application Support/Cursor/hooks.json` (Linux `/etc/cursor/hooks.json`):
@@ -104,7 +104,7 @@ with install mode **Required** for plugins, or skills to `~/.agents/skills`.
 ### 2.3 Codex — managed hooks in `requirements.toml`
 
 Why: managed hooks need no per-user trust and cannot be disabled; the plugin route does not carry
-hooks in Codex 0.153. Later waves: a `[marketplaces]` allowlist plus a login-script `codex plugin add`,
+hooks in Codex 0.153. Later tiers: a `[marketplaces]` allowlist plus a login-script `codex plugin add`,
 or skills to `/etc/codex/skills`.
 
 - Add to `/etc/codex/requirements.toml` (or deliver as the `requirements_toml_base64` key of a
@@ -135,7 +135,7 @@ or skills to `/etc/codex/skills`.
 
 Why two pieces: hooks are not a key in Copilot's enterprise managed settings, so nothing on github.com
 delivers them. The CLI has a machine-wide **policy hook** directory; VS Code has none, but reads the
-user-level hook file. Later waves: enterprise `enabledPlugins` (the CLI clones the marketplace as the
+user-level hook file. Later tiers: enterprise `enabledPlugins` (the CLI clones the marketplace as the
 signed-in user) or skills to `~/.agents/skills`.
 
 - **CLI:** the payload wrote `/etc/github-copilot/policy.d/ai-security-mcp-gate.json` (must stay
@@ -144,8 +144,8 @@ signed-in user) or skills to `~/.agents/skills`.
 - **VS Code (most users):** deliver `~/.copilot/hooks/ai-security.json` per user with an MDM "run as
   user" script: `sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/install.sh --scope user copilot`.
   VS Code reads that file and `.github/hooks/*.json` in the repo, converting the CLI format itself.
-  The file is user-editable; accept that for wave 1 or add `.github/hooks/ai-security.json` to your
-  template repos as a second copy. Do not let an org policy that disables VS Code hooks be in force.
+  The file is user-editable; accept that for this tier or add `.github/hooks/ai-security.json` to
+  template repositories as a second copy. Do not let an org policy that disables VS Code hooks be in force.
 - Copilot hooks are verified at payload level only in this repo (org policy blocked live CLI runs);
   the pilot must cover a VS Code user and a CLI user before fleet.
 - Verify: `copilot plugin list` is irrelevant here; run cases 1 and 4 in VS Code agent mode and in
@@ -183,7 +183,7 @@ sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/test_mcp_install_gate.sh     
 Not covered by the gate, by design: servers added through a client's own UI (`/mcp`, Cursor's MCP
 page, VS Code's *Add MCP server*, Claude Desktop extensions), session flags (`--mcp-config`,
 `--additional-mcp-config`), and servers bundled in plugins. Those are the job of each client's MCP
-allowlist (full playbook §4), which is the natural wave 2 alongside skills.
+allowlist (full playbook §4), which is the natural next tier alongside skills.
 
 ## 4. Rollback
 
@@ -195,11 +195,11 @@ package and redeploy; the script directory can stay.
 ## 5. Sign-off checklist
 
 - [ ] Pilot users on all six surfaces ran their minimum test set; results recorded per client version.
-- [ ] Zero false blocks on cases 6–8 during the pilot window.
+- [ ] Zero false blocks on cases 6–8 during the pilot.
 - [ ] Payload built from a tagged release of the mirror; `test_mcp_install_gate.sh` and
       `test_install.sh` pass in the pipeline that builds it.
 - [ ] Claude: decided between drop-in file, MDM profile, or console, and set `managedSourcesBehavior`
       if more than one is in play.
 - [ ] Copilot: VS Code per-user delivery scheduled; CLI policy file ownership checked.
-- [ ] Wave 2 backlog opened: MCP allowlists per client, then skills (see enterprise-rollout.md §2.1
+- [ ] Next-tier backlog opened: MCP allowlists per client, then skills (see enterprise-rollout.md §2.1
       for the access-model decision).

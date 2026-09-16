@@ -163,7 +163,7 @@ testbed/                    LiteLLM gateway + sample target app
 scripts/sync_manifests.py   regenerate the two root marketplaces from each plugin.json
 scripts/validate.sh         marketplaces in sync, JSON parses, SKILL frontmatter, no stray wrappers
 scripts/install_skills.sh   fallback: copy skills into each client's skill directories (user/project/system)
-docs/                       architecture.md, gateway.md, security-evaluations.md, playbooks/ (enterprise rollout; wave-1 mcp gate)
+docs/                       architecture.md, gateway.md, security-evaluations.md, playbooks/ (enterprise rollout; mcp-install gate)
 ```
 
 Edit a plugin's `plugin.json`, then `uv run python scripts/sync_manifests.py` and `bash scripts/validate.sh`.

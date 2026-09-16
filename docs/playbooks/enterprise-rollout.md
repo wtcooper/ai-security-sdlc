@@ -5,7 +5,7 @@ developer machines they manage. Covers Claude Code, Codex, Cursor, GitHub Copilo
 each two ways: (A) the vendor's own admin controls, (B) MDM / configuration management — managed
 settings files or profiles, plus install scripts. Vendor facts carry an `asOf` date and a source; hook
 and policy schemas drift, so re-verify any row older than six months before a fleet push. For a
-first rollout of the gate alone on the four core tools, use the shorter [wave1-mcp-gate.md](wave1-mcp-gate.md).
+tiered rollout of the gate alone on the four core tools, use the shorter [mcp-install-gate.md](mcp-install-gate.md).
 
 What you are deploying:
 
@@ -84,7 +84,7 @@ falls through — air-gapped hosts, users without repo access, clients with no p
 
 Pushing a *policy* from a console never moves plugin bytes or hook scripts. Check each method against
 who can reach what. "Repo access" means the developer (or a machine credential) can clone your
-marketplace repository; in an enterprise where not every employee has GitHub Enterprise access, prefer the
+marketplace repository; where not every developer can reach the git host, prefer the
 rows marked **none**.
 
 | Client · method | Endpoint must reach | Repo access needed on the endpoint | User action | Notes |
