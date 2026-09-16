@@ -38,7 +38,7 @@ one of three methods; pick per client and per asset:
 | Claude Code | server-managed settings or `managed-settings.json`/`.d`, profile, HKLM (`hooks` key) | yes — plugin `hooks/hooks.json`, active on enable | `~/.claude/settings.json` or `.claude/settings.json` + script | Organization settings › Plugins (server-side sync); managed `extraKnownMarketplaces` registers only | `/plugin install` from your marketplace or a vendored `directory` | `~/.claude/skills/`, `.claude/skills/`, enterprise `<managed dir>/.claude/skills/` |
 | Codex | `requirements.toml` `[hooks]` (file, MDM profile, cloud bundle) | no — not loaded from a spec manifest | `~/.codex/hooks.json` or `.codex/hooks.json` + script, trusted via `/hooks` | marketplace allowlist only | `codex plugin add` from a git or local marketplace | `~/.agents/skills/`, `.agents/skills/`, `/etc/codex/skills/` |
 | Cursor | Team hooks (dashboard) or enterprise `hooks.json` at a system path | no — needs a Cursor manifest this repo does not ship | `~/.cursor/hooks.json` or `.cursor/hooks.json` + script | Team Marketplace, install mode **Required** | dashboard, or plugin dirs in `~/.cursor/plugins/local` | `~/.cursor/skills/`, `.cursor/skills/`, `.agents/skills/` |
-| Copilot CLI | policy hooks `policy.d/*.json` / HKLM (hooks are not an enterprise managed-settings key) | bundled at `com.github.copilot/hooks/hooks.json` (unverified live) | `~/.copilot/hooks/ai-security.json` or `.github/hooks/ai-security.json` + script | enterprise `enabledPlugins` (endpoint fetches the marketplace) | `copilot plugin install` from a git or local marketplace | `~/.copilot/skills/`, `.github/skills/`, `.agents/skills/` |
+| Copilot (CLI + VS Code) | CLI: policy hooks `policy.d/*.json` / HKLM (hooks are not an enterprise managed-settings key); VS Code: no managed hook layer documented, only an org policy that can disable hooks | bundled at `com.github.copilot/hooks/hooks.json` (unverified live) | `~/.copilot/hooks/ai-security.json` or `.github/hooks/ai-security.json` + script — read by both the CLI and VS Code | enterprise `enabledPlugins` (endpoint fetches the marketplace) | `copilot plugin install` from a git or local marketplace | `~/.copilot/skills/`, `.github/skills/`, `.agents/skills/` |
 | Gemini CLI | system `settings.json` `hooks` | n/a — no extension shipped | `~/.gemini/settings.json` or `.gemini/settings.json` + script | none (admin controls cover extensions/MCP/skills toggles only) | n/a | `~/.gemini/skills/`, `.gemini/skills/`, `.agents/skills/` |
 
 Rule of thumb: hook via **managed** wherever the client has a managed layer (all five do), skills via
@@ -213,6 +213,15 @@ policy from more than one of these, set `managedSourcesBehavior: "merge"` in the
 or the lower ones are ignored entirely. The `.d` drop-in written by `install.sh --scope system` is
 therefore enough on file-only fleets, and needs `merge` on fleets that also get a profile or console policy.
 
+**Claude Desktop.** The desktop app's Code tab reads every managed source like the terminal does. A
+**Cowork** session on the user's machine reads the device's MDM policy or `managed-settings.json` but
+never server-managed settings from the console, so for Desktop users the hook must arrive by the
+endpoint route (B or C); remote Cowork sessions and the full-VM sandbox read no device policy at all.
+The gate also covers an agent editing Claude Desktop's own MCP host file
+(`claude_desktop_config.json`, `mcpServers` key). Extensions installed through the Desktop UI (`.mcpb`
+bundles) are outside the gate; govern those with the Desktop managed configuration (asOf 2026-09-15,
+https://code.claude.com/docs/en/managed-settings).
+
 **C. Script.** `sudo sh install.sh --scope system claude-code` (or the staged payload); skills fallback
 `install_skills.sh --scope system claude-code` (enterprise skills dir) or per user `install_skills.sh claude-code`. Verify with
 `/status` → `Setting sources: Enterprise managed settings (file | plist | HKLM | server)`, and `claude doctor`.
@@ -322,6 +331,16 @@ plugin's `com.github.copilot/hooks/hooks.json` also ships the gate for Agent Plu
 not yet verified live in this repo (asOf 2026-09-15,
 https://docs.github.com/en/copilot/reference/enterprise-managed-settings-reference).
 
+**VS Code users.** Copilot agent hooks in VS Code load from the same places as the CLI's user and
+repo hooks — `.github/hooks/*.json` in the workspace, `~/.copilot/hooks/`, plus Claude-format
+`.claude/settings.json` and `~/.claude/settings.json` — and VS Code converts the CLI's lowerCamelCase
+events and `bash`/`powershell` keys itself, so one file serves both. Its payload is
+`tool_name`/`tool_input` with camelCase tool names (`runTerminalCommand`, `createFile`, `editFiles`);
+the gate reads those shapes (payload tests only — not run live here). `chat.hookFilesLocations` changes
+the paths and an organization policy can disable hooks entirely; no machine-wide hook file for VS Code
+is documented, so for VS Code the fleet path is the user file `~/.copilot/hooks/ai-security.json`
+delivered per user (asOf 2026-09-16, https://code.visualstudio.com/docs/copilot/customization/hooks).
+
 **B. MDM / managed files** (asOf 2026-09-15, https://docs.github.com/en/copilot/reference/hooks-configuration,
 https://github.blog/changelog/2026-07-08-deploy-managed-copilot-settings-via-mdm-in-vs-code-and-cli/):
 
@@ -408,14 +427,78 @@ Client-side checks: Claude Code `/status` and `claude doctor`; Codex startup sum
 list`; Cursor Settings › Hooks; `copilot plugin list`; Gemini `/settings`. Re-run the §2 build and push
 whenever a client major version ships — hook schemas have changed roughly quarterly.
 
-## 6. Known gaps
+## 6. Test after install: what the gate triggers on, and how to prove it
+
+Give every pilot user this list. Each case is a prompt to type to the agent; the expected result is
+the gate's message quoted back and nothing written. Run the **allow** cases too — a gate that blocks
+normal work will be switched off.
+
+### 6.1 The mcp-install gate — trigger classes
+
+| # | Class | Example prompt to the agent | Expected |
+|---|---|---|---|
+| 1 | CLI installer, any client's | "Run `claude mcp add probe -- npx -y @modelcontextprotocol/server-everything`" (also `codex mcp add`, `agent mcp add`, `copilot mcp add`, `gemini mcp add`, `claude mcp add-json`, `claude mcp add-from-claude-desktop`) | blocked; `claude mcp list` shows no `probe`, no `.mcp.json` appears |
+| 2 | Installer hidden in a chain or a quoted shell | "Run `cd app && codex mcp add probe -- npx x`" / "Run `bash -c \"claude mcp add probe -- npx x\"`" | blocked |
+| 3 | Shell write to an MCP-only file | "Write `{\"mcpServers\":{}}` to `.mcp.json` using a shell redirect" / "…`tee .cursor/mcp.json`" / "…`cp x.json ~/.copilot/mcp-config.json`" | blocked |
+| 4 | Editor write to an MCP-only file | "Create `.mcp.json` containing `{\"mcpServers\":{}}`" / "Edit `.vscode/mcp.json` and add a server" | blocked (Claude Code, Cursor, Copilot, Gemini editors; Codex `apply_patch`) |
+| 5 | MCP entries added to a shared config | "Add `[mcp_servers.probe]` to `~/.codex/config.toml`" / "Add an `mcpServers` entry to `.gemini/settings.json`" / "…to `~/.claude.json`" / "…to Claude Desktop's `claude_desktop_config.json`" | blocked |
+| 6 | Same shared config, non-MCP change | "Set `approval_policy = \"never\"` in `~/.codex/config.toml`" / "Set the theme in `.gemini/settings.json`" | **allowed** |
+| 7 | Reading MCP config | "Show me `.mcp.json`" / "Run `claude mcp list`" / "grep the url in `.cursor/mcp.json`" | **allowed** |
+| 8 | Look-alikes | "Run `echo the mcp addendum`" / "Add the word `mcpServers` to README.md" / "Run `npm install`" | **allowed** |
+| 9 | Approved install | export `AISEC_MCP_APPROVAL=TEST-1`, repeat case 1 or 4 | **allowed**; unset the variable afterwards and repeat case 1 → blocked again |
+
+Not covered by the gate, by design: servers added through a client's own UI (`/mcp` in Claude Code,
+Cursor's MCP settings page, VS Code's *Add MCP server*, Claude Desktop extensions), session-only flags
+(`claude --mcp-config`, `copilot --additional-mcp-config`), and servers that arrive inside plugins. Use the
+MCP allowlists in §4 for those.
+
+### 6.2 Per-client check recipe
+
+Run in a scratch git repo (`git init` first; several clients refuse untrusted or non-repo folders):
+
+| Client | Start it | Then |
+|---|---|---|
+| Claude Code (terminal, VS Code/JetBrains extension, Desktop Code tab) | `claude` in the repo; `/status` should list the managed source or the plugin | cases 1, 4, 7, 9; `/hooks` lists the gate |
+| Claude Desktop Cowork | new Cowork session on a local folder | cases 1 and 4 (endpoint policy applies; server-managed does not) |
+| Codex CLI / IDE extension | `codex` in the repo; if the hook is project- or user-level run `/hooks` and trust it once | cases 1, 4, 5, 6; `codex exec "…"` for headless |
+| Cursor IDE and `agent` CLI | open the repo; Settings › Hooks shows the gate | cases 1, 3, 7; case 4 is best-effort in Cursor |
+| Copilot CLI | `copilot` in the repo (in `-p` mode set `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true` or trust the folder) | cases 1, 3, 4, 8 |
+| Copilot in VS Code | open the repo, agent mode | cases 1 (terminal tool), 4 (create/edit file), 8 |
+| Gemini CLI | `gemini` in the repo (`--skip-trust` headless) | cases 1, 4, 5, 6 |
+
+No agent needed for a first smoke test on any machine:
+
+```sh
+printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 2
+printf '{"tool_input":{"command":"claude mcp list"}}'          | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 0
+sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/test_mcp_install_gate.sh                                                             # full payload suite
+```
+
+### 6.3 Skills — prove they loaded
+
+After a plugin install or a file copy, restart the client and check discovery, then invoke one skill:
+
+| Client | Discovery | Invoke |
+|---|---|---|
+| Claude Code | `/plugin` (plugin) or `/skills`; type `/sec` and look for `security-profile` | `/security-profile` (plugin form: `/secure-sdlc:security-profile`) |
+| Codex | `/skills` or `$` picker lists `security-profile` | "Use the security-profile skill on this repo" |
+| Cursor | Settings › Rules, Skills, Subagents lists the skill; or `/security-profile` in Agent | same |
+| Copilot CLI | `copilot skill list` | "Use the security-profile skill" |
+| Copilot VS Code | Chat › skills picker | same |
+| Gemini CLI | `gemini skills list` | same |
+
+The skill should start by reading the codebase and end by writing `.ai-security/profile.md`. For the
+`install-hooks` skill: "Install the security hooks for Codex in this repo" must produce a dry-run
+listing and ask before writing.
+
+## 7. Known gaps
 
 - **Windows**: the gate is POSIX `sh` + `jq`. Claude Code runs hooks through Git Bash on Windows;
   Copilot policy hooks want a `powershell` command; Codex has `command_windows`. A PowerShell port is
   not shipped yet. `install.sh --scope system` is macOS/Linux only; on Windows place the files from the
   tables above by hand or via Intune/Group Policy.
-- **Copilot** and **Gemini** hook firing is verified at payload level only in this repo (org policy and
-  account tier blocked live runs); **Cursor** CLI handling of enterprise hooks is undocumented.
+- **Copilot** (CLI and VS Code) and **Gemini** hook firing is verified at payload level only in this repo (org
+  policy and account tier blocked live runs); **Cursor** CLI handling of enterprise hooks is undocumented.
 - **Claude Code** managed `enabledPlugins` does not install plugins; only Organization settings › Plugins
   or a scripted `claude plugin install` does (§2.1).
 - **Codex** plugin-bundled hooks are not loaded from the Agent Plugins manifest; managed hooks are the

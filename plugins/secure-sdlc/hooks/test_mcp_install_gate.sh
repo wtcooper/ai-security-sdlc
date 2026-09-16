@@ -55,6 +55,17 @@ t 2 "gemini: write_file .gemini mcp"    '{"tool_name":"write_file","tool_input":
 t 2 "gemini: replace .mcp.json"         '{"tool_name":"replace","tool_input":{"file_path":"/p/.mcp.json","old_string":"a","new_string":"b"}}'
 t 0 "gemini: write_file .gemini theme"  '{"tool_name":"write_file","tool_input":{"file_path":"/p/.gemini/settings.json","content":"{\"theme\":\"dark\"}"}}'
 t 0 "gemini: shell ls"                  '{"tool_name":"run_shell_command","tool_input":{"command":"ls","directory":"/p"}}'
+# --- VS Code Copilot agent hooks (tool_name camelCase; files[] for edits) and Claude Desktop config ---
+t 2 "vscode: runTerminalCommand mcp add" '{"tool_name":"runTerminalCommand","tool_input":{"command":"claude mcp add foo -- npx foo"}}'
+t 2 "vscode: createFile .vscode/mcp.json" '{"tool_name":"createFile","tool_input":{"filePath":"/w/.vscode/mcp.json","content":"{}"}}'
+t 2 "vscode: editFiles files[] mcp.json" '{"tool_name":"editFiles","tool_input":{"files":[{"path":"/w/src/a.ts"},{"path":"/w/.vscode/mcp.json"}]}}'
+t 0 "vscode: editFiles files[] src only"  '{"tool_name":"editFiles","tool_input":{"files":["/w/src/a.ts","/w/README.md"]}}'
+t 2 "claude: mcp add-json"                 '{"tool_name":"Bash","tool_input":{"command":"claude mcp add-json foo \u0027{\"command\":\"npx\"}\u0027"}}'
+t 2 "claude: mcp add-from-claude-desktop"  '{"tool_name":"Bash","tool_input":{"command":"claude mcp add-from-claude-desktop"}}'
+t 2 "desktop: Edit claude_desktop_config mcpServers" '{"tool_name":"Edit","tool_input":{"file_path":"/Users/x/Library/Application Support/Claude/claude_desktop_config.json","new_string":"\"mcpServers\": {\"foo\": {}}"}}'
+t 0 "desktop: Edit claude_desktop_config prefs"      '{"tool_name":"Edit","tool_input":{"file_path":"/Users/x/Library/Application Support/Claude/claude_desktop_config.json","new_string":"\"preferences\": {}"}}'
+t 2 "desktop: shell sed mcpServers into config"      '{"tool_input":{"command":"sed -i \"s/x/mcpServers/\" ~/Library/Application\\ Support/Claude/claude_desktop_config.json"}}'
+t 0 "claude: mcp add in a word (mcp addendum)"       '{"tool_input":{"command":"echo mcp addendum"}}'
 # --- escape hatch and robustness ---
 rc=0; printf '%s' '{"tool_input":{"command":"claude mcp add foo -- npx foo"}}' | AISEC_MCP_APPROVAL=TICKET-1 ./mcp_install_gate.sh >/dev/null 2>&1 || rc=$?
 if [ $rc -eq 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: approval env var did not allow"; fi

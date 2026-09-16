@@ -11,7 +11,7 @@ returned to the agent. It is separate from the opt-in gate templates in `securit
 - Editor-tool writes to `.mcp.json`, `mcp.json` (Cursor, VS Code, Copilot), `mcp-config.json`
   (Copilot CLI), and Codex `apply_patch` hunks that add or update one
 - Writes that touch `mcp_servers` / `mcpServers` in shared files: `.codex/config.toml`,
-  `.gemini/settings.json`, `~/.claude.json`
+  `.gemini/settings.json`, `~/.claude.json`, Claude Desktop's `claude_desktop_config.json`
 
 Reading or listing MCP config, `mcp list`, and non-MCP edits to the shared files all pass.
 
@@ -72,5 +72,6 @@ including Codex `apply_patch` and Copilot `toolArgs`, run against the script wit
 | Cursor agent 2026.09.02 | pass | not run — CLI not logged in on the test machine | Shell half uses the documented `command` field; the `preToolUse` Write payload is undocumented, so the edit half is best-effort. |
 | Copilot CLI 1.0.82 | pass | not run — org policy denied CLI access | `copilot plugin install` accepts the spec package and copies `com.github.copilot/hooks/hooks.json`; firing unverified. `toolName`/`toolArgs` shapes from the hooks reference and the CLI bundle (`path`, `file_text`, `old_str`, `new_str`). |
 | Gemini CLI 0.60.0 | pass | not run — account tier no longer served by the CLI | Payload shape from the hooks reference (`run_shell_command`, `write_file`, `replace`). |
+| Copilot in VS Code | pass | not run | Reads the same hook files as the CLI; payload `tool_name`/`tool_input` with `runTerminalCommand`, `createFile`, `editFiles` (`files[]`), from the VS Code hooks reference. |
 
 Re-run the live criteria for a client when its version or hook schema changes; hook schemas drift.
