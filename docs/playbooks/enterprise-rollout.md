@@ -4,7 +4,8 @@ For security and IT admins deploying the ai-security-sdlc plugins and the **mcp-
 developer machines they manage. Covers Claude Code, Codex, Cursor, GitHub Copilot CLI and Gemini CLI,
 each two ways: (A) the vendor's own admin controls, (B) MDM / configuration management — managed
 settings files or profiles, plus install scripts. Vendor facts carry an `asOf` date and a source; hook
-and policy schemas drift, so re-verify any row older than six months before a fleet push.
+and policy schemas drift, so re-verify any row older than six months before a fleet push. For a
+first rollout of the gate alone on the four core tools, use the shorter [wave1-mcp-gate.md](wave1-mcp-gate.md).
 
 What you are deploying:
 
