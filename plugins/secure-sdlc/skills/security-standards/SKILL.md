@@ -17,8 +17,12 @@ domain-extensible, so non-security domains (development, infrastructure) can liv
 - Default: `.ai-security/knowledge/` in the repo — **intentionally committed** (unlike
   `results/` and `cache/`), because standards are policy the team versions and reviews.
 - Org-shared: set `AISEC_KNOWLEDGE_DIR=/path/to/checkout` (e.g. a central standards repo) and
-  the corpus lives there; the repo's own corpus, if any, is merged on top at query time
-  (repo pages win on conflict — note the conflict to the user).
+  the corpus lives there; the repo's own corpus, if any, is merged on top at query time under the
+  precedence rule in conventions.md: a repo page overrides an org page only where the org page is
+  `enforcement: default`. Against an `enforcement: mandatory` org page a repo page may add
+  requirements but not weaken them; a weakening without a valid `exception:` block (owner,
+  rationale, scope, unexpired expiry) is reported as a violation, and with one the org requirement
+  is still cited next to the exception. Never resolve such a conflict silently.
 - The plugin ships only the seed (`seed/`, path relative to this skill) and the operations;
   after `init` the content belongs to the org, and plugin updates never touch it.
 
@@ -44,12 +48,16 @@ apply only what the user approves.
 4. An ingest that *changes* an existing page is a policy change: show the diff and get the
    user's approval before writing.
 
-**lint** — corpus health check; report, don't auto-fix:
-- every page has complete frontmatter (title, domain, applies-to, status, updated, sources);
+**lint** — corpus health check; report, don't auto-fix. Run
+`python3 scripts/lint_corpus.py <store>` (path relative to this skill; errors exit 1) and relay
+its output. It checks:
+- every page has complete frontmatter (title, domain, applies-to, status, updated, sources,
+  owner, enforcement); `owner: unassigned` is allowed only while `status: seed`;
 - index ↔ pages is a bijection (no orphan pages, no dead index rows);
 - `applies-to` values come from the vocabulary in conventions.md;
 - pages ≤ ~50 lines; `updated` older than 12 months → flag for review;
-- pointer pages (e.g. `security/codeguard.md`) contain no vendored rule bodies.
+- every `exception:` block has owner, rationale, scope and an unexpired expiry.
+Still by eye: pointer pages (e.g. `security/codeguard.md`) contain no vendored rule bodies.
 
 ## Rules
 
@@ -58,4 +66,8 @@ apply only what the user approves.
 - Never dump the corpus into context; the index is the only always-read file.
 - Cite pages, don't paste them, when answering for another skill; the consumer states the
   requirement and cites `knowledge/<domain>/<page>.md`.
-- Humans own policy: additions are proposed, changes to existing pages require explicit approval.
+- Humans own policy: additions are proposed, changes to existing pages require explicit approval,
+  and flipping a page from `seed` to `active` (or to `mandatory`) is a decision that names an owner.
+- Distributing updates: the seed is copied once by `init`; later plugin versions never touch the
+  store. To take a newer seed, run `init` again — it diffs seed pages against the store and proposes
+  additions page by page for approval. That diff-and-approve step is the migration path.

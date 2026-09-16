@@ -10,7 +10,7 @@ compatibility: the skill itself needs no network access; the bundled starter tem
 The front door of the toolkit. Four paths — pick from what the user asked for, or ask which:
 **orient** (where does security fit in my workflow), **agent setup** (harden the coding agent
 itself), **scaffold** (start a new service from a secure template), **hooks** (deterministic
-gates for policies that must always hold).
+gates that enforce a policy regardless of the model's judgment, within what a hook can see).
 
 ## Orient — the SDLC map
 
@@ -128,19 +128,24 @@ runs after scaffolding.
 
 ## Hooks path
 
-Skills are advisory; a policy that must *always* hold needs a deterministic gate. Offer the
-opt-in templates in [references/hooks/](references/hooks/) — shared check scripts plus thin
-per-client configs (Claude Code, Cursor, Codex, Copilot):
+Skills are advisory; a policy that must hold regardless of the model's judgment needs a
+deterministic gate — deterministic within what the hook can see (the tool call's command, paths
+and content), which is a heuristic boundary, not proof of intent. Offer the opt-in templates in
+[references/hooks/](references/hooks/) — check scripts plus thin per-client configs (Claude Code,
+Cursor, Codex, Copilot):
 
-- **secrets-in-diff** — block a commit/edit that introduces credential-shaped strings.
-- **test-file protection** — during `fix-findings`, block edits to test files so a fix can't
-  pass by weakening its own regression.
-- **deploy gate** — require an explicit release-approval env var before production deploy commands.
+- **secrets-in-diff** — block a commit whose staged diff introduces credential-shaped strings
+  (early warning; the final gate is a git pre-commit hook or CI secret scanning — see the boundary
+  note in the hooks README).
+- **test-file protection** — during `fix-findings`, ask consent before an edit to a test file so a
+  fix can't pass by quietly weakening its own regression.
+- **deploy gate** — ask for a recorded release sign-off before production deploy commands.
 
 Strictly opt-in: present what each gate does, install only what the user picks, show the exact
 config diff before writing, and use each client's fail-closed option where it exists (see
-`references/hooks/README.md`). An approval-style hook belongs at deploy time, not mid-build — a
-human prompt during the build puts a person back on the critical path.
+`references/hooks/README.md`). Consent prompts in the build are for actions that introduce a new
+privilege or an irreversible effect (installing an MCP server, weakening a regression, publishing,
+deploying) — never for routine steps, which would put a person back on the critical path.
 
 Separate from these: the **mcp-install gate** ships at the plugin level (`hooks/` in secure-sdlc),
 is active automatically in Claude Code once the plugin is enabled, and installs into the other
@@ -160,6 +165,7 @@ clients from `hooks/clients/` — see `hooks/README.md`.
 - Keep hardened defaults (read-only root, dropped caps, internal networks, no-new-privileges)
   unless the developer explains why not; record the deviation in `starter.md`.
 - Versions in templates were checked at authoring time (see each README's `asOf`); if older than
-  six months, re-check before pinning.
+  six months, re-check before pinning. Tool and client versions this repo was validated against
+  are in `docs/compatibility.md`.
 - Vet any MCP server or skill the scaffold will consume with `scan-mcp` / `scan-skill`.
 - Once configured, `security-profile` / `security-planner` govern what you build.

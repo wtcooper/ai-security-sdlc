@@ -15,7 +15,7 @@ suites live in `eval-security`; adversarial testing in the `redteam-app` skill.
   `.ai-security/results/evals/baseline-<YYYYMMDD-HHMM>.json`.
 
 ## Preflight
-- `npx promptfoo@latest --version` (Node ≥ 22.22). Prefer the upstream Promptfoo skills for
+- `npx promptfoo@0.123.0 --version` (Node ≥ 22.22). Prefer the upstream Promptfoo skills for
   syntax details when installed (`promptfoo-evals`, `promptfoo-provider-setup`; Claude Code:
   `/plugin marketplace add promptfoo/promptfoo` → `/plugin install promptfoo@promptfoo`).
 - Model access for graders uses the OpenAI-compatible convention: `AISEC_GATEWAY_BASE_URL`,
@@ -36,8 +36,8 @@ suites live in `eval-security`; adversarial testing in the `redteam-app` skill.
    `defaultTest.assert`, keeping only the rows that fit the app type (RAG rows need `context`;
    tool rows need tool apps). Prefer deterministic asserts; use `llm-rubric` only for
    subjective criteria. Set `metric:` names so the report groups scores.
-4. **Run**: `npx promptfoo@latest eval -c <config> -o <results.json> --no-share` (add
-   `--repeat 3` for the consistency metric if budget allows). Then `npx promptfoo@latest view`
+4. **Run**: `npx promptfoo@0.123.0 eval -c <config> -o <results.json> --no-share` (add
+   `--repeat 3` for the consistency metric if budget allows). Then `npx promptfoo@0.123.0 view`
    for the UI, or summarize pass rates per metric from the JSON.
 5. **Record**: copy results to `.ai-security/results/evals/baseline-<ts>.json`; append a 5-line
    summary (pass rate per metric, p95 latency, cost) to `.ai-security/results/evals/README.md`.

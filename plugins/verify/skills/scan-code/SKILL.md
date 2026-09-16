@@ -50,7 +50,10 @@ encodes (authorization gaps, tenant isolation, business-logic abuse, missing con
 
 3. **Normalize**: `python3 scripts/normalize.py $RAW -o $RAW/../normalized.json --format table`.
    Produces one findings list across all lanes plus corroboration clusters (same file, lines within
-   5). Work from this, not from raw SARIF.
+   5). Work from this, not from raw SARIF. It also sets a run **status**: `complete`, or
+   `incomplete` (exit 1) when a lane's output is unparseable, a lane reports partial coverage, or
+   no lane output exists. An incomplete run keeps its findings but is never a clean result — say
+   which lane failed in the coverage section and, if it matters for the scope, re-run that lane.
 
 4. **Triage** — follow [references/triage.md](references/triage.md): group by root cause, weigh
    independent vs correlated agreement, verify each serious candidate against the code (source
@@ -68,13 +71,18 @@ encodes (authorization gaps, tenant isolation, business-logic abuse, missing con
 No agent, or CI? Run the model-driven lane alone through any OpenAI-compatible endpoint:
 `python3 scripts/run_scan.py --path . --out .ai-security/results/code-scan` — it packs the code,
 sends [references/scan-prompt.md](references/scan-prompt.md) to `$AISEC_MODEL` at
-`$AISEC_GATEWAY_BASE_URL`, and writes the report + SARIF. In CI, run the CLI lanes as ordinary steps
-and feed all their SARIF to `normalize.py`.
+`$AISEC_GATEWAY_BASE_URL`, and writes the report + SARIF. Input is contained (git-tracked regular
+files inside `--path` only; symlinks and out-of-root paths are listed as omitted; a bad
+`--diff-base` aborts instead of widening the scope) and every run carries a status in the report
+and in the SARIF run properties: `complete`, `incomplete` (size cap hit, output partly recovered,
+or an empty categories list from a context-starved model), or `failed` (exit 1, no SARIF). In CI,
+run the CLI lanes as ordinary steps and feed all their SARIF to `normalize.py`; gate on its exit code.
 
 ## Rules
 - Lanes stay blind; only the orchestrator sees everything. No lane is allowed to filter for the others.
 - A missing scanner is an install offer first and a reported coverage gap second — never a silent
-  omission. "Clean" and "not looked at" must be distinguishable in the report.
+  omission. "Clean" and "not looked at" must be distinguishable in the report, and a run whose
+  status is `incomplete` or `failed` is never reported as clean.
 - Every shipped finding needs concrete evidence (path + line + snippet) and its originating tool(s).
 - Don't restrict the model-driven lane to a fixed CWE checklist — it exists for the unknown-unknowns.
 - Don't modify code here; remediation is the `fix-findings` skill's job.

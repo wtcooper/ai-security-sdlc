@@ -32,9 +32,12 @@ Installing CodeGuard also gives the coding agent the same rules just-in-time whi
 
 ## Mode A — full workflow (intent → spec → plan)
 
-Artifacts live in `.ai-security/plans/<feature-slug>/`; each carries a status footer
-(`status: draft | approved | implemented`). A generated artifact is a proposal until a human
-approves it — never continue past a stop on your own.
+Artifacts live in `.ai-security/plans/<feature-slug>/`; each carries the **approval record** from
+[references/sbp-format.md](references/sbp-format.md) (status, approver and date, approval
+reference, artifact commit, policy versions, supersession, evidence record path). A generated
+artifact is a proposal until a human approves it — never continue past a stop on your own, and
+when they approve, fill the record in with what they told you (ask for the reference if they gave
+none) before moving on.
 
 1. **Intent** — brainstorm with the user, then write `intent.md`: problem statement, proposed
    outcome, affected users and systems, data classes touched, security posture asks, non-goals,
@@ -82,4 +85,7 @@ approves it — never continue past a stop on your own.
 - Do not invent rules; if CodeGuard and the corpus are silent on a topic say so and use judgement,
   then propose the gap to `security-standards` ingest.
 - Keep the SBP proportional: a small change gets a short SBP.
-- Never skip an approval stop; a generated artifact is a proposal until the human approves it.
+- Never skip an approval stop; a generated artifact is a proposal until the human approves it,
+  and an approval that is not recorded (who, when, which commit) did not happen.
+- Requirement ids are stable once a plan is approved; a changed requirement gets a new id and the
+  old one is marked superseded, so evidence records and regressions keep pointing at the right thing.

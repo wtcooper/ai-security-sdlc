@@ -26,7 +26,9 @@ def decide(*, tool: str, agent_id: str, tenant: str, args: dict, allowlist: dict
 
 
 def _tenant_matches(tenant: str, args: dict) -> bool:
-    return True  # TODO(tool-least-privilege): look up the record's tenant and compare; never trust args for tenancy
+    # TODO(tool-least-privilege): look up the record's tenant and compare; never trust args for tenancy.
+    # Fails closed until implemented: every tenant_bound tool is denied, which is the safe default for a stub.
+    return False
 
 
 def classify_tool_result(text: str) -> tuple[str, list[str]]:

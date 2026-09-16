@@ -29,12 +29,13 @@ settings-level install anyway only if they want it without the plugin (CI, teamm
    the user each file that would be written. Stop here if they do not confirm.
 4. **Install**: rerun without `--dry-run`. The script is idempotent and merges into existing
    configs without dropping keys.
-5. **Verify**: run the one-liner the script prints (feeds an `mcp add` payload to the installed
-   script; exit 2 or an "ask" JSON = gate works), then relay the per-client notes it printed — Codex needs the
-   hook trusted via `/hooks`, Copilot `-p` mode needs the folder trusted, Gemini headless needs
-   `--skip-trust`.
-6. **Report** in ≤8 lines: files written, how to approve a vetted install
-   (`AISEC_MCP_APPROVAL=<server-or-ticket>`), and that MCP servers should be vetted with the
+5. **Verify**: `sh <plugin>/hooks/install.sh --check [--scope user] <tools>` — reports jq, the
+   script, each client config, a declined sample payload and the installed client versions; exit 0
+   means healthy. Relay the per-client notes the install printed — Codex needs the hook trusted via
+   `/hooks`, Copilot `-p` mode needs the folder trusted, Gemini headless needs `--skip-trust`.
+6. **Report** in ≤8 lines: files written, how to approve a vetted install for one session
+   (`AISEC_MCP_APPROVAL=<server name as it appears in the command>` — bound to that server, ignored in
+   `block` mode), that the gate declines when `jq` is missing, and that MCP servers should be vetted with the
    verify-ai `scan-mcp` skill first.
 
 ## Rules

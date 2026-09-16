@@ -3,6 +3,8 @@ title: Denial of wallet and service
 domain: security
 applies-to: [api, agents, cost]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---

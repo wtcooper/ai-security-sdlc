@@ -15,7 +15,11 @@ recurring issues back into planning rules (the Anthropic AI-native SDLC pattern)
 
 ## Steps
 1. **Aggregate**: `python3 scripts/normalize_findings.py` → one triage table across SAST, CodeQL,
-   Strix pentest, evals and red team. `--format json` for machine use.
+   Strix pentest, evals and red team. `--format json` for machine use. Read its **status** line and
+   the `!` error lines: an unparseable result file, a lane that reported partial coverage, or a
+   Promptfoo case whose provider/grader errored is listed there, not among the findings. Those are
+   execution problems — re-run the originating check; do not treat the run as clean or the case as
+   passed. Prefer the most recent run per phase when several are present, and say which you used.
 2. **Dedupe & prioritize**: merge findings that point at the same root cause/location across tools.
    Rank by severity × exploitability × exposure (public/authenticated/internal, from the profile).
    Confirm each before fixing — discard false positives with a one-line reason (don't silently drop).
@@ -36,6 +40,13 @@ recurring issues back into planning rules (the Anthropic AI-native SDLC pattern)
    `fix-security-vulnerabilities-with-strix` skill to fix-and-rescan.
 7. **Report**: write `.ai-security/remediation-<ts>.md` — per finding: source/severity, decision
    (fixed / mitigated / accepted / false-positive), the change, the regression added, verification result.
+   An *accepted* finding names who accepted it and until when (a date), the same way a standards
+   exception does.
+8. **Evidence record**: update `.ai-security/evidence/<feature-slug>.md` (committed; redacted —
+   no raw scanner output) with one row per plan requirement: requirement id (from the SBP), the
+   check that covered it, the result reference (file name under `results/` or CI run id), the commit
+   hash, and pass/fail. This is what proves a requirement was checked; "Verified by: scan-code" in a
+   plan only names the method.
 
 ## Rules
 - Surgical changes: every edit traces to a confirmed finding; don't refactor unrelated code.

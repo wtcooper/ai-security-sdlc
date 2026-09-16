@@ -3,6 +3,8 @@ title: Data minimization
 domain: security
 applies-to: [data, privacy, logging]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---

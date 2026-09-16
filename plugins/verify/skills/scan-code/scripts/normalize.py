@@ -5,7 +5,12 @@
 
 Reads `*.sarif` (semgrep, trivy, osv-scanner, zizmor, codeql) and `*.json` files that already
 contain a findings array (the LLM scan) from <raw-dir>. Emits:
-  {"findings": [...], "clusters": [{"key", "tools": [...], "findings": [idx, ...]}]}
+  {"status": "complete"|"incomplete", "lanes": {name: {"status": "ok"|"error"|"incomplete", "findings": n, "error"?: str}},
+   "errors": [...], "findings": [...], "clusters": [{"key", "tools": [...], "findings": [idx, ...]}]}
+A lane output that cannot be parsed is an error, not an empty lane; a lane whose own run properties
+say `incomplete` keeps its findings but is flagged. Either way the run status becomes `incomplete`
+and the exit code is 1, so a broken or partial lane can never read as clean. An empty <raw-dir> is
+`incomplete` too.
 
 Each finding: {tool, rule, title, severity, confidence, file, line, snippet, description,
 remediation, category, cwe[]}. Clusters group findings that point at the same place (same file,
@@ -36,14 +41,23 @@ def cwes(*blobs) -> list[str]:
     return sorted(found)
 
 
-def from_sarif(path: Path) -> list[dict]:
+class LaneError(Exception):
+    pass
+
+
+def from_sarif(path: Path) -> tuple[list[dict], str | None]:
+    """Findings plus the lane's own non-complete status (from run.properties.status), if any."""
     try:
         doc = json.loads(path.read_text())
     except Exception as e:
-        print(f"skip {path.name}: {e}", file=sys.stderr)
-        return []
-    out = []
+        raise LaneError(f"unparseable SARIF: {e}") from e
+    if not isinstance(doc, dict) or not isinstance(doc.get("runs"), list):
+        raise LaneError("not a SARIF document (no runs array)")
+    out, note = [], None
     for run in doc.get("runs", []):
+        rstatus = (run.get("properties") or {}).get("status")
+        if rstatus and rstatus != "complete":
+            note = rstatus
         driver = run.get("tool", {}).get("driver", {})
         tool = (driver.get("name") or path.stem).lower()
         rules = {r.get("id"): r for r in driver.get("rules", []) if r.get("id")}
@@ -74,18 +88,18 @@ def from_sarif(path: Path) -> list[dict]:
                 "category": props.get("category", "") or ",".join(props.get("tags", [])[:3]),
                 "cwe": cwes(rid, rule, props),
             })
-    return out
+    return out, note
 
 
-def from_findings_json(path: Path) -> list[dict]:
+def from_findings_json(path: Path) -> tuple[list[dict], str | None]:
     try:
         doc = json.loads(path.read_text())
     except Exception as e:
-        print(f"skip {path.name}: {e}", file=sys.stderr)
-        return []
+        raise LaneError(f"unparseable JSON: {e}") from e
     items = doc.get("findings", doc) if isinstance(doc, dict) else doc
     if not isinstance(items, list):
-        return []
+        raise LaneError("no findings array")
+    note = doc.get("status") if isinstance(doc, dict) and doc.get("status") not in (None, "complete") else None
     tool = doc.get("tool") if isinstance(doc, dict) else None
     out = []
     for f in items:
@@ -105,7 +119,7 @@ def from_findings_json(path: Path) -> list[dict]:
             "category": f.get("category", ""),
             "cwe": f.get("cwe") or cwes(f.get("category", ""), f.get("description", "")),
         })
-    return out
+    return out, note
 
 
 def cluster(findings: list[dict], window: int = 5) -> list[dict]:
@@ -142,31 +156,43 @@ def main() -> int:
     ap.add_argument("--format", choices=["json", "table"], default="json")
     a = ap.parse_args()
     findings: list[dict] = []
-    lanes: dict[str, int] = {}
-    for p in sorted(a.raw_dir.rglob("*")):
-        if p.suffix == ".sarif":
-            got = from_sarif(p)
-        elif p.suffix == ".json":
-            got = from_findings_json(p)
-        else:
+    lanes: dict[str, dict] = {}
+    errors: list[str] = []
+    for p in sorted(a.raw_dir.rglob("*")) if a.raw_dir.is_dir() else []:
+        if p.suffix not in (".sarif", ".json"):
             continue
-        lanes[p.name] = len(got)   # a lane that ran clean must stay visible, not vanish
+        try:
+            got, note = from_sarif(p) if p.suffix == ".sarif" else from_findings_json(p)
+        except LaneError as e:
+            lanes[p.name] = {"status": "error", "findings": 0, "error": str(e)}
+            errors.append(f"{p.name}: {e}")
+            continue
+        lanes[p.name] = {"status": "ok", "findings": len(got)}   # a lane that ran clean must stay visible, not vanish
+        if note:   # partial lane: keep its findings, never let it count as clean coverage
+            lanes[p.name] = {"status": "incomplete", "findings": len(got), "error": f"lane reported status '{note}'"}
+            errors.append(f"{p.name}: lane reported status '{note}' — its coverage is partial")
         findings += got
+    if not lanes:
+        errors.append(f"no lane output found under {a.raw_dir}")
+    status = "complete" if not errors else "incomplete"
     findings.sort(key=lambda f: (SEV_ORDER.get(f["severity"], 5), f["file"], f["line"]))
-    doc = {"lanes": lanes, "findings": findings, "clusters": cluster(findings)}
+    doc = {"status": status, "lanes": lanes, "errors": errors, "findings": findings, "clusters": cluster(findings)}
     if a.out:
         a.out.write_text(json.dumps(doc, indent=2) + "\n")
     if a.format == "table" or not a.out:
-        print(f"{len(findings)} findings from {len(lanes)} lane output(s)")
-        for name, n in sorted(lanes.items(), key=lambda kv: -kv[1]):
-            print(f"  {name:<24} {n}" + ("   (ran, no findings)" if n == 0 else ""))
+        print(f"{status.upper()}: {len(findings)} findings from {len(lanes)} lane output(s)")
+        for name, l in sorted(lanes.items(), key=lambda kv: -kv[1]["findings"]):
+            tag = f"   ({l['status'].upper()}: {l['error']})" if l["status"] != "ok" else ("   (ran, no findings)" if l["findings"] == 0 else "")
+            print(f"  {name:<24} {l['findings']}{tag}")
+        for e in errors:
+            print(f"  ! {e}")
         multi = [c for c in doc["clusters"] if c["corroboration"] > 1]
         print(f"{len(multi)} locations corroborated by >1 tool")
         for c in multi[:20]:
             print(f"  {c['key']:<60} {','.join(c['tools'])}")
     if a.out:
         print(f"wrote {a.out}")
-    return 0
+    return 0 if status == "complete" else 1
 
 
 if __name__ == "__main__":

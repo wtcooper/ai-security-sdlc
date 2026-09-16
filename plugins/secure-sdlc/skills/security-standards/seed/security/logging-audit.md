@@ -3,6 +3,8 @@ title: Logging and audit
 domain: security
 applies-to: [logging, agents]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---

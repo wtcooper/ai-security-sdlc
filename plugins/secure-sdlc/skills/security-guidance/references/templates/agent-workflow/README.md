@@ -42,7 +42,11 @@ docker-compose.yml   hardened defaults; internal-only networks; egress only from
 - **Ingress** to the orchestrator: your org's user auth (OIDC/session) — `orchestrator/app.py`
   `authenticate_request()` raises `NotImplementedError` on purpose.
 - **Orchestrator → gateway**: a per-workload identity (mTLS or a short-lived JWT the platform
-  issues) — `gateway/main.py` `verify_caller()`.
+  issues) — `gateway/main.py` `verify_caller()`. The stub **fails closed**: with
+  `GATEWAY_DEV_STATIC_TOKEN` unset every tool call is refused (501); for local runs set it and
+  `ORCHESTRATOR_WORKLOAD_TOKEN` to the same value. Likewise `decide()` denies every `tenant_bound`
+  tool and `verify_approval()` approves nothing until you implement them — a skeleton that cannot
+  yet authenticate, scope or approve must refuse, not wave through. `/healthz` stays open.
 - **Gateway → tools**: credentials the gateway brokers per call; agents never hold them.
 
 ## Run the skeleton

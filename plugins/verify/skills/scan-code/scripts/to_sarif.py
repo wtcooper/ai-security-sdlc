@@ -24,7 +24,7 @@ def _line(v) -> int:
         return 1
 
 
-def to_sarif(findings: list[dict], tool: str = "scan-code") -> dict:
+def to_sarif(findings: list[dict], tool: str = "scan-code", run_properties: dict | None = None) -> dict:
     rules, results, seen = [], [], {}
     for f in findings:
         rid = f.get("id") or f.get("category") or f.get("title", "finding")
@@ -58,10 +58,13 @@ def to_sarif(findings: list[dict], tool: str = "scan-code") -> dict:
                            "verification": f.get("verification", ""),
                            "evidence": [e.get("tool", "") if isinstance(e, dict) else str(e) for e in f.get("evidence", [])]},
         })
+    run = {"tool": {"driver": {"name": tool, "informationUri": "https://github.com/wtcooper/ai-security-sdlc", "rules": rules}}, "results": results}
+    if run_properties:
+        run["properties"] = run_properties   # run status / target / commit / model — so an empty results list is never mistaken for clean
     return {
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
         "version": "2.1.0",
-        "runs": [{"tool": {"driver": {"name": tool, "informationUri": "https://github.com/wtcooper/ai-security-sdlc", "rules": rules}}, "results": results}],
+        "runs": [run],
     }
 
 

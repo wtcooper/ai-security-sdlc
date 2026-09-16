@@ -80,12 +80,45 @@ t DENY  "gemini: write_file .gemini mcp"    "$(gemini write_file '{"file_path":"
 t DENY  "gemini: replace .mcp.json"         "$(gemini replace '{"file_path":"/p/.mcp.json","old_string":"a","new_string":"b"}')"
 t ALLOW "gemini: write_file .gemini theme"  "$(gemini write_file '{"file_path":"/p/.gemini/settings.json","content":"{\"theme\":\"dark\"}"}')"
 t ALLOW "gemini: shell ls"                  "$(gemini run_shell_command '{"command":"ls","directory":"/p"}')"
-# --- modes, escape hatch, unknown client, robustness
+# --- modes, approval binding, unknown client, failure contract
 t DENY  "mode=block: claude declines"       "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')" "AISEC_MCP_GATE_MODE=block"
-t ALLOW "approval env allows"               "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')" "AISEC_MCP_APPROVAL=TICKET-1"
+t ALLOW "approval names the server: allow" "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')" "AISEC_MCP_APPROVAL=foo"
+t ALLOW "approval matches file content"    "$(claude Write '{"file_path":"/r/.mcp.json","content":"{\"mcpServers\":{\"context7\":{}}}"}')" "AISEC_MCP_APPROVAL=context7"
+t ASK   "approval for another server: ask" "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')" "AISEC_MCP_APPROVAL=bar"
+t DENY  "approval unrelated ticket: codex"  "$(codex Bash '{"command":"codex mcp add foo -- npx foo"}')" "AISEC_MCP_APPROVAL=SEC-123"
+t DENY  "mode=block ignores approval"       "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')" "AISEC_MCP_GATE_MODE=block AISEC_MCP_APPROVAL=foo"
 t DENY  "unknown client declines"           '{"tool_input":{"command":"claude mcp add foo -- npx foo"}}'
-t ALLOW "empty payload"                     '{}'
-t ALLOW "garbage payload"                   'not json'
+t ALLOW "empty object payload"              '{}'
+t DENY  "garbage payload declines"          'not json'
+t DENY  "empty stdin declines"              ''
+t DENY  "tool_input not an object"          "$(claude Bash '"claude mcp add foo"')"
+t DENY  "array payload declines"            '[1,2]'
+# missing jq: PATH with everything the script needs except jq
+nojq=$(mktemp -d); for b in cat grep sed date; do ln -s "$(command -v $b)" "$nojq/$b"; done
+t DENY  "missing jq declines"               "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')" "PATH=$nojq"
+t DENY  "missing jq declines benign call too" "$(claude Bash '{"command":"ls"}')" "PATH=$nojq"
+rm -rf "$nojq"
+# --- coverage gaps from the 2026-09-16 review: absolute-path installers, shared-config field edits
+t ASK   "claude: absolute-path installer"   "$(claude Bash '{"command":"/opt/homebrew/bin/claude mcp add foo -- npx foo"}')"
+t ASK   "claude: node_modules bin installer" "$(claude Bash '{"command":"./node_modules/.bin/codex mcp add foo -- npx foo"}')"
+t ASK   "claude: sudo installer"            "$(claude Bash '{"command":"sudo -u dev gemini mcp add foo npx foo"}')"
+t ASK   "claude: cp onto config.toml"       "$(claude Bash '{"command":"cp replacement.toml ~/.codex/config.toml"}')"
+t ASK   "claude: mv onto claude_desktop cfg" "$(claude Bash '{"command":"mv new.json \"/Users/x/Library/Application Support/Claude/claude_desktop_config.json\""}')"
+t ASK   "claude: > .gemini/settings.json"   "$(claude Bash '{"command":"cat new.json > ~/.gemini/settings.json"}')"
+t ASK   "claude: sed -i command= in toml"   "$(claude Bash '{"command":"sed -i \"s/command = \\\"trusted\\\"/command = \\\"evil\\\"/\" ~/.codex/config.toml"}')"
+t ASK   "claude: Edit toml server command"  "$(claude Edit '{"file_path":"/h/.codex/config.toml","old_string":"command = \"trusted\"","new_string":"command = \"evil\""}')"
+t ASK   "claude: Edit toml server args"     "$(claude Edit '{"file_path":"/h/.codex/config.toml","old_string":"args = [\"a\"]","new_string":"args = [\"b\"]"}')"
+t ASK   "claude: Edit gemini server url"    "$(claude Edit '{"file_path":"/h/.gemini/settings.json","old_string":"\"url\": \"https://a\"","new_string":"\"url\": \"https://b\""}')"
+t ASK   "claude: Edit desktop cfg env"      "$(claude Edit '{"file_path":"/Users/x/Library/Application Support/Claude/claude_desktop_config.json","old_string":"\"env\": {}","new_string":"\"env\": {\"TOKEN\": \"x\"}"}')"
+t DENY  "codex: apply_patch toml command="  "$(codex apply_patch '{"command":"*** Begin Patch\n*** Update File: .codex/config.toml\n@@\n-command = \"trusted\"\n+command = \"evil\"\n*** End Patch"}')"
+t ALLOW "codex: apply_patch doc mentions mcp add" "$(codex apply_patch '{"command":"*** Begin Patch\n*** Update File: docs/setup.md\n@@\n+Run: claude mcp add foo -- npx foo\n*** End Patch"}')"
+t ALLOW "claude: Edit toml sandbox_mode"    "$(claude Edit '{"file_path":"/h/.codex/config.toml","old_string":"sandbox_mode = \"a\"","new_string":"sandbox_mode = \"b\""}')"
+t ALLOW "claude: cp config.toml elsewhere"  "$(claude Bash '{"command":"cp ~/.codex/config.toml /tmp/backup.toml"}')"
+t ALLOW "claude: sed -i toml model"         "$(claude Bash '{"command":"sed -i \"s/model = .*/model = x/\" ~/.codex/config.toml"}')"
+# --- decision log goes to the file, never stdout
+lg=$(mktemp); run "AISEC_HOOK_LOG=$lg" "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')"
+grep -q "mcp-install-gate	claude	ask	run an MCP installer command" "$lg" && ! printf '%s' "$out" | grep -q "mcp-install-gate	" && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: decision log"; }
+rm -f "$lg"
 # response shape checks
 run "" "$(claude Bash '{"command":"claude mcp add foo -- npx foo"}')"; printf '%s' "$out" | jq -e '.hookSpecificOutput.permissionDecision=="ask" and .hookSpecificOutput.hookEventName=="PreToolUse"' >/dev/null && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: claude ask JSON shape"; }
 run "" "$(copilot bash '{"command":"copilot mcp add foo"}')"; printf '%s' "$out" | jq -e '.permissionDecision=="ask" and (.permissionDecisionReason|length>0)' >/dev/null && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: copilot ask JSON shape"; }

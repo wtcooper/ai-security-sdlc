@@ -6,6 +6,7 @@ downstream credential, execute, classify the result, and write the audit record 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -24,10 +25,22 @@ api = FastAPI()
 def verify_caller(authorization: str | None) -> dict:
     """Workload identity of the caller (orchestrator/subagent).
     TODO(codeguard:authentication): verify mTLS peer or a short-lived JWT from GATEWAY_CALLER_JWT_ISSUER;
-    return {agent_id, tenant, user}. Static tokens are dev-only."""
+    return {agent_id, tenant, user}. Until that exists this stub FAILS CLOSED: it accepts only the exact
+    dev token in GATEWAY_DEV_STATIC_TOKEN (unset = every call is rejected with 501). Never ship the dev path."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "missing workload credential")
+    dev_token = os.environ.get("GATEWAY_DEV_STATIC_TOKEN")
+    if not dev_token:
+        raise HTTPException(501, "caller authentication not implemented — see TODO(codeguard:authentication)")
+    if authorization.removeprefix("Bearer ") != dev_token:
+        raise HTTPException(401, "invalid workload credential")
     return {"agent_id": "supervisor", "tenant": "dev", "user": "dev"}
+
+
+def verify_approval(body: dict, tool: str, args: dict) -> bool:
+    """TODO(excessive-agency): verify a signed approval token issued by the human-approval UI (subject =
+    run_id + tool + args hash, short expiry). Until implemented, nothing counts as approved."""
+    return False
 
 
 def broker_credential(tool: str, identity: dict) -> dict:
@@ -57,10 +70,9 @@ def call_tool(tool: str, body: dict, authorization: str | None = Header(default=
     audit({"kind": "tool_call", "run_id": run_id, "agent": ident["agent_id"], "tool": tool, "args": redact_for_audit(args), "allow": d.allow, "reason": d.reason})
     if not d.allow:
         raise HTTPException(403, d.reason)
-    if d.needs_approval and not body.get("approved"):
-        # STUB: `approved` is an unsigned caller flag — a steered orchestrator can set it. TODO(excessive-agency): replace with a
-        # signed approval token issued by the human-approval UI and verified here (subject = run_id + tool + args hash).
-        raise HTTPException(428, "approval required")
+    if d.needs_approval and not verify_approval(body, tool, args):
+        # An unsigned `approved` flag from the caller is not an approval — a steered orchestrator can set it.
+        raise HTTPException(428, "approval required (no verified approval token)")
     usage["tool_calls"] += 1
     spec = ALLOWLIST["tools"][tool]
     headers = broker_credential(tool, ident)

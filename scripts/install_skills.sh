@@ -3,7 +3,7 @@
 # reads natively. Use when a client's plugin/marketplace mechanism is unavailable (no repo access, no
 # console, air-gapped). Plain file copies: the user can edit them, and updates come from re-running this.
 #
-# Usage: install_skills.sh [--scope project|user|system] [--project DIR] [--plugins a,b] [--dry-run] <target>... | all
+# Usage: install_skills.sh [--scope project|user|system] [--project DIR] [--plugins a,b] [--dry-run] [--force] <target>... | all
 #   targets:
 #     claude-code  ~/.claude/skills/   .claude/skills/   system: <managed-settings dir>/.claude/skills/
 #     agents       ~/.agents/skills/   .agents/skills/   (read by Codex, Cursor, Copilot CLI, Gemini CLI)
@@ -15,18 +15,21 @@
 #   --plugins: comma list of plugin names to install (default: every plugin under plugins/)
 #   --scope system: root (or DESTDIR=<dir> to stage a package); only claude-code and codex have a system dir.
 #   --dry-run: print what would be copied, write nothing.
-# Each installed skill dir gets a `.ai-security-sdlc` provenance line (plugin@version). Re-running replaces
-# the skill dirs it owns and leaves everything else in the target directory alone.
+#   --force: also replace a same-name skill dir this script does not own, or an owned one edited locally.
+# Each installed skill dir gets a `.ai-security-sdlc` marker (plugin@version + content checksum). Re-running
+# replaces only skill dirs that carry the marker and are unchanged since install; a same-name dir without the
+# marker, or an owned dir with local edits, is left alone and reported (exit 1) unless --force is given.
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
-scope=user; project=$(pwd); dry=0; targets=""; plugins=""
+usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
+scope=user; project=$(pwd); dry=0; force=0; skipped=0; targets=""; plugins=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --scope) scope=$2; shift ;;
     --project) project=$(cd "$2" && pwd); shift ;;
     --plugins) plugins=$(printf '%s' "$2" | tr ',' ' '); shift ;;
     --dry-run) dry=1 ;;
+    --force) force=1 ;;
     -h|--help) usage; exit 0 ;;
     all) targets="claude-code agents" ;;
     claude-code|agents|codex|cursor|copilot|gemini) targets="$targets $1" ;;
@@ -57,6 +60,13 @@ target_dir() { # target_dir <target> -> directory or "" if unsupported at this s
   esac
 }
 version_of() { jq -r '.version // "unknown"' "$ROOT/plugins/$1/plugin.json" 2>/dev/null || echo unknown; }
+content_sum() { (cd "$1" && find . -type f ! -name .ai-security-sdlc | LC_ALL=C sort | xargs cksum | cksum | cut -d' ' -f1); }
+# owned_state <dir> -> "absent" | "unowned" | "modified" | "clean"
+owned_state() {
+  [ -e "$1" ] || { echo absent; return; }
+  [ -f "$1/.ai-security-sdlc" ] || { echo unowned; return; }
+  [ "$(sed -n 's/^sum=//p' "$1/.ai-security-sdlc")" = "$(content_sum "$1")" ] && echo clean || echo modified
+}
 
 echo "skills install — scope: $scope, plugins: $plugins"
 seen=""
@@ -69,13 +79,21 @@ for t in $targets; do
   for p in $plugins; do
     v=$(version_of "$p")
     for s in "$ROOT/plugins/$p/skills"/*/; do
-      name=$(basename "$s"); n=$((n+1))
-      if [ $dry -eq 1 ]; then echo "[dry-run] $t: would install $p/$name -> $dir/$name"; continue; fi
-      mkdir -p "$dir"; rm -rf "$dir/$name"; cp -R "$s" "$dir/$name"; printf '%s@%s\n' "$p" "$v" > "$dir/$name/.ai-security-sdlc"
-      [ "$scope" = system ] && chmod -R a+rX "$dir/$name"
+      name=$(basename "$s"); dest="$dir/$name"; state=$(owned_state "$dest")
+      case "$state" in
+        unowned|modified) if [ $force -eq 0 ]; then
+          [ "$state" = unowned ] && why="exists but was not installed by this script (no .ai-security-sdlc marker)" || why="was edited locally since install"
+          echo "$t: $dest $why — left alone; rerun with --force to replace it" >&2; skipped=$((skipped+1)); continue; fi ;;
+      esac
+      n=$((n+1))
+      if [ $dry -eq 1 ]; then echo "[dry-run] $t: would install $p/$name -> $dest${state:+ ($state)}"; continue; fi
+      mkdir -p "$dir"; rm -rf "$dest"; cp -R "$s" "$dest"; printf '%s@%s\nsum=%s\n' "$p" "$v" "$(content_sum "$dest")" > "$dest/.ai-security-sdlc"
+      [ "$scope" = system ] && chmod -R a+rX "$dest"
     done
   done
   [ $dry -eq 1 ] || echo "$t: installed $n skills -> $dir"
 done
 [ "$scope" = system ] && echo "note: system-scope skills load for every user (Claude Code: enterprise scope, highest precedence; Codex: /etc/codex/skills)."
+[ $skipped -eq 0 ] || echo "note: $skipped skill dir(s) left alone — see messages above (--force replaces them)."
 echo "note: copied skills lose their plugin namespace (invoke as /<skill>, not /<plugin>:<skill>) and carry no plugin-level hooks or mcp.json — install the mcp-install gate with plugins/secure-sdlc/hooks/install.sh."
+[ $skipped -eq 0 ]

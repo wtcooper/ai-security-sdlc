@@ -4,7 +4,8 @@ For security and IT admins deploying the ai-security-sdlc plugins and the **mcp-
 developer machines they manage. Covers Claude Code, Codex, Cursor, GitHub Copilot CLI and Gemini CLI,
 each two ways: (A) the vendor's own admin controls, (B) MDM / configuration management — managed
 settings files or profiles, plus install scripts. Vendor facts carry an `asOf` date and a source; hook
-and policy schemas drift, so re-verify any row older than six months before a fleet push. For a
+and policy schemas drift, so re-verify any row whose client version differs from
+[docs/compatibility.md](../compatibility.md), and any row older than 90 days, before a fleet push. For a
 tiered rollout of the gate alone on the four core tools, use the shorter [mcp-install-gate.md](mcp-install-gate.md).
 
 What you are deploying:
@@ -13,7 +14,7 @@ What you are deploying:
 |---|---|---|
 | Plugins (`secure-sdlc`, `verify`, `verify-ai`) | Agent Plugins 1.0 packages: `plugin.json` + `skills/` | Installed by each client's plugin mechanism from a marketplace URL you control |
 | mcp-install gate | The first business-logic hook: one POSIX script, [`mcp_install_gate.sh`](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh), that asks the user for consent before an agent installs an MCP server, plus a per-client hook stanza. Built on the reusable pattern in `plugins/secure-sdlc/hooks/` (normalize → rule → client-native respond), so the same rollout carries future rules | Script at a fixed absolute path on the endpoint; stanza in the client's machine-wide hook config |
-| Approval path | `AISEC_MCP_APPROVAL=<server-or-ticket>` in the agent's environment lets a vetted install through | Pair with each client's MCP allowlist (§4) so only approved servers are installable at all |
+| Approval path | `AISEC_MCP_APPROVAL=<server name as it appears in the command>` in the agent's environment lets that one vetted install through (a trusted-operator session bypass, ignored in `block` mode; not a verified approval record) | Pair with each client's MCP allowlist (§4) so only approved servers are installable at all — the allowlist is the trust boundary, the variable is a desk-side convenience |
 
 Prerequisites on endpoints: `jq`, a POSIX shell (macOS/Linux; Windows needs Git Bash or WSL for the gate —
 see §6), and network reach to your internal mirror of this repo.
@@ -404,7 +405,8 @@ to Gemini by this repo.
 
 ## 4. Pair the gate with MCP allowlists
 
-The gate stops an *agent* from adding a server; the approval variable is a human decision at the desk.
+The gate stops an *agent* from adding a server; the approval variable is a human decision at the desk,
+bound to the server it names and nothing else.
 On managed fleets add the organization-level equivalent so the only servers that can ever load are the
 ones you vetted (verify-ai `scan-mcp` is the vetting step):
 
@@ -420,7 +422,8 @@ ones you vetted (verify-ai `scan-mcp` is the vetting step):
 
 On the pilot machine, for each client: (1) the agent's attempt to run `<client> mcp add …` is blocked
 and nothing is written; (2) a direct write of `.mcp.json` is blocked; (3) unrelated shell and file work
-passes; (4) the same write passes with `AISEC_MCP_APPROVAL` set. The payload-level suites
+passes; (4) the same write passes with `AISEC_MCP_APPROVAL=<that server's name>` set, and a different
+server still prompts; (5) with `jq` removed from `PATH` the call is declined, not allowed. The payload-level suites
 (`test_mcp_install_gate.sh`, `test_install.sh` in `plugins/secure-sdlc/hooks/`) run anywhere in seconds and
 are the regression check to wire into the pipeline that rebuilds the payload.
 
@@ -465,7 +468,9 @@ but note it — the hook has not been exercised, so run the direct cases too.
 | 8 | Inventory (allow) | "What MCP servers do I have configured right now, and what can each one do?" | `mcp list`, reads `.mcp.json` | **allowed**, no prompt |
 | 9 | Unrelated config edit (allow) | Codex: "Change my approval policy to never ask." · Gemini: "Switch my theme to dark." | edits the same shared config without MCP keys | **allowed** |
 | 10 | Look-alike (allow) | "Write a short doc explaining what the mcpServers section of an .mcp.json file is for." · "Install the project's Python dependencies." | writes a markdown file / `pip install` | **allowed** |
-| 11 | Consent given | Repeat 2 and accept the prompt (Codex/Gemini: say yes to the agent, then `export AISEC_MCP_APPROVAL=context7-reviewed` and ask again) | install proceeds | **allowed**; clean up with `claude mcp remove --scope project context7` |
+| 11 | Consent given | Repeat 2 and accept the prompt (Codex/Gemini: say yes to the agent, then `export AISEC_MCP_APPROVAL=context7` and ask again) | install proceeds | **allowed**; clean up with `claude mcp remove --scope project context7` |
+| 12 | Approval does not transfer | With `AISEC_MCP_APPROVAL=context7` still set: "Also add the GitHub MCP server." | `mcp add github …` | consent again — the approval named context7, not github |
+| 13 | Reconfigure an existing server | Codex: "Point my filesystem MCP server at my Downloads folder instead." | edits `args`/`command` under an existing `[mcp_servers.*]` entry, no header in the edit | consent |
 
 Minimum per surface: Claude Code 1, 3, 4, 8, 11 · Claude Desktop Cowork 1, 7 · Codex 3, 5, 7, 9 ·
 Cursor 2, 6, 8 · Copilot in VS Code 1, 4, 6 · Copilot CLI 3, 5, 8.
@@ -553,3 +558,19 @@ See "Add your own rule" in `plugins/secure-sdlc/hooks/README.md`.
   supported path.
 - **Gemini** gets the hook and copied skills (§2.2) but no extension package (no extension manifest in this repo by design).
 - **Fallback file copies** (§2.2) are user-editable at user scope and do not self-update; copied skills are flat (no plugin namespace, no plugin-level `mcp.json`).
+- **Detectable scope of the gate**: it sees the tool call's command, paths and written text. Arbitrary programs that rewrite a config, `sed` expressions that name neither an MCP key nor a server field, client UIs, session flags and plugin bundles are outside it — pair with the MCP allowlists in §4.
+- **Timeouts**: Copilot documents that a hook timeout falls through to normal permission handling; other clients' timeout behavior is not observed in this repo. Do not describe managed placement as fail-closed on its own.
+
+## 9. Updating what is already deployed
+
+Files copied to endpoints do not update themselves. The update channel is the same as the install:
+- **Hook**: rebuild the payload from the new tag (§2) and redeploy; `install.sh` is idempotent and a
+  config that already references the gate is left alone, so replace the script file and the managed
+  config together. `sh install.sh --check <tools>` on an endpoint verifies the installed state.
+- **Copied skills**: rerun `install_skills.sh`. It replaces only skill directories it installed and
+  that are unchanged since (a `.ai-security-sdlc` marker with a content checksum); a same-name
+  directory it does not own, or one a user edited, is left alone and reported — `--force` replaces
+  them once someone has looked. That is the reviewed migration path for user-editable copies.
+- **Seeded standards**: the corpus belongs to the org after `init`; a newer seed is taken by running
+  `security-standards` init again, which diffs seed pages against the store and proposes additions
+  page by page. Mandatory/default enforcement, owners and exceptions are set by the org, not the seed.

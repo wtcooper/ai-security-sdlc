@@ -3,6 +3,8 @@ title: Excessive agency
 domain: security
 applies-to: [agents, tools]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---

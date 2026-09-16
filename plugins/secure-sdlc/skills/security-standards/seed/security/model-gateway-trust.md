@@ -3,6 +3,8 @@ title: Model and gateway trust
 domain: security
 applies-to: [infra, gateway]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---

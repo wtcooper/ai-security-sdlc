@@ -18,8 +18,20 @@ for d in .cursor/skills .github/skills .gemini/skills .agents/skills; do [ "$(ls
 mkdir -p $H/.claude/skills/my-own && echo x > $H/.claude/skills/my-own/SKILL.md
 before=$(find $H/.claude/skills -type f | sort | xargs cat | cksum); HOME=$H sh scripts/install_skills.sh claude-code >/dev/null 2>&1; after=$(find $H/.claude/skills -type f | sort | xargs cat | cksum)
 [ "$before" = "$after" ] && [ -f $H/.claude/skills/my-own/SKILL.md ] && ok || bad "idempotency / foreign dir"
-# stale file inside an owned skill is removed on reinstall
-echo junk > $H/.claude/skills/security-profile/stale.txt; HOME=$H sh scripts/install_skills.sh claude-code >/dev/null 2>&1; [ ! -e $H/.claude/skills/security-profile/stale.txt ] && ok || bad "stale file kept"
+# a locally edited owned skill survives an ordinary install (exit 1, reported); --force replaces it
+echo junk > $H/.claude/skills/security-profile/stale.txt
+HOME=$H sh scripts/install_skills.sh claude-code >/dev/null 2>&1 && bad "modified owned should exit 1" || ok
+[ -e $H/.claude/skills/security-profile/stale.txt ] && ok || bad "modified owned skill was replaced"
+HOME=$H sh scripts/install_skills.sh --force claude-code >/dev/null 2>&1 || bad "force exit"; [ ! -e $H/.claude/skills/security-profile/stale.txt ] && ok || bad "force did not replace"
+# a same-name skill we do not own survives (exit 1); --force replaces it
+rm -rf $H/.agents/skills/security-profile; mkdir -p $H/.agents/skills/security-profile; echo theirs > $H/.agents/skills/security-profile/SKILL.md
+HOME=$H sh scripts/install_skills.sh agents >/dev/null 2>&1 && bad "unowned should exit 1" || ok
+[ "$(cat $H/.agents/skills/security-profile/SKILL.md)" = theirs ] && ok || bad "unowned skill was deleted"
+[ "$(ls $H/.agents/skills | wc -l | tr -d ' ')" = "$total" ] && ok || bad "other skills not reinstalled around the unowned one"
+HOME=$H sh scripts/install_skills.sh --force agents >/dev/null 2>&1 || bad "force agents exit"; grep -q '^secure-sdlc@' $H/.agents/skills/security-profile/.ai-security-sdlc && ok || bad "force did not take over"
+# dry-run reports the collision without writing
+mkdir -p $H/.cursor/skills/security-profile; echo theirs > $H/.cursor/skills/security-profile/SKILL.md
+HOME=$H sh scripts/install_skills.sh --dry-run cursor >/dev/null 2>&1; [ "$(cat $H/.cursor/skills/security-profile/SKILL.md)" = theirs ] && [ ! -e $H/.cursor/skills/security-planner ] && ok || bad "dry-run touched files"
 # system scope staged
 D=$T/pkg; DESTDIR=$D sh scripts/install_skills.sh --scope system claude-code codex cursor >/dev/null 2>&1 || bad "system exit"
 if [ "$(uname -s)" = Darwin ]; then cs="$D/Library/Application Support/ClaudeCode/.claude/skills"; else cs=$D/etc/claude-code/.claude/skills; fi

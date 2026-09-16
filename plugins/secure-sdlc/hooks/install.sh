@@ -2,7 +2,7 @@
 # install.sh — wire the mcp-install gate into one or more coding agents. All per-client logic lives
 # here so the same script can be run by a person, by the install-hooks skill, or by an admin/MDM job.
 #
-# Usage: install.sh [--scope project|user|system] [--project DIR] [--dry-run] <tool>... | all
+# Usage: install.sh [--scope project|user|system] [--project DIR] [--dry-run|--check] <tool>... | all
 #   tools: claude-code  codex  cursor  copilot  gemini
 #   --scope project (default): script -> DIR/.ai-security/hooks/, config inside the repo (team-reviewable)
 #   --scope user:              script -> ~/.ai-security/hooks/,  config in the user's home (every project)
@@ -11,16 +11,19 @@
 #                              an MDM package payload instead of writing to /). Codex's managed layer is
 #                              TOML, so for codex the script prints the requirements.toml block to add.
 #   --dry-run: print what would be written, write nothing.
+#   --check:   health check of an existing install — jq present, script present and executable, each client
+#              config references it, and the script declines a sample installer payload. Exit 1 on any failure.
 # Idempotent: a config that already references mcp_install_gate.sh is left alone. Needs jq.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
-usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
-scope=project; project=$(pwd); dry=0; tools=""
+usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+scope=project; project=$(pwd); dry=0; check=0; tools=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --scope) scope=$2; shift ;;
     --project) project=$(cd "$2" && pwd); shift ;;
     --dry-run) dry=1 ;;
+    --check) check=1 ;;
     -h|--help) usage; exit 0 ;;
     all) tools="claude-code codex cursor copilot gemini" ;;
     claude-code|codex|cursor|copilot|gemini) tools="$tools $1" ;;
@@ -38,7 +41,7 @@ case "$scope" in
   project) script_dir="$project/.ai-security/hooks"; script_ref=".ai-security/hooks/mcp_install_gate.sh" ;;
   system)
     case "$os" in Darwin|Linux) ;; *) echo "--scope system supports macOS and Linux only (Windows: see docs/playbooks)" >&2; exit 1 ;; esac
-    [ "$(id -u)" -eq 0 ] || [ -n "$DESTDIR" ] || [ $dry -eq 1 ] || { echo "--scope system needs root (or DESTDIR=<dir> to stage a package)" >&2; exit 1; }
+    [ "$(id -u)" -eq 0 ] || [ -n "$DESTDIR" ] || [ $dry -eq 1 ] || [ $check -eq 1 ] || { echo "--scope system needs root (or DESTDIR=<dir> to stage a package)" >&2; exit 1; }
     script_dir="$DESTDIR/usr/local/lib/ai-security/hooks"; script_ref="/usr/local/lib/ai-security/hooks/mcp_install_gate.sh" ;;
 esac
 
@@ -117,6 +120,23 @@ notes() { # notes <tool>
 }
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+if [ $check -eq 1 ]; then # health check: report, never write
+  bad=0; say() { echo "$1"; case "$1" in FAIL*) bad=1 ;; esac; }
+  case "$script_ref" in /*) abs=$script_ref ;; *) abs="$project/$script_ref" ;; esac
+  [ -x "$abs" ] && say "ok    script present and executable: $abs" || say "FAIL  script missing or not executable: $abs"
+  for t in $tools; do
+    tgt=$(target "$t")
+    if [ -z "$tgt" ]; then say "info  $t: system scope is TOML-managed — check /etc/codex/requirements.toml for [[hooks.PreToolUse]] with $script_ref"; continue; fi
+    if [ -f "$tgt" ] && grep -q mcp_install_gate.sh "$tgt"; then say "ok    $t: $tgt references the gate"; else say "FAIL  $t: $tgt missing or does not reference the gate"; fi
+  done
+  if [ -x "$abs" ]; then
+    rc=0; printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | (cd "$project" && "$abs" >/dev/null 2>&1) || rc=$?
+    [ $rc -eq 2 ] && say "ok    installer payload declined (exit 2)" || say "FAIL  installer payload not declined (exit $rc)"
+    if printf '{"tool_input":{"command":"ls"}}' | (cd "$project" && "$abs" >/dev/null 2>&1); then say "ok    benign payload allowed"; else say "FAIL  benign payload not allowed"; fi
+  fi
+  echo "client versions in use (record in docs/compatibility.md when you re-verify):"; for c in claude codex agent copilot gemini; do command -v "$c" >/dev/null 2>&1 && printf '  %s %s\n' "$c" "$("$c" --version 2>/dev/null | head -1)"; done
+  exit $bad
+fi
 echo "mcp-install gate — scope: $scope, script: $script_ref"
 if [ $dry -eq 1 ]; then echo "[dry-run] would copy $HERE/mcp_install_gate.sh -> $script_dir/"; else
   mkdir -p "$script_dir" && cp "$HERE/mcp_install_gate.sh" "$script_dir/" && chmod 755 "$script_dir/mcp_install_gate.sh"
@@ -136,4 +156,4 @@ for t in $tools; do
   fi
   notes "$t"
 done
-echo "approve an install with AISEC_MCP_APPROVAL=<server-or-ticket>; verify with: printf '{\"tool_input\":{\"command\":\"claude mcp add x -- npx x\"}}' | $script_ref ; echo \$?   (expect 2)"
+echo "approve a vetted install for one session with AISEC_MCP_APPROVAL=<server name as it appears in the command>; verify any time with: sh install.sh --check --scope $scope $tools"

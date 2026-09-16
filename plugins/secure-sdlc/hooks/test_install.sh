@@ -28,6 +28,10 @@ before=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json
 [ "$before" = "$after" ] && ok || bad "second install changed files"
 # --- installed script works from the project root, as a client would run it
 (cd $P && printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | .ai-security/hooks/mcp_install_gate.sh >/dev/null 2>&1); [ $? -eq 2 ] && ok || bad "installed gate did not block"
+# --- health check: passes on the installed project, fails on an empty one, never writes
+./install.sh --check --project $P all >/dev/null 2>&1 && ok || bad "check should pass after install"
+E=$T/empty; mkdir -p $E; ./install.sh --check --project $E all >/dev/null 2>&1 && bad "check should fail on empty project" || ok
+[ ! -e $E/.ai-security ] && [ ! -e $E/.claude ] && ok || bad "check wrote files"
 # --- user scope into a throwaway HOME, absolute paths
 H=$T/home; mkdir -p $H; HOME=$H ./install.sh --scope user codex gemini copilot >/dev/null 2>&1 || bad "user-scope exit"
 [ -x $H/.ai-security/hooks/mcp_install_gate.sh ] && ok || bad "user script not copied"

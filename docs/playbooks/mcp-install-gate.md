@@ -17,9 +17,11 @@ MCP server entries to shared configs (Codex `config.toml`, `~/.claude.json`, Cla
 `claude_desktop_config.json`), it asks the **user** for consent. In Claude Code, Copilot (CLI and VS Code)
 and Cursor's shell hook that is the client's native permission prompt; in Codex, Gemini and Cursor's
 file-edit hook, which have no `ask`, the agent is told the call was not run and to ask the user before
-retrying. Reads, `mcp list`, and non-MCP edits pass. `AISEC_MCP_APPROVAL=<server-or-ticket>` in the
-agent's environment records consent for headless runs; `AISEC_MCP_GATE_MODE=block` turns it into a hard
-stop everywhere. Two
+retrying. Reads, `mcp list`, and non-MCP edits pass. `AISEC_MCP_APPROVAL=<server name as it appears in
+the command>` in the agent's environment is a trusted-operator session bypass for headless runs — it
+only lets through a call that names that server, and it is not a verified approval record;
+`AISEC_MCP_GATE_MODE=block` turns the gate into a hard stop everywhere and ignores the variable. Without
+`jq`, or on a malformed payload, the gate declines rather than allows. Two
 files per client: the script `mcp_install_gate.sh` and a hook stanza in that client's hook config.
 
 ## 0. Prerequisites
@@ -190,7 +192,9 @@ but note it — the hook has not been exercised, so run the direct cases too.
 | 8 | Inventory (allow) | "What MCP servers do I have configured right now, and what can each one do?" | `mcp list`, reads `.mcp.json` | **allowed**, no prompt |
 | 9 | Unrelated config edit (allow) | Codex: "Change my approval policy to never ask." · Gemini: "Switch my theme to dark." | edits the same shared config without MCP keys | **allowed** |
 | 10 | Look-alike (allow) | "Write a short doc explaining what the mcpServers section of an .mcp.json file is for." · "Install the project's Python dependencies." | writes a markdown file / `pip install` | **allowed** |
-| 11 | Consent given | Repeat 2 and accept the prompt (Codex/Gemini: say yes to the agent, then `export AISEC_MCP_APPROVAL=context7-reviewed` and ask again) | install proceeds | **allowed**; clean up with `claude mcp remove --scope project context7` |
+| 11 | Consent given | Repeat 2 and accept the prompt (Codex/Gemini: say yes to the agent, then `export AISEC_MCP_APPROVAL=context7` and ask again) | install proceeds | **allowed**; clean up with `claude mcp remove --scope project context7` |
+| 12 | Approval does not transfer | With `AISEC_MCP_APPROVAL=context7` still set: "Also add the GitHub MCP server." | `mcp add github …` | consent again — the approval named context7, not github |
+| 13 | Reconfigure an existing server | Codex: "Point my filesystem MCP server at my Downloads folder instead." | edits `args`/`command` under an existing `[mcp_servers.*]` entry, no header in the edit | consent |
 
 Minimum per surface: Claude Code 1, 3, 4, 8, 11 · Claude Desktop Cowork 1, 7 · Codex 3, 5, 7, 9 ·
 Cursor 2, 6, 8 · Copilot in VS Code 1, 4, 6 · Copilot CLI 3, 5, 8.
@@ -223,6 +227,18 @@ page, VS Code's *Add MCP server*, Claude Desktop extensions), session flags (`--
 `--additional-mcp-config`), and servers bundled in plugins. Those are the job of each client's MCP
 allowlist (full playbook §4), which is the natural next tier alongside skills.
 
+### 3.1 What to measure during the pilot
+
+Set `AISEC_HOOK_LOG=~/.ai-security/hook-decisions.log` in the pilot users' shells (the gate appends
+one tab-separated line per decision: time, rule, client, decision, action; nothing goes to stdout).
+From the log and the users' notes, record per client:
+
+- protected-action misses (an install went through without a prompt) and false prompts (scenarios 8–10);
+- wait time at the prompt, and how often the user approved vs declined — a gate is both a control point
+  and a bottleneck, and the pilot decides whether `ask` is the right default;
+- incomplete or failed runs of the gate itself (declines caused by missing `jq` or a payload the gate
+  could not read — `sh install.sh --check` on the machine explains which).
+
 ## 4. Rollback
 
 Pilot (user scope): delete the stanza that references `mcp_install_gate.sh` from the file in §1's table
@@ -235,7 +251,9 @@ package and redeploy; the script directory can stay.
 - [ ] Pilot users on all six surfaces ran their minimum scenario set; results recorded per client version.
 - [ ] Zero false prompts on scenarios 8–10 during the pilot.
 - [ ] Payload built from a tagged release of the mirror; `test_mcp_install_gate.sh` and
-      `test_install.sh` pass in the pipeline that builds it.
+      `test_install.sh` pass in the pipeline that builds it; client versions recorded in
+      `docs/compatibility.md` match the pilot machines (`sh install.sh --check` prints them).
+- [ ] Pilot metrics (§3.1) reviewed: misses, false prompts, wait time, approve/decline ratio.
 - [ ] Claude: decided between drop-in file, MDM profile, or console, and set `managedSourcesBehavior`
       if more than one is in play.
 - [ ] Copilot: VS Code per-user delivery scheduled; CLI policy file ownership checked.

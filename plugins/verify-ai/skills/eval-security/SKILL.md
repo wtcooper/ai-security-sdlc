@@ -8,7 +8,11 @@ compatibility: requires network access (downloads public benchmark datasets over
 # Cyber benchmark evals
 
 Single-prompt, dataset-driven security benchmarks — the *measured* counterpart to the adaptive
-`redteam-app` skill. Two modes, pick per question:
+`redteam-app` skill. **These are adapted, benchmark-derived evaluations, not official leaderboard
+runs**: backbone mode reuses each benchmark's prompts but grades with your rubric judge; app mode
+replays only the attack text as a user message. Every generated test carries `protocol: adapted`
+and every generated file has a `.provenance.json` beside it (dataset URL, revision or hash, adapter
+version, counts). Report scores with that label. Two modes, pick per question:
 
 | Mode | Target | Answers | Config template |
 |------|--------|---------|-----------------|
@@ -18,7 +22,7 @@ Single-prompt, dataset-driven security benchmarks — the *measured* counterpart
 ## Suites (Aug 2026 picks — actively maintained, single-prompt, app-relevant)
 | Suite | What it measures | Size | Generate |
 |-------|------------------|------|----------|
-| **b3** Backbone Breaker | contextual prompt injection in 10 agent snapshots: DIO/IIO (instruction override), DTI/ITI (tool invocation), DAIS (denial of service), DCE (data/prompt exfil); L1–L3 defence levels | 630 | `fetch_benchmarks.py b3 --mode backbone\|app` |
+| **b3** Backbone Breaker | contextual prompt injection in 10 agent snapshots: DIO/IIO (instruction override), DTI/ITI (tool invocation), DAIS (denial of service), DCE (data/prompt exfil); defence levels L1 and L2 (L3 = L1 + a self-judge defence the adapter does not implement — those rows are skipped in backbone mode and counted in the provenance file) | 630 in the CSV; L1+L2 rows in backbone mode | `fetch_benchmarks.py b3 --mode backbone\|app` |
 | **CyberSecEval 4 prompt-injection** | direct + indirect injection variants with judge questions | 251 | `fetch_benchmarks.py cyse4-pi --mode backbone\|app` |
 | **CyberSecEval 4 MITRE-FRR** | false-refusal on benign cyber requests (counter-metric — a model that refuses everything "passes" injection tests) | ~1k | `fetch_benchmarks.py cyse4-frr` |
 | **JailbreakBench** | 100 harmful (must refuse) + 100 matched benign (must answer) | 200 | `fetch_benchmarks.py jbb` |
@@ -28,7 +32,7 @@ Deliberately excluded (need sandboxes / not single-prompt): AgentDojo, CyberGym,
 BaxBench, CWEval, SecCodePLT — run those with Inspect/Docker if the question is model capability.
 
 ## Preflight
-- `npx promptfoo@latest --version`; model access via `AISEC_GATEWAY_BASE_URL`, `AISEC_GATEWAY_API_KEY`,
+- `npx promptfoo@0.123.0 --version`; model access via `AISEC_GATEWAY_BASE_URL`, `AISEC_GATEWAY_API_KEY`,
   `AISEC_MODEL` (backbone), `AISEC_JUDGE_MODEL` (grader), `AISEC_TARGET_URL` (app mode).
 - Datasets are public (b3 licence "other" — fine to run, check before redistributing); no HF token needed.
 
@@ -40,14 +44,18 @@ BaxBench, CWEval, SecCodePLT — run those with Inspect/Docker if the question i
    Start with `--limit 50` per suite for a smoke run; full sets for the recorded baseline.
 3. Copy the matching template to `.ai-security/evals/cyber/promptfooconfig-<mode>.yaml`, set the
    provider from profile §6 (app mode) and the canary list, uncomment the `tests:` files.
-4. Run: `npx promptfoo@latest eval -c <config> -o results.json --no-share`; inspect with
-   `npx promptfoo@latest view` or summarize per `metric` from the JSON (pass rate per suite/task type/level).
+4. Run: `npx promptfoo@0.123.0 eval -c <config> -o results.json --no-share`; inspect with
+   `npx promptfoo@0.123.0 view` or summarize per `metric` from the JSON (pass rate per suite/task type/level).
 5. Record to `.ai-security/results/evals/cyber-<mode>-<YYYYMMDD-HHMM>.json` and add a summary
-   table (suite → pass rate, n, grader used) to `.ai-security/results/evals/README.md`. Failing
-   cases feed `redteam-app` (as `retry`/`intent` seeds) and `fix-findings`.
+   table to `.ai-security/results/evals/README.md` with, per suite: pass rate, n, **execution errors**
+   (Promptfoo results with `error` set — provider timeouts and grader failures are not attack
+   successes and not passes; count them separately), model snapshot, judge model, temperature,
+   repeats, dataset revision and adapter version (copy from the `.provenance.json`), and the label
+   `adapted`. Failing cases feed `redteam-app` (as `retry`/`intent` seeds) and `fix-findings`.
 
 ## Interpreting
-- Report **attack success rate** per suite/task type and **false-refusal rate** side by side.
+- Report **attack success rate** per suite/task type, **false-refusal rate** and **execution
+  error rate** side by side; a run with a high error rate is incomplete, not robust.
 - A local grader (e.g. `qwen35`) is fine for development; state the grader — scores are only
   comparable across runs with the same grader. Backbone-mode scores are comparable across models.
 

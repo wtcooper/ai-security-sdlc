@@ -1,0 +1,51 @@
+name: "Validate and test"
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Every skill, hook and script change runs the deterministic suites: repo validation (manifests,
+# JSON, frontmatter, spec schema), the hook payload suites, both installers, the Python helper
+# negative-case tests and the standards-corpus lint on the shipped seed. Results are retained as a
+# build artifact so a rollout can point at the run that proved a change. Model-driven behavior
+# evals need model access and are run manually (docs/playbooks/mcp-install-gate.md §3).
+defaults:
+  run:
+    shell: bash        # explicit bash = `-eo pipefail`, so a failing suite piped through tee still fails the step
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv (spec-schema validation in validate.sh) and jq
+        run: |
+          python -m pip install --quiet uv
+          sudo apt-get install -y -qq jq >/dev/null
+      - name: Validate repository
+        run: bash scripts/validate.sh | tee results-validate.txt
+      - name: Hook payload suite (mcp-install gate)
+        run: sh plugins/secure-sdlc/hooks/test_mcp_install_gate.sh | tee results-gate.txt
+      - name: Opt-in hook suite
+        run: sh plugins/secure-sdlc/skills/security-guidance/references/hooks/scripts/test_opt_in_hooks.sh | tee results-opt-in-hooks.txt
+      - name: Hook installer suite
+        run: sh plugins/secure-sdlc/hooks/test_install.sh | tee results-install.txt
+      - name: Skills installer suite
+        run: sh scripts/test_install_skills.sh | tee results-install-skills.txt
+      - name: Python helper tests
+        run: python3 scripts/test_helpers.py 2>&1 | tee results-helpers.txt
+      - name: Standards seed lint
+        run: python3 plugins/secure-sdlc/skills/security-standards/scripts/lint_corpus.py plugins/secure-sdlc/skills/security-standards/seed | tee results-lint.txt
+      - name: Retain results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.sha }}
+          path: results-*.txt
+          retention-days: 90

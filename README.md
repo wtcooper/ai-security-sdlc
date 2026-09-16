@@ -39,9 +39,13 @@ What they cannot know is an organization's rules. The PreToolUse hook is where t
 [plugins/secure-sdlc/hooks/](plugins/secure-sdlc/hooks/) is a pattern for writing one rule that runs in
 every client: **one POSIX script → normalize the payload (command, paths, content, client) → rule →
 respond in the client's own vocabulary** (allow · native `ask` so the user decides · decline with
-instructions), with a `_MODE=block` switch and a `_APPROVAL` variable for headless consent. The first rule
-is the **mcp-install gate**: before an agent runs `mcp add` or edits an MCP config, the user is asked.
+instructions), with a `_MODE=block` switch, an action-bound `_APPROVAL` variable for headless consent, and a
+fail-closed contract (no `jq` or a malformed payload declines rather than allows). The first rule
+is the **mcp-install gate**: before an agent runs `mcp add` or edits an MCP config, the user is asked. Two
+opt-in rules (test-file protection, deploy gate) ship on the same pattern under `security-guidance`.
 `TEMPLATE_policy_hook.sh` is the starting point for the next rule; the playbooks show how to roll one out.
+A hook gates what it can see — the call's command, paths and content — so each rule documents its
+detectable scope, and the trust boundary for MCP stays with each client's managed allowlist.
 
 ## Install
 
@@ -73,12 +77,26 @@ There are no per-client manifest wrappers (`.claude-plugin/`, `.codex-plugin/`, 
 `gemini-extension.json`) inside the plugins; clients that need one are limited to what the spec
 package carries. Hook details, payload tests and the verification matrix: `plugins/secure-sdlc/hooks/README.md`.
 
+### What the gate support claims rest on
+
+| Client | Documented | Payload-tested | Live agent run | Managed rollout exercised |
+|---|---|---|---|---|
+| Claude Code 2.1.258 | yes | yes | yes | staged payload only |
+| Codex 0.153.2 | yes | yes | yes | staged payload only |
+| Cursor 2026.09.02 | yes | yes | **no** | staged payload only |
+| Copilot CLI 1.0.82 / VS Code | yes | yes | **no** (plugin install yes, hook firing no) | staged payload only |
+| Gemini CLI 0.60.0 | yes | yes | **no** | staged payload only |
+
+Full matrix with headless, timeout and failure-mode columns: `plugins/secure-sdlc/hooks/README.md`
+§Assurance matrix. Versions and the re-verification rule: [docs/compatibility.md](docs/compatibility.md).
+Rows marked **no** are payload-level evidence only — treat them as pilot-grade until a live run is recorded.
+
 Then say **"get started with ai-security"** — the `security-guidance` skill orients you, hardens
 your agent, and walks the setup order (standards init → profile → per-feature planning).
 
 Some skills depend on upstream OSS (installed on first use if missing):
 - CodeGuard: `/plugin marketplace add cosai-oasis/project-codeguard` → `codeguard-security@project-codeguard`
-- Promptfoo: `/plugin marketplace add promptfoo/promptfoo` → `promptfoo@promptfoo` (or just `npx promptfoo@latest`)
+- Promptfoo: `/plugin marketplace add promptfoo/promptfoo` → `promptfoo@promptfoo` (or just `npx promptfoo@0.123.0`)
 - Strix: `pipx install strix-agent` (+ Docker); optional skills `npx skills add usestrix/strix`
 - Asset scanners (via `uvx`): `cisco-ai-mcp-scanner`, `cisco-ai-skill-scanner`, promptfoo `modelaudit`
 - Code scanners for `scan-code` — all optional, each missing one is reported as a coverage gap:
@@ -111,7 +129,7 @@ curl -s -X POST localhost:8010/chat -H 'content-type: application/json' -d '{"me
 ## Prerequisites
 
 - **Docker** (Colima works on macOS) — testbed gateway and Strix.
-- **Node ≥ 22.22** — Promptfoo (`npx promptfoo@latest`).
+- **Node ≥ 22.22** — Promptfoo (`npx promptfoo@0.123.0`; the pinned, validated version — see [docs/compatibility.md](docs/compatibility.md)).
 - **Python ≥ 3.12**, [`uv`](https://docs.astral.sh/uv/) — helper scripts, Strix.
 - **Ollama** with `gemma4` + `qwen3.5` for free local models (or supply provider keys to the gateway).
 - **`gh`** CLI — CodeQL results.
@@ -174,10 +192,14 @@ testbed/                    LiteLLM gateway + sample target app
 scripts/sync_manifests.py   regenerate the two root marketplaces from each plugin.json
 scripts/validate.sh         marketplaces in sync, JSON parses, SKILL frontmatter, no stray wrappers
 scripts/install_skills.sh   fallback: copy skills into each client's skill directories (user/project/system)
-docs/                       architecture.md, gateway.md, security-evaluations.md, playbooks/ (enterprise rollout; mcp-install gate)
+scripts/test_helpers.py     negative-case tests for the Python helpers (scan containment, run status, benchmark labels, corpus lint)
+docs/                       architecture.md, gateway.md, compatibility.md, worked-example.md, security-evaluations.md,
+                            playbooks/ (enterprise rollout; mcp-install gate)
+.github/workflows/          codeql.yml (SAST on push) · tests.yml (validation + every deterministic suite, results retained)
 ```
 
 Edit a plugin's `plugin.json`, then `uv run python scripts/sync_manifests.py` and `bash scripts/validate.sh`.
+Contribution rules, ownership of policy and hook changes, and release criteria: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

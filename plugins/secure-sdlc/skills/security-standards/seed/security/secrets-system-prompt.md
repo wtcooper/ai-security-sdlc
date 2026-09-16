@@ -3,6 +3,8 @@ title: Secrets and the system prompt
 domain: security
 applies-to: [prompts, config]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---
@@ -16,7 +18,9 @@ sources: [ai-controls.md@e139b4a]
 - The system prompt contains nothing whose disclosure would be a security incident — test by
   asking "could we publish this prompt?"
 - Prompt-extraction attempts are expected and non-fatal; defenses (canaries, refusal) are
-  monitoring signals, not the protection.
+  monitoring signals, not the protection. Disclosure of a secret-free system prompt is a
+  low-severity finding (or none, by policy); disclosure of a secret or internal note through the
+  prompt is an incident — the two are graded differently in evals and red-team results.
 
 ## Verified by
 `redteam-app` (prompt-extraction objectives), `eval-security` (canary checks in benchmark

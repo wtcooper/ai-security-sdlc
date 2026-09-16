@@ -3,6 +3,8 @@ title: Project CodeGuard rule pointers
 domain: security
 applies-to: [all-code]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: ["https://github.com/cosai-oasis/project-codeguard", "CODEGUARD_REF v1.4.0"]
 ---

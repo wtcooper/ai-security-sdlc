@@ -41,7 +41,13 @@
     (`<slug>/intent.md`, `spec.md`, `plan.md`).
   - `.ai-security/starter.md` — which starter template was applied and its open TODOs (written by
     the `security-guidance` scaffold path, read by `security-planner`).
-  `fix-findings` reads `results/**` and normalizes everything into one triage table.
+  - `.ai-security/evidence/<slug>.md` — **committed, redacted** evidence record per feature: plan
+    requirement id → check → result reference (results file name or CI run id) → commit → pass/fail.
+    Raw results stay ignored; this is what proves a requirement was checked (written by
+    `fix-findings`, referenced by the plan's approval record).
+  `fix-findings` reads `results/**` and normalizes everything into one triage table, with execution
+  errors (unparseable outputs, partial lanes, provider failures) listed separately so a broken run is
+  never read as clean.
 
 ## Data flow
 ```
@@ -73,7 +79,8 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
 - **security-guidance** wraps no tool by design: vendor setup facts are dated (`asOf`) and sourced from
   live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps;
   hook templates are inert scripts installed only with explicit approval; the one built-in hook,
-  the `hooks/` mcp-install gate, is narrow (MCP installs only) and has an env-var approval path.
+  the `hooks/` mcp-install gate, is narrow (MCP installs only), fails closed when it cannot evaluate a
+  call, and has an action-bound session bypass (`AISEC_MCP_APPROVAL=<server name>`) for headless use.
 - **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules
   read JIT) and multi-client. We scope it to a feature and turn it into a build-plan artifact.
 - **Promptfoo** covers both benign evals and adaptive red teaming, targets arbitrary HTTP apps with
@@ -94,6 +101,18 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   analysis only — never executing the asset). Their LLM-as-judge points at the same gateway; all
   emit SARIF (mcp-scanner via our converter) into the shared results dir. Same skills serve both
   vetting a downloaded asset and scanning one you author before publishing.
+
+## The maintain stage is a human-initiated loop
+
+Today nothing in this repo watches production. The loop runs when a person (or a CI job) puts a
+result under `.ai-security/results/<phase>/` and runs `fix-findings`, which fixes, adds a regression,
+re-verifies and proposes standards/profile/plan updates. That is a legitimate adoption stage and it is
+named as such. The adapter to an existing incident or monitoring system is deliberately thin: export
+the incident as SARIF (one result, `ruleId` = incident class, `properties.status: open`) or as a
+Promptfoo-style failing case into `results/pentest/` or `results/redteam/`, and the same loop turns it
+into a fix, a regression and — via `security-planner` — a new intent when the class recurs. Building a
+monitoring platform here would expand scope for no gain; measuring closure (time from finding to
+verified fix, recurrence of the same finding class) is done from the evidence records.
 
 ## Benchmark selection
 Single-prompt / dataset-style benchmarks that test an *app on an LLM* (not just base-model

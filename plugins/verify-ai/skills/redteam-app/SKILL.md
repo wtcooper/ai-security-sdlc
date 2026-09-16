@@ -16,7 +16,7 @@ infrastructure-level pentest.
   to `.ai-security/results/redteam/redteam-<YYYYMMDD-HHMM>.json` (+ the HTML/UI report).
 
 ## Preflight
-- `npx promptfoo@latest --version`. Upstream skills `promptfoo-redteam-setup` /
+- `npx promptfoo@0.123.0 --version`. Upstream skills `promptfoo-redteam-setup` /
   `promptfoo-redteam-run` (plugin `promptfoo@promptfoo`) hold the detailed syntax; defer to them.
 - Attack-generation + grading model: `redteam.provider` → any OpenAI-compatible endpoint via
   `AISEC_GATEWAY_BASE_URL` / `AISEC_GATEWAY_API_KEY` / `AISEC_JUDGE_MODEL`. Local models work for
@@ -31,15 +31,15 @@ infrastructure-level pentest.
    relevant attacks. Add `entities` (real people/brands to protect) and `contexts` for auth'd vs anon.
 2. **Target**: HTTP provider from profile §6 with `sessionParser` (multi-turn strategies need
    stateful sessions) — see [templates/promptfooconfig.yaml](templates/promptfooconfig.yaml).
-   Run `npx promptfoo@latest redteam discover` if unsure what the app exposes.
+   Run `npx promptfoo@0.123.0 redteam discover` if unsure what the app exposes.
 3. **Plugins**: pick from [references/plugin-matrix.md](references/plugin-matrix.md) by app type;
    add a `policy` plugin per "must never happen" line and `intent` seeds from failing benchmark
    cases (`eval-security`). Set `severity` overrides for the app's critical assets.
 4. **Strategies**: multi-turn by default — `jailbreak:hydra`, `crescendo`, `goat`,
    `mischievous-user`, plus `custom-strategy` objectives written from the profile; keep `basic` and
    `jailbreak:composite` for single-turn coverage. Start with `numTests: 5`; scale up after a clean run.
-5. **Run**: `npx promptfoo@latest redteam run -c <config> -o <results.json>` (generate+eval), then
-   `npx promptfoo@latest redteam report` for severity + remediation view. Long runs → background.
+5. **Run**: `npx promptfoo@0.123.0 redteam run -c <config> -o <results.json>` (generate+eval), then
+   `npx promptfoo@0.123.0 redteam report` for severity + remediation view. Long runs → background.
 6. **Record & hand off**: copy results to `.ai-security/results/redteam/`, summarize failures by
    plugin/strategy/severity, and note regression seeds (`retry` strategy replays past failures).
    Findings flow to `fix-findings`.

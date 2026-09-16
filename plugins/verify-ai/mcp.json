@@ -4,7 +4,7 @@
     "promptfoo": {
       "type": "stdio",
       "command": "npx",
-      "args": ["promptfoo@latest", "mcp", "--transport", "stdio"]
+      "args": ["promptfoo@0.123.0", "mcp", "--transport", "stdio"]
     }
   }
 }

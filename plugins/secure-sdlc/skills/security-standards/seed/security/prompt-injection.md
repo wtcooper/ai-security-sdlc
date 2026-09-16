@@ -3,6 +3,8 @@ title: Prompt injection (direct and indirect)
 domain: security
 applies-to: [llm-input, prompts, rag, tools, agents]
 status: seed
+owner: unassigned
+enforcement: default
 updated: 2026-08-22
 sources: [ai-controls.md@e139b4a]
 ---
@@ -11,7 +13,9 @@ sources: [ai-controls.md@e139b4a]
 - All retrieved, tool-returned, and user-supplied content is treated as data, never as
   instructions: it must not be able to change tool policy, system behavior, or scope.
 - Untrusted content is delimited (structural markers or separate message roles) before it is
-  placed in a prompt, and the system prompt states that delimited content is data.
+  placed in a prompt, and the system prompt states that delimited content is data. Delimiters
+  support the model's behavior; they do not enforce anything — authorization is enforced outside
+  the model (next requirement, and tool-least-privilege).
 - Instructions that arrive inside untrusted content (e.g. a retrieved document saying "ignore
   previous instructions") are ignored by construction — verify with injection test cases, don't
   trust the instruction alone.
