@@ -1,6 +1,6 @@
 ---
 name: install-hooks
-description: Install the ai-security-sdlc deterministic build-phase hook (the mcp-install gate, which blocks unvetted MCP server installs) into the user's coding agents — Claude Code, Codex, Cursor, GitHub Copilot CLI, Gemini CLI — at project or user scope, by asking which tools they use and running the shared hooks/install.sh script. Use when asked to "install the security hooks", "add the MCP gate to Codex/Cursor/Copilot/Gemini", "wire the hooks into my repo", "set up the gate for the team", or right after the plugin was installed in a client other than Claude Code.
+description: Install the ai-security-sdlc business-logic build-phase hook (the mcp-install gate, which asks the user for consent before an agent installs an MCP server) into the user's coding agents — Claude Code, Codex, Cursor, GitHub Copilot CLI, Gemini CLI — at project or user scope, by asking which tools they use and running the shared hooks/install.sh script. Use when asked to "install the security hooks", "add the MCP gate to Codex/Cursor/Copilot/Gemini", "wire the hooks into my repo", "set up the gate for the team", or right after the plugin was installed in a client other than Claude Code.
 license: MIT
 compatibility: needs jq; writes only the client config files it shows in the dry run, never anything else
 ---
@@ -30,7 +30,7 @@ settings-level install anyway only if they want it without the plugin (CI, teamm
 4. **Install**: rerun without `--dry-run`. The script is idempotent and merges into existing
    configs without dropping keys.
 5. **Verify**: run the one-liner the script prints (feeds an `mcp add` payload to the installed
-   script; exit code 2 = gate works), then relay the per-client notes it printed — Codex needs the
+   script; exit 2 or an "ask" JSON = gate works), then relay the per-client notes it printed — Codex needs the
    hook trusted via `/hooks`, Copilot `-p` mode needs the folder trusted, Gemini headless needs
    `--skip-trust`.
 6. **Report** in ≤8 lines: files written, how to approve a vetted install

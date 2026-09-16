@@ -20,7 +20,7 @@ Principle: **use well-maintained OSS skills/tools; only build our own where prov
 | Profile (once per app) | `.ai-security/profile.md` — the contract every verifier reads | `security-profile` (**secure-sdlc**) | — |
 | Standards (continuous) | index-routed knowledge corpus, queried at plan time | `security-standards` (**secure-sdlc**) | llm-wiki pattern; [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) pointers |
 | Plan (per feature) | intent → spec → plan with approval stops; Secure Build Plans | `security-planner` (**secure-sdlc**) | CodeGuard rules, standards corpus |
-| Build | client's native plan mode implements `plan.md`; deterministic hooks gate the musts | `install-hooks` wires the built-in `mcp-install gate` into any client (`hooks/install.sh`); opt-in templates installed on request by `security-guidance`: `secrets-in-diff`, `test-file protection`, `deploy gate` (**secure-sdlc**) | — |
+| Build | client's native plan mode implements `plan.md`; business-logic hooks at the pre-tool-call layer | built-in `mcp-install gate` (consent before an agent installs an MCP server) on a reusable hook pattern (`hooks/`, `install-hooks`); opt-in templates installed on request by `security-guidance`: `secrets-in-diff`, `test-file protection`, `deploy gate` (**secure-sdlc**) | — |
 | Verify — code you ship | SAST ensemble → one triaged SARIF; CodeQL CI; DAST pentest | `scan-code`, `codeql-ci`, `codeql-report`, `pentest-app` (**verify**) | [semgrep](https://semgrep.dev), [CodeQL](https://github.com/github/codeql-action), [Trivy](https://trivy.dev), [OSV-Scanner](https://google.github.io/osv-scanner/), [zizmor](https://zizmor.sh), [Strix](https://github.com/usestrix/strix) |
 | Verify — AI layer | baseline evals + cyber benchmarks; adaptive red team | `eval-baseline`, `eval-security`, `redteam-app` (**verify-ai**) | [Promptfoo](https://promptfoo.dev) (b3, CyberSecEval 4, JailbreakBench…) |
 | Verify — AI assets | vet models, MCP servers, skills you build or download | `scan-model`, `scan-mcp`, `scan-skill` (**verify-ai**) | [HF](https://huggingface.co) scans, [ModelAudit](https://www.promptfoo.dev/docs/model-audit/), Cisco [mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner)/[skill-scanner](https://github.com/cisco-ai-defense/skill-scanner) |
@@ -31,6 +31,17 @@ deliberately app-type agnostic (entry points, flows, sinks, boundaries), so scan
 funnelled into pre-declared pathways — and write findings to `.ai-security/results/<phase>/…`
 (SARIF where the tool provides it), which `fix-findings` consumes. Institutional knowledge lives
 in `.ai-security/knowledge/` (committed, org-owned, extensible beyond security).
+
+## Business logic at the hook layer
+
+Agents already judge risk on their own (Claude Code auto mode, Copilot autopilot, Codex approve-for-me).
+What they cannot know is an organization's rules. The PreToolUse hook is where those go, and
+[plugins/secure-sdlc/hooks/](plugins/secure-sdlc/hooks/) is a pattern for writing one rule that runs in
+every client: **one POSIX script → normalize the payload (command, paths, content, client) → rule →
+respond in the client's own vocabulary** (allow · native `ask` so the user decides · decline with
+instructions), with a `_MODE=block` switch and a `_APPROVAL` variable for headless consent. The first rule
+is the **mcp-install gate**: before an agent runs `mcp add` or edits an MCP config, the user is asked.
+`TEMPLATE_policy_hook.sh` is the starting point for the next rule; the playbooks show how to roll one out.
 
 ## Install
 

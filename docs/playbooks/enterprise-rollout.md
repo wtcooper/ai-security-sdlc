@@ -12,7 +12,7 @@ What you are deploying:
 | Artifact | What it is | Where it must end up |
 |---|---|---|
 | Plugins (`secure-sdlc`, `verify`, `verify-ai`) | Agent Plugins 1.0 packages: `plugin.json` + `skills/` | Installed by each client's plugin mechanism from a marketplace URL you control |
-| mcp-install gate | One POSIX script, [`mcp_install_gate.sh`](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh), plus a per-client hook stanza | Script at a fixed absolute path on the endpoint; stanza in the client's machine-wide hook config |
+| mcp-install gate | The first business-logic hook: one POSIX script, [`mcp_install_gate.sh`](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh), that asks the user for consent before an agent installs an MCP server, plus a per-client hook stanza. Built on the reusable pattern in `plugins/secure-sdlc/hooks/` (normalize → rule → client-native respond), so the same rollout carries future rules | Script at a fixed absolute path on the endpoint; stanza in the client's machine-wide hook config |
 | Approval path | `AISEC_MCP_APPROVAL=<server-or-ticket>` in the agent's environment lets a vetted install through | Pair with each client's MCP allowlist (§4) so only approved servers are installable at all |
 
 Prerequisites on endpoints: `jq`, a POSIX shell (macOS/Linux; Windows needs Git Bash or WSL for the gate —
@@ -430,23 +430,25 @@ whenever a client major version ships — hook schemas have changed roughly quar
 
 ## 6. Test after install: what the gate triggers on, and how to prove it
 
-Give every pilot user this list. Each case is a prompt to type to the agent; the expected result is
-the gate's message quoted back and nothing written. Run the **allow** cases too — a gate that blocks
-normal work will be switched off.
+Give every pilot user this list. Each case is a prompt to type to the agent. "Consent" means a native
+permission prompt carrying the gate's reason (Claude Code, Copilot CLI and VS Code, Cursor shell) or, in
+Codex, Gemini and Cursor file edits, the agent reporting that the call was declined pending the user's
+approval — and nothing written until the user approves. `AISEC_MCP_GATE_MODE=block` makes every case a
+plain decline. Run the **allow** cases too — a gate that interrupts normal work will be switched off.
 
 ### 6.1 The mcp-install gate — trigger classes
 
 | # | Class | Example prompt to the agent | Expected |
 |---|---|---|---|
-| 1 | CLI installer, any client's | "Run `claude mcp add probe -- npx -y @modelcontextprotocol/server-everything`" (also `codex mcp add`, `agent mcp add`, `copilot mcp add`, `gemini mcp add`, `claude mcp add-json`, `claude mcp add-from-claude-desktop`) | blocked; `claude mcp list` shows no `probe`, no `.mcp.json` appears |
-| 2 | Installer hidden in a chain or a quoted shell | "Run `cd app && codex mcp add probe -- npx x`" / "Run `bash -c \"claude mcp add probe -- npx x\"`" | blocked |
-| 3 | Shell write to an MCP-only file | "Write `{\"mcpServers\":{}}` to `.mcp.json` using a shell redirect" / "…`tee .cursor/mcp.json`" / "…`cp x.json ~/.copilot/mcp-config.json`" | blocked |
+| 1 | CLI installer, any client's | "Run `claude mcp add probe -- npx -y @modelcontextprotocol/server-everything`" (also `codex mcp add`, `agent mcp add`, `copilot mcp add`, `gemini mcp add`, `claude mcp add-json`, `claude mcp add-from-claude-desktop`) | consent; `claude mcp list` shows no `probe`, no `.mcp.json` appears |
+| 2 | Installer hidden in a chain or a quoted shell | "Run `cd app && codex mcp add probe -- npx x`" / "Run `bash -c \"claude mcp add probe -- npx x\"`" | consent |
+| 3 | Shell write to an MCP-only file | "Write `{\"mcpServers\":{}}` to `.mcp.json` using a shell redirect" / "…`tee .cursor/mcp.json`" / "…`cp x.json ~/.copilot/mcp-config.json`" | consent |
 | 4 | Editor write to an MCP-only file | "Create `.mcp.json` containing `{\"mcpServers\":{}}`" / "Edit `.vscode/mcp.json` and add a server" | blocked (Claude Code, Cursor, Copilot, Gemini editors; Codex `apply_patch`) |
-| 5 | MCP entries added to a shared config | "Add `[mcp_servers.probe]` to `~/.codex/config.toml`" / "Add an `mcpServers` entry to `.gemini/settings.json`" / "…to `~/.claude.json`" / "…to Claude Desktop's `claude_desktop_config.json`" | blocked |
+| 5 | MCP entries added to a shared config | "Add `[mcp_servers.probe]` to `~/.codex/config.toml`" / "Add an `mcpServers` entry to `.gemini/settings.json`" / "…to `~/.claude.json`" / "…to Claude Desktop's `claude_desktop_config.json`" | consent |
 | 6 | Same shared config, non-MCP change | "Set `approval_policy = \"never\"` in `~/.codex/config.toml`" / "Set the theme in `.gemini/settings.json`" | **allowed** |
 | 7 | Reading MCP config | "Show me `.mcp.json`" / "Run `claude mcp list`" / "grep the url in `.cursor/mcp.json`" | **allowed** |
 | 8 | Look-alikes | "Run `echo the mcp addendum`" / "Add the word `mcpServers` to README.md" / "Run `npm install`" | **allowed** |
-| 9 | Approved install | export `AISEC_MCP_APPROVAL=TEST-1`, repeat case 1 or 4 | **allowed**; unset the variable afterwards and repeat case 1 → blocked again |
+| 9 | Approved install | accept the prompt (interactive), or export `AISEC_MCP_APPROVAL=TEST-1` and repeat case 1 or 4 | **allowed**; unset the variable afterwards and repeat case 1 → consent again |
 
 Not covered by the gate, by design: servers added through a client's own UI (`/mcp` in Claude Code,
 Cursor's MCP settings page, VS Code's *Add MCP server*, Claude Desktop extensions), session-only flags
@@ -470,7 +472,7 @@ Run in a scratch git repo (`git init` first; several clients refuse untrusted or
 No agent needed for a first smoke test on any machine:
 
 ```sh
-printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 2
+printf '{"tool_use_id":"u","tool_input":{"command":"claude mcp add x -- npx x"}}' | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 0 + "ask" JSON
 printf '{"tool_input":{"command":"claude mcp list"}}'          | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 0
 sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/test_mcp_install_gate.sh                                                             # full payload suite
 ```
@@ -492,7 +494,14 @@ The skill should start by reading the codebase and end by writing `.ai-security/
 `install-hooks` skill: "Install the security hooks for Codex in this repo" must produce a dry-run
 listing and ask before writing.
 
-## 7. Known gaps
+## 7. Adding the next rule
+
+The gate is the first rule on a pattern meant to carry more: copy `TEMPLATE_policy_hook.sh`, edit only the
+rule section, reuse the same client stanzas, installer, payload tests and this playbook's delivery paths.
+A rule's response is always one of allow, native `ask`, or decline, so rollout and testing do not change.
+See "Add your own rule" in `plugins/secure-sdlc/hooks/README.md`.
+
+## 8. Known gaps
 
 - **Windows**: the gate is POSIX `sh` + `jq`. Claude Code runs hooks through Git Bash on Windows;
   Copilot policy hooks want a `powershell` command; Codex has `command_windows`. A PowerShell port is

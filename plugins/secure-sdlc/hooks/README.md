@@ -1,12 +1,50 @@
-# mcp-install gate
+# Business logic at the pre-tool-call hook layer
 
-One deterministic, narrowly scoped hook: an agent may not install or reconfigure an MCP server
-until a human has approved it. It runs before the tool call; **exit 2 blocks** and the message is
-returned to the agent. It is separate from the opt-in gate templates in `security-guidance`.
+Every coding agent ships its own judgment about risky actions — Claude Code auto mode, Copilot
+autopilot and assisted approval, Codex approve-for-me. Those classifiers look for security problems and
+destructive commands. They do not know an organization's rules: which actions need a named person's
+consent, which registries are approved, which files are governed. The PreToolUse hook layer is where
+those rules go, and this directory holds a **pattern** for writing them once and running them in every
+client, plus the first rule built on it.
 
-## What it blocks (and nothing else)
+**The pattern** (see [TEMPLATE_policy_hook.sh](TEMPLATE_policy_hook.sh)):
 
-- CLI installers: `claude | codex | agent (Cursor) | copilot | gemini  mcp add …`
+1. **One POSIX script** reads the PreToolUse payload on stdin. No client-specific forks.
+2. **Normalize** — the script extracts `command`, the file paths a tool will write, the new content, and
+   which client sent the payload (Claude Code, Codex, Cursor, Copilot CLI, Copilot in VS Code, Gemini
+   CLI all use different field names and tool names).
+3. **Rule** — a few lines of business logic over those normalized inputs. This is the only part a new
+   rule changes.
+4. **Respond** in the client's native vocabulary: exit 0 with no output = allow; exit 0 with the client's
+   `ask` JSON = hand the decision to the user (Claude Code, Copilot CLI, VS Code, Cursor shell hook);
+   exit 2 with a message = decline with instructions to ask the user (Codex, Gemini, Cursor file hook, and
+   anything unrecognized). `<RULE>_MODE=block` forces the decline everywhere; `<RULE>_APPROVAL=<ticket>`
+   records consent for headless runs.
+5. **Ship** with a stanza per client in `clients/`, `install.sh` for project/user/system scope, and a
+   payload-level test suite in each client's real payload shape.
+
+## The first rule: mcp-install gate
+
+When an agent is about to install or reconfigure an MCP server, the gate asks the user for consent
+before the call runs. It is **not** a hard block by default: in clients with a native `ask` the user
+sees a confirmation prompt with the reason; elsewhere the agent is told the call was not run, to ask the
+user (with its ask-the-user tool if it has one), and how to retry after approval. Headless sessions
+(`claude -p`, `copilot -p`/autopilot) turn `ask` into deny because nobody can answer.
+
+| Client | On trigger |
+|---|---|
+| Claude Code (terminal, IDE, Desktop Code tab, Cowork) | native permission prompt, reason shown |
+| Copilot CLI · Copilot in VS Code | native confirmation prompt |
+| Cursor — shell commands | native `ask` prompt |
+| Cursor — file edits | declined with consent instructions (`ask` not yet enforced for that hook) |
+| Codex · Gemini CLI | declined with consent instructions (no `ask` in their hook contract; Codex would treat `ask` as a failed hook and proceed) |
+
+Set `AISEC_MCP_GATE_MODE=block` to decline everywhere instead.
+
+### What triggers it (and nothing else)
+
+- CLI installers: `claude | codex | agent (Cursor) | copilot | gemini  mcp add …` (including `add-json`,
+  `add-from-claude-desktop`; chained or quoted forms)
 - Shell writes (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`) to an MCP config file
 - Editor-tool writes to `.mcp.json`, `mcp.json` (Cursor, VS Code, Copilot), `mcp-config.json`
   (Copilot CLI), and Codex `apply_patch` hunks that add or update one
@@ -17,8 +55,9 @@ Reading or listing MCP config, `mcp list`, and non-MCP edits to the shared files
 
 ## Approving an install
 
-Vet the server first (verify-ai `scan-mcp`), then set `AISEC_MCP_APPROVAL=<server-name-or-ticket>`
-in the agent's environment for that install and unset it afterwards. The gate exits 0 while it is set.
+Interactive: answer the client's prompt. Headless or non-`ask` clients: vet the server first (verify-ai
+`scan-mcp`), then set `AISEC_MCP_APPROVAL=<server-name-or-ticket>` in the agent's environment for that
+install and unset it afterwards. The gate exits 0 while it is set.
 
 ## Install script
 
@@ -58,12 +97,14 @@ mkdir -p .ai-security/hooks && cp <plugin-root>/hooks/mcp_install_gate.sh .ai-se
 
 ## Verification (asOf 2026-09-15)
 
-Success criteria, per client: (1) `mcp add` is blocked and nothing is written; (2) a direct write
-of an MCP config file is blocked; (3) an unrelated shell command and file write pass; (4) the same
-write passes with `AISEC_MCP_APPROVAL` set.
+Success criteria, per client: (1) `mcp add` triggers the consent prompt (or the decline, per the table
+above) and nothing is written until the user approves; (2) a direct write of an MCP config file does the
+same; (3) an unrelated shell command and file write pass; (4) the same write passes with
+`AISEC_MCP_APPROVAL` set or after the user accepts the prompt.
 
-`test_mcp_install_gate.sh` is the regression suite: 46 payloads in each client's real shape,
-including Codex `apply_patch` and Copilot `toolArgs`, run against the script with no agent or network.
+`test_mcp_install_gate.sh` is the regression suite: payloads in each client's real shape (including
+Codex `apply_patch`, Copilot `toolArgs`, VS Code `files[]`), asserting ASK / DENY / ALLOW per client and
+the exact JSON each client expects, with no agent or network.
 
 | Client (version tested) | Payload suite | Live agent run (`-p` / `exec`) | Notes |
 |---|---|---|---|
@@ -75,3 +116,12 @@ including Codex `apply_patch` and Copilot `toolArgs`, run against the script wit
 | Copilot in VS Code | pass | not run | Reads the same hook files as the CLI; payload `tool_name`/`tool_input` with `runTerminalCommand`, `createFile`, `editFiles` (`files[]`), from the VS Code hooks reference. |
 
 Re-run the live criteria for a client when its version or hook schema changes; hook schemas drift.
+
+## Add your own rule
+
+1. Copy `TEMPLATE_policy_hook.sh` to `<rule>.sh`; set `RULE_NAME`; edit only section 2 using `$cmd`,
+   `$paths`, `$body`, `$client`; call `respond "<what the call would do>" "<why it needs consent>"`.
+2. Copy `test_mcp_install_gate.sh`, keep its payload builders, and write ASK / DENY / ALLOW cases for the rule.
+3. Add the script to the same stanzas (a second entry in each `clients/*.json` and in `hooks.json`) and to
+   `install.sh`'s copy step, or install it with the same `--scope` commands by hand.
+4. Keep rules narrow and deterministic: every trigger must be something a reviewer can name in one line.
