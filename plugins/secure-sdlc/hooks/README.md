@@ -115,7 +115,10 @@ the exact JSON each client expects, with no agent or network.
 | Gemini CLI 0.60.0 | pass | not run — account tier no longer served by the CLI | Payload shape from the hooks reference (`run_shell_command`, `write_file`, `replace`). |
 | Copilot in VS Code | pass | not run | Reads the same hook files as the CLI; payload `tool_name`/`tool_input` with `runTerminalCommand`, `createFile`, `editFiles` (`files[]`), from the VS Code hooks reference. |
 
-Re-run the live criteria for a client when its version or hook schema changes; hook schemas drift.
+`scenarios/make_test_repo.sh` builds a small project with realistic requests and planted instructions
+(README comment, onboarding doc, script output) for agent-level testing; the prompts are in
+`docs/playbooks/mcp-install-gate.md` §3. Re-run the live criteria for a client when its version or hook
+schema changes; hook schemas drift.
 
 ## Add your own rule
 
