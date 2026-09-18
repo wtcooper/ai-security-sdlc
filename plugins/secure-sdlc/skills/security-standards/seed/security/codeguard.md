@@ -11,9 +11,18 @@ sources: ["https://github.com/cosai-oasis/project-codeguard", "CODEGUARD_REF v1.
 
 Pointer page — maps topic slugs (as used in starter-template TODO markers, specs and plans) to
 CodeGuard rule families. Rule ids and bodies are resolved at use time: the `security-planner`
-skill locates the installed rules dir (or the pinned download under
-`.ai-security/cache/codeguard/`) with its `scripts/find-codeguard.sh`. **Never copy rule bodies
+skill locates the installed rules dir (or a verified pinned cache under
+`.ai-security/cache/codeguard/`) with its `scripts/find-codeguard.sh` from the project root.
+Set `CODEGUARD_RULES_DIR` to the active installation when supplied by the host; pass selected
+rule IDs to validate completeness. Discovery is read-only; `--download` is a separate preparation
+step when authorized. If the planner/locator is unavailable, inspect the active CodeGuard rules
+directly and report missing baseline/topic rules and source identity. **Never copy rule bodies
 into this corpus.**
+
+## Requirements
+- For code tasks, include all three baseline rules: `codeguard-1-hardcoded-credentials`,
+  `codeguard-1-crypto-algorithms`, and `codeguard-1-digital-certificates`.
+- Add applicable topic/language rules below; report missing rules and actual source revision.
 
 | topic slug | rule family (cite as `codeguard-<tier>-<name>`) |
 |---|---|

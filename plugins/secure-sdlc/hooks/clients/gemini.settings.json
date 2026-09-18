@@ -1,5 +1,12 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "name": "security-standards", "type": "command", "command": "\"$GEMINI_PROJECT_DIR\"/.ai-security/hooks/standards_recall.sh gemini", "timeout": 10000 }
+        ]
+      }
+    ],
     "BeforeTool": [
       {
         "matcher": "run_shell_command|write_file|replace",

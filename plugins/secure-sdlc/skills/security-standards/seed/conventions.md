@@ -26,6 +26,7 @@ How this knowledge store is structured and maintained. Applies to every domain d
     rationale: <why the org requirement cannot apply here>
     scope: <what the exception covers — a path, service or requirement id>
     expiry: YYYY-MM-DD
+    approval: <reviewed decision URL or repository reference>
   ```
 - Body sections: `## Requirements` (testable statements — "X must/never Y", verifiable by a
   test, scan or review; number them `R1`, `R2`, … when a plan or evidence record will cite them),
@@ -39,15 +40,20 @@ How this knowledge store is structured and maintained. Applies to every domain d
 privacy, logging, config, cost, infra, gateway, all-code`
 Extend the vocabulary only by adding the new tag here first.
 
-## Precedence (org corpus vs repo corpus)
-When `AISEC_KNOWLEDGE_DIR` points at a shared org corpus and the repo has its own:
+## Precedence (bundled baseline, org corpus, repo corpus)
+Read the installed baseline and any configured organization or existing project corpus:
 - `enforcement: mandatory` org pages cannot be weakened by a repo page. A repo page on the same
   topic may **add** requirements; a repo page that relaxes or removes one is a violation unless it
-  carries an `exception:` block (owner, rationale, scope, expiry) — and even then the org requirement
+  carries an approved `exception:` block (owner, rationale, scope, expiry, approval reference) — and even then the org requirement
   is reported alongside the exception, never silently replaced.
 - `enforcement: default` org pages are starting points: a repo page on the same topic wins, and the
   query result notes the override.
 - Expired exceptions are lint errors; an exception is a dated decision, not a permanent override.
+- Project defaults override organization defaults, which override bundled defaults. Mandatory
+  controls in any approved source remain in force; installation does not approve seed policy.
+- Relative page paths identify corresponding topics; requirement IDs identify exception targets.
+  Report semantic conflicts across differently named pages as well. An approval reference must
+  be checked by the consuming agent/reviewer; lint checks its shape, not its authority.
 
 ## Maintenance
 - Every page add/edit updates its `index.md` row in the same change.
@@ -55,5 +61,7 @@ When `AISEC_KNOWLEDGE_DIR` points at a shared org corpus and the repo has its ow
 - Pointer pages map to external rule sets by id and never vendor their bodies.
 - `status: seed` marks shipped defaults an org has not yet reviewed; flip to `active` on review and
   set `owner` at the same time — every active page has an accountable owner.
-- `scripts/lint_corpus.py <store>` (in the security-standards skill) checks all of the above; run it
-  in CI on the repo corpus.
+- `uv run <skill>/scripts/lint_corpus.py <store>` checks typed metadata, unique index rows and
+  matching tags, vocabulary, domain paths, body sections and exception fields/expiry. It warns
+  on bodies >60 lines, stale updates and unassigned seed owners. Run in CI on custom corpora.
+  Testability, approval, precedence and prohibited vendoring still require semantic review.

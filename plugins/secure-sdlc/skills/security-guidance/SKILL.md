@@ -22,7 +22,7 @@ One control point per stage:
 | Set up (once per machine) | the coding agent's own permissions, sandbox, egress, MCP trust | `security-guidance` agent-setup path (secure-sdlc) |
 | Start (new service) | secure-by-design scaffold with control-family TODOs | `security-guidance` scaffold path (secure-sdlc) |
 | Profile (once per app) | `.ai-security/profile.md` — the contract every verifier reads | `security-profile` (secure-sdlc) |
-| Standards (continuous) | index-routed knowledge corpus queried at plan time | `security-standards` (secure-sdlc) |
+| Standards (continuous) | session recall + index-routed guidance before coding and planning | `security-standards` (secure-sdlc) |
 | Plan (per feature) | intent → spec → plan with security requirements injected | `security-planner` (secure-sdlc) |
 | Build | the client's plan mode implements `plan.md`; CodeGuard rules apply JIT; hooks gate the musts | client-native + `references/hooks/` |
 | Verify — code you ship | SAST ensemble, CodeQL CI, DAST pentest | `scan-code`, `codeql-ci`, `codeql-report`, `pentest-app` (verify) |
@@ -30,7 +30,8 @@ One control point per stage:
 | Maintain | findings → fixes + regressions → written back into profile/standards/plans | `fix-findings` (secure-sdlc) |
 
 First run in a repo, in order: (1) agent-setup path below; (2) install `verify` (+ `verify-ai`
-if the app builds on LLMs); (3) `security-standards` init; (4) `security-profile`; then per
+if the app builds on LLMs); (3) confirm managed standards-recall hook delivery (no corpus init);
+(4) `security-profile`; then per
 feature: `security-planner` → build → verify skills → `fix-findings`.
 
 ## Agent setup path
@@ -112,7 +113,7 @@ runs after scaffolding.
    should reference them and the open TODOs).
 
 ### Family slugs (TODO markers ↔ standards corpus pages)
-| slug | standards page (after `security-standards` init) |
+| slug | standards page (under the active security-standards skill's `seed/`; no init) |
 |---|---|
 | `prompt-injection` | `security/prompt-injection.md` — Prompt injection (direct/indirect) |
 | `tool-least-privilege` | `security/tool-least-privilege.md` — Tool least privilege |

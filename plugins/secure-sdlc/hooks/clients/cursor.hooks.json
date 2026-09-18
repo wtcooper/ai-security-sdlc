@@ -1,6 +1,9 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      { "command": ".ai-security/hooks/standards_recall.sh cursor", "timeout": 10 }
+    ],
     "beforeShellExecution": [
       { "command": ".ai-security/hooks/mcp_install_gate.sh", "failClosed": true, "timeout": 10 }
     ],

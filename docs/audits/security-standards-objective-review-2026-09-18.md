@@ -2,11 +2,11 @@
 
 Date: 2026-09-18 · Repository HEAD: `3682e0b17bc015af23a619a7795cae898b62aae4`
 
-**Verdict: a sound, compact knowledge-store design with an incomplete recall mechanism.** The skill supports economical retrieval when an agent invokes it, especially through `security-planner`. It does not establish reliable standards recall during ordinary implementation, resumed work, or changes that bypass the planner. Keep the skill and Markdown corpus; deliver a short recall instruction through a shared session-start hook, with the skill checking for and adding a missing native project instruction as the fallback. Tighten the query contract and measure actual delivery, retrieval and adherence.
+**Verdict: a sound, compact knowledge-store design with an incomplete recall mechanism.** The skill supports economical retrieval when an agent invokes it, especially through `security-planner`. It does not establish reliable standards recall during ordinary implementation, resumed work, or changes that bypass the planner. Keep the skill and Markdown corpus; deliver a short recall instruction through a shared session-start hook and retrieve shipped standards directly from the active skill installation. Tighten the query contract and measure actual delivery, retrieval and adherence.
 
-**Selected deployment pattern:** the organization already plans managed hook rollout across projects. Use that infrastructure as the primary delivery path, including managed Codex hook trust. Maintain one canonical recall instruction, thin client adapters, and one idempotent rule-presence check when the skill runs. No manual per-project init is required to receive the hook's instruction. This is the recommended fit for that deployment requirement, not a claim of experimentally proven recall reliability.
+**Selected deployment pattern:** the organization already plans managed hook rollout across projects. Use that infrastructure as the sole automatic recall-delivery mechanism, including managed Codex hook trust. Maintain one canonical recall instruction and thin client adapters. The hook only sends that instruction: no rule creation or presence checks, corpus copying, cache initialization, or downloads. Normal retrieval reads the installed corpus without per-project init. Project-specific policy is optional local content; separately maintained organization policy remains a configured source. This is the recommended fit for the simplicity and managed-deployment requirements, not a claim of experimentally proven recall reliability.
 
-This is a review and recommendation package. No production skills, rules, hooks, or configuration were changed by this review.
+This is a review and recommendation package. No production skills, rules, hooks, or configuration were changed by this review. Findings and measurements describe the reviewed implementation; the architecture and rollout sections describe proposed changes. These recommendations supersede the earlier hook-plus-native-rule fallback and default per-project seed-copy proposals.
 
 ## Assessment against the problem statement
 
@@ -54,7 +54,7 @@ Priority describes impact on the stated product goal, not vulnerability exploita
 
 A request such as “add CSV export to the customer endpoint” can proceed through normal coding without selecting either security skill. Nothing provided by this package tells that session, through a project instruction, to read the corpus before implementing. Installation/discovery is therefore not the same as integration into the build workflow. The architecture's description of CodeGuard as an “always-on SKILL.md” also overstates the default loading model.
 
-**Recommendation:** inject a short recall instruction through the managed session-start hook, and put ordinary implementation/review triggers first in the skill description. Whenever the skill runs, check for the native project recall instruction and add it if missing. Keep retrieval independent of the planner: applying standards to a small patch should not require a profile plus intent/spec/plan approval workflow. Test new sessions, scope changes, and resumption after context compaction. The skill fallback cannot repair a session in which neither the hook nor the skill runs.
+**Recommendation:** inject a short recall instruction through the managed session-start hook, and put ordinary implementation/review triggers first in the skill description. Keep retrieval independent of the planner: applying standards to a small patch should not require a profile plus intent/spec/plan approval workflow. Test new sessions, scope changes, and resumption after context compaction. Do not add a second instruction-installation mechanism to the skill. A missing hook remains a deployment failure; discretionary skill discovery is useful but cannot guarantee recovery.
 
 ### F2 — P1: the index can silently diverge from the pages it routes
 
@@ -92,7 +92,7 @@ Specific ambiguities:
 
 The linter accepts one store. It validates exception shape/expiry, but cannot establish whether an exception was approved by its named owner, whether it applies to the weakened requirement, or whether one policy semantically weakens another. `owner:` is a statement in a file, not authorization evidence. Also, `AISEC_KNOWLEDGE_DIR` is external process configuration, so a future session or teammate may not inherit it.
 
-**Recommendation:** resolve and report both stores explicitly; use relative page path as the initial identity convention, with stable requirement IDs for exceptions. Include source label, exact path, revision and exception approval reference in results. Preserve mandatory org requirements and flag uncertain conflicts for policy-owner review. Establish approval through reviewed policy changes/access controls, not a prose comparison that claims deterministic enforcement. During setup record the shared-source location/version in the project's recall instructions without committing machine-specific absolute paths. Specify what happens when that source is unavailable.
+**Recommendation:** resolve and report the installed baseline and any configured organization/project stores explicitly; use relative page path as the initial identity convention, with stable requirement IDs for exceptions. Include source label, exact path, revision and exception approval reference in results. Preserve mandatory org requirements and flag uncertain conflicts for policy-owner review. Establish approval through reviewed policy changes/access controls, not a prose comparison that claims deterministic enforcement. Distribute the shared-source configuration through managed deployment, without writing machine-specific paths into project instructions. Distinguish an absent optional project overlay from an unavailable configured policy source.
 
 ### F6 — P2: a hand-written YAML subset creates both false passes and false failures
 
@@ -116,15 +116,15 @@ The conventions' closing assertion that lint checks “all of the above” is to
 
 **Evidence:** the 73-line skill contains retrieval, init, ingestion, governance, lint and migration instructions together. The description is 709 characters and leads with maintenance. Governance/precedence appears in both the skill and conventions. Ingest points to the plugin's seed conventions even though a store can evolve its own schema. Init calls for comparing seed pages but discusses proposing “additions,” leaving updates to existing seed pages unclear.
 
-**Recommendation:** keep one skill, with a short retrieval-first body; move maintenance details into one linked reference, and use the selected store's conventions as the authority. Make init/setup idempotent, preserve custom instructions/content, and explicitly propose both new pages and changed upstream guidance without overwriting adopted policy. Preserve existing ownership and exception behavior. Do not split four operations into four always-listed skills simply to reduce body length.
+**Recommendation:** keep one skill, with a short retrieval-first body; move maintenance details into one linked reference, and use the selected store's conventions as the authority. Read shipped guidance directly from the active installation instead of copying it into every project. Retain init only as an optional operation for creating a custom policy store. Preserve existing ownership and exception behavior. Do not split four operations into four always-listed skills simply to reduce body length.
 
-Seed copying is a legitimate snapshot model, not automatic synchronization with a remote wiki. If an organization already has a wiki as its source of truth, record source URLs/revisions and a refresh process; distinguish reviewed policy from newly imported evidence. Imported documents must not be allowed to redefine agent permissions or approve their own policy changes. The existing historical provenance `ai-controls.md@e139b4a` is recoverable in this repository, but an organization receiving copied seed files would benefit from a complete repository path/link.
+Existing seed copies are snapshots, not automatically synchronized policy. Preserve adopted/customized copies during migration and reconcile them through a reviewed diff before removing duplication. If an organization already has a wiki as its source of truth, record source URLs/revisions and a refresh process; distinguish reviewed policy from newly imported evidence. Imported documents must not be allowed to redefine agent permissions or approve their own policy changes. The existing historical provenance `ai-controls.md@e139b4a` is recoverable in this repository, but distributed files would benefit from a complete repository path/link.
 
 ### F8 — P2: validation measures document shape, not the intended behavior
 
 **Evidence:** [scripts/test_helpers.py](../../scripts/test_helpers.py), lines 165–177, has two corpus tests: valid seed and missing-owner/expired-exception rejection. [CI](../../.github/workflows/tests.yml) runs helper tests and seed lint. These checks cannot demonstrate that an ordinary coding request retrieves and applies organizational rules.
 
-**Recommendation:** add a small behavioral evaluation before claiming client-wide JIT coverage. Include an organization-specific requirement the model cannot plausibly infer from general security knowledge. Measure reads before the relevant implementation decision, policy coverage in the result, token cost and needless activation. Evaluate the primary hook and the skill-installed instruction independently and together. A successful explicit `/security-standards` invocation is a diagnostic baseline, not the principal success criterion.
+**Recommendation:** add a small behavioral evaluation before claiming client-wide JIT coverage. Include an organization-specific requirement the model cannot plausibly infer from general security knowledge. Measure reads before the relevant implementation decision, policy coverage in the result, token cost and needless activation. Compare current skill-only discovery with managed hook delivery, including a fresh project with no local corpus and a project with custom policy. Verify plugin updates change the resolved baseline without overwriting custom policy. A successful explicit `/security-standards` invocation is a diagnostic baseline, not the principal success criterion.
 
 ## What upstream implementations actually do
 
@@ -162,15 +162,13 @@ Agent Skills defines staged loading of metadata, instructions and resources. Cla
 flowchart TD
     A[Managed session-start hook injects canonical recall instruction] --> B[Recall standards when planning, changing or reviewing code]
     B --> C[security-standards query]
-    C --> K[Ensure native project recall instruction exists]
-    K --> L[Client loads persistent fallback on subsequent applicable turns or sessions]
-    L --> B
-    C --> D[Org and project indexes]
+    C --> D[Installed corpus index plus optional org and project indexes]
     D --> E[Relevant current pages and CodeGuard rules]
     E --> F[Task requirements with source and revision]
     F --> G[Implementation and focused verification]
-    G --> H[Reviewed lessons and policy updates]
-    H --> D
+    G --> H[Reviewed changes to policy sources]
+    H --> I[Plugin release or custom policy update]
+    I --> D
     J[Specific hooks and CI checks] --> G
 ```
 
@@ -178,71 +176,76 @@ Use four distinct responsibilities:
 
 | Layer | Responsibility | Context cost / guarantee |
 |---|---|---|
-| Recall delivery | Managed hook injects the instruction; a native project instruction provides the fallback | One canonical text; small recurring cost; visibility is not enforcement |
-| Skill | Ensure the fallback instruction exists, then select sources/pages, reconcile policy and return requirements | Loaded on demand; agent judgment remains involved |
-| Corpus / CodeGuard | Durable, versioned policy and detailed guidance | Only relevant material is read |
+| Recall delivery | Managed hook injects the instruction on supported session lifecycle events | One canonical text; small recurring cost; visibility is not enforcement |
+| Skill | Resolve installed/custom sources, select pages, reconcile policy and return requirements | Loaded on demand; agent judgment remains involved |
+| Corpus / CodeGuard | Installed read-only guidance and optional custom policy sources | Only relevant material is read; no default per-project copy |
 | Hooks / CI | Check concrete prohibited actions or verifiable invariants | Deterministic only within the actual check's supported scope |
 
 ### A concrete recall instruction
 
-Maintain this text once in the plugin. The hook injects it; the skill uses the same source when adding the native instruction block:
+Maintain this text once in the plugin and inject it through the hook:
 
 ```text
-Before planning, implementing, or reviewing code, consult the project's
-security standards. Use security-standards query for the task's scope.
-Start at .ai-security/knowledge/index.md; include the configured organization
-store when present. Read only applicable pages and CodeGuard rules.
+Before planning, writing, modifying, or reviewing code, use security-standards
+to retrieve requirements for the task's scope. Start with the index bundled
+with the active skill installation; include configured organization policy
+and project policy when present. Read applicable pages and CodeGuard rules.
 Re-query when scope or trust boundaries change. State the requirements you
-apply and cite their sources. Report missing policy or conflicts explicitly.
-If the skill is unavailable, read the index and relevant pages directly;
-do not silently treat unavailable standards as no requirements.
+apply and cite their sources and revisions. Report unavailable standards
+or policy conflicts explicitly; do not treat missing sources as no requirements.
 ```
 
-This is a proposed recall cue, not a replacement for the detailed precedence procedure. The hook may append resolved source locations and a brief missing-source notice. A central-only deployment must identify its configured store rather than imply the local default exists. Persist portable project-relative paths and the shared-store configuration convention; do not copy machine-specific absolute paths into committed rules. A suitable shorter skill description is:
+This is a proposed recall cue, not a replacement for the detailed precedence procedure. Source resolution and availability checks belong to retrieval, not startup. The skill locates its resources relative to its active installation; the hook does not search versioned caches or enumerate policy sources. A suitable shorter skill description is:
 
-> Retrieve applicable project and organization security standards before planning, implementing, changing, or reviewing code. Read the knowledge index, then relevant pages; report requirements, sources and policy conflicts. Also initialize, update and lint the corpus.
+> Retrieve applicable security standards before planning, writing, modifying, or reviewing code. Read the bundled index and configured organization/project policy, then relevant pages; report requirements, sources and conflicts. Also maintain custom policy stores.
 
-The hook and skill do not need separate policy wording or separate routing logic. Keep a small static mapping for client event/output formats and native instruction destinations. This is integration code, not a runtime chain that tries rules, then hooks, then other mechanisms.
+Keep one recall message, one retrieval procedure and thin adapters for client event/output formats. Neither the hook nor the skill installs native rules or edits project instruction files. This removes duplicate instructions, file ownership decisions, override handling and automatic repair logic from the design.
 
 ### Primary mechanism: managed session-start hook
 
-Deploy the script and client registrations through the organization's existing managed hook rollout. The hook injects the instruction directly; it does not create a project rule, wait for the skill to activate, or require a developer to run init. Keep it read-only, fast, network-free and advisory. If the corpus is absent, say so briefly and point to the skill's initialization operation; do not silently create or adopt organizational policy at startup.
+Deploy the script and client registrations through the organization's existing managed hook rollout. The hook does exactly one thing: send the canonical recall instruction as model context. Keep it read-only, fast, network-free and advisory. It performs no rule, index or cache presence checks and no initialization, downloads or repository writes. Query resolves sources when needed; maintenance/CI validates the corpus. CodeGuard completeness checking and any necessary cache population remain in its retrieval workflow.
 
-| Asset | Startup behavior | Deferred work |
+Avoid mandatory cache prewarming, full-corpus scans and per-edit reminders. Re-querying after a scope change remains part of the recall instruction and query workflow. A hook is deterministic about running only when the host invokes it successfully; reading and applying standards still depends on agent behavior.
+
+| Client | Hook delivery | Lifecycle / verification requirement |
 |---|---|---|
-| Recall instruction | Inject the short canonical text on the supported lifecycle event | Native rule presence is checked when the skill runs |
-| Project/org indexes | Resolve configured locations and check basic readability | Query relevant pages; lint the corpus in maintenance/CI |
-| CodeGuard rules/cache | At most inspect cheap local availability metadata; absence does not block session start | Validate completeness/revision and populate or repair the cache when retrieval needs it |
-
-Do not invoke the existing CodeGuard downloader from the startup hook, since it can make network requests. Avoid mandatory cache prewarming, full-corpus scans and per-edit reminders. Re-querying after a scope change remains part of the recall instruction and query workflow.
-
-| Client | Hook delivery | Native instruction destination used by the skill fallback |
-|---|---|---|
-| Claude Code | `SessionStart` context injection through managed or bundled hook registration. [Hooks](https://code.claude.com/docs/en/hooks) | A managed block in the project's `CLAUDE.md`; do not import the corpus. [Instructions](https://code.claude.com/docs/en/memory) |
-| Codex | Managed `SessionStart` hook, trusted by organization policy. [Hooks](https://learn.chatgpt.com/docs/hooks) | A managed block in the effective project `AGENTS.md`/`AGENTS.override.md`; respect the actual discovery order. [Instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
-| Cursor | `sessionStart`, returning `additional_context`. Current docs describe asynchronous, non-blocking delivery, so first-action timing needs a live test. [Hooks](https://cursor.com/docs/hooks) | One project `.cursor/rules/` file with `alwaysApply: true`. [Rules](https://docs.cursor.com/context/rules-for-ai) |
-| Copilot CLI / VS Code | Register the session-start command hook using each surface's supported configuration/output contract; validate them separately. CLI documents context injection. [CLI hooks](https://docs.github.com/en/copilot/reference/hooks-reference) | A managed block in `.github/copilot-instructions.md` where supported. [Instructions](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
-| Gemini CLI | Managed `SessionStart` with `hookSpecificOutput.additionalContext`; supports startup/resume/clear. [Hooks](https://geminicli.com/docs/hooks/reference/) | A managed block in the project's configured context file, normally `GEMINI.md`. [Instructions](https://geminicli.com/docs/cli/gemini-md/) |
+| Claude Code | `SessionStart` context injection through managed or bundled hook registration. [Hooks](https://code.claude.com/docs/en/hooks) | Verify startup, resume, clear and compact delivery |
+| Codex | Managed `SessionStart` hook, trusted by organization policy. [Hooks](https://learn.chatgpt.com/docs/hooks) | Verify startup, resume, clear and compact delivery under managed trust |
+| Cursor | `sessionStart`, returning `additional_context`; current docs describe asynchronous, non-blocking delivery. [Hooks](https://cursor.com/docs/hooks) | Verify delivery before the first relevant decision; do not assume a compaction event can inject context |
+| Copilot CLI / VS Code | Register the session-start command hook using each surface's supported configuration/output contract. CLI documents context injection. [CLI hooks](https://docs.github.com/en/copilot/reference/hooks-reference) | Validate CLI and VS Code separately, including resume and headless behavior |
+| Gemini CLI | Managed `SessionStart` with `hookSpecificOutput.additionalContext`. [Hooks](https://geminicli.com/docs/hooks/reference/) | Verify startup/resume/clear and interactive/noninteractive delivery; do not assume a compact source |
 
 These are integration targets, not live-verified standards-hook compatibility claims. Existing MCP gate tests do not establish startup-context delivery. The managed rollout must install actual scripts and registrations in each execution environment; plugin installation alone is not the assurance boundary. Other clients or hosted surfaces need their own validation before being called supported.
 
 Codex's current documentation supports bundled hooks but requires trust review for non-managed definitions; installation does not confer trust. Managed hooks are trusted by policy, and the organization must distribute their scripts. This fits the stated managed deployment. The repository's older observed limitation concerns its particular portable packaging; recheck that separately from trust rather than treating it as a universal lack of plugin-hook support. Do not disable trust checks or edit a user's trust records to simulate activation. [Codex hook deployment and trust](https://learn.chatgpt.com/docs/hooks).
 
-Restore the pointer at supported resume/clear/compaction boundaries. Claude and Codex document a `compact` source for SessionStart; do not assume the same behavior in Cursor, Copilot or Gemini. Test foreground, background and headless sessions, relevant subagent contexts, nested working directories and worktrees. Resolve the target project from the session/workspace, not the plugin installation directory. A native file existing on disk is not proof it was loaded, so keep primary hook delivery independent of the fallback's existence.
+Restore the pointer at supported resume/clear/compaction boundaries. Claude and Codex document a `compact` source for SessionStart; do not assume the same behavior in Cursor, Copilot or Gemini. Test foreground, background and headless sessions, relevant subagent contexts, nested working directories and worktrees. Retrieval resolves the target project from the session/workspace and bundled resources from the active skill directory.
 
-### Fallback: the skill ensures the native instruction exists
+**Tradeoff:** removing native rules makes hook delivery the single automatic recall dependency. A hook cannot report its own absence when it was never loaded. Managed deployment checks and live activation tests must establish delivery; skill discovery alone is not a guaranteed fallback. If a client cannot deliver context early enough or restore it after compaction, record that limitation rather than claim equivalent support. Reconsider a client-specific integration only on evidence of that gap, not as a speculative second layer.
 
-Add one preflight to the skill, before its normal operation:
+### Corpus location, ownership and updates
 
-1. Locate the active client's applicable project instruction file/rule, accounting for overrides. Check for the actual standards recall block, not merely the file's existence.
-2. If the block already exists, leave it unchanged. If absent, insert the canonical instruction inside stable markers, or create the dedicated rule file for clients that use one. Preserve all unrelated content. Only install for the active client; other clients can do the same when the skill runs there.
-3. Briefly report the added path, then continue the requested standards operation. Repeated invocation must produce no duplicate blocks or unnecessary file changes. If the existing block was customized or conflicts with current guidance, report it rather than overwrite it automatically.
+Use the installed skill as the read-only source for shipped standards. The current `seed/` directory can serve that role; renaming it is optional and does not solve retrieval by itself. Do not copy the shipped corpus to `.ai-security/knowledge/` (or introduce `.ai-standards/`) for normal use.
 
-Use the client's normal file-write permissions. If the destination is read-only or cannot be identified, report that the persistent fallback was not installed and continue the standards operation where possible. Do not change managed configuration or guess a global location. The existing policy approval workflow remains applicable to changes in the corpus; installing a recall pointer does not approve new standards.
+| Content | Authoritative location | Update path |
+|---|---|---|
+| Shipped baseline and pointers | Active skill installation | Reviewed plugin release, then client loads that version |
+| Organization policy intentionally distributed in the plugin | Installed, versioned policy assets | Organization-approved plugin release; retain policy status and ownership |
+| Separately maintained organization policy | Configured shared corpus/wiki source | Its existing reviewed publication/refresh process |
+| Project-specific requirements, exceptions and lessons | Optional `.ai-security/knowledge/` | Reviewed repository changes |
+| CodeGuard rules | Validated existing CodeGuard installation; otherwise a pinned download cache | Independent CodeGuard update or explicit cache refresh |
 
-This check runs when the skill is invoked even if the hook worked: it establishes a persistent fallback without guessing hook health. Apply the instruction immediately within the active skill; the native file's automatic reload timing is client-specific, so its creation is not proof of current-session loading. After installation, hook and native text may both be present. Accept this bounded repetition of the same short instruction; avoid deduplication state machines or suppressing the hook solely because a file exists.
+Each policy source needs one authoritative publication path. An organization need not use both plugin-distributed policy and a separate shared corpus. The bundled baseline is always considered; optional local policy is read if present, and explicitly configured sources must be checked. An absent optional overlay is normal. An unavailable configured organization source is a coverage gap and must be reported.
 
-**Limit:** this repairs persistence after first use. If the hook does not deliver and the skill is never invoked, nothing runs to install the fallback. Managed deployment checks and live activation tests cover that initial-delivery risk. A hook cannot report its own absence when it was never loaded. The fallback is useful redundancy, not a guarantee of successful recall.
+The query remains index-first: read the relevant source indexes, then applicable pages. Local defaults may override defaults under the existing conventions; mandatory organization controls retain precedence unless a valid approved exception applies. Installation does not turn advisory `seed` content into approved mandatory policy. Report source identity, actual revision and any exception evidence.
+
+Resolve bundled files relative to the skill location supplied by the host, using that active installation consistently for the query. Do not hardcode a versioned plugin-cache path or search for the newest directory: multiple versions can coexist, and an older session can still use its original version. Record plugin version and page path in requirement evidence; record organization-source revision and CodeGuard revision separately. [Claude plugin paths and caching](https://code.claude.com/docs/en/plugins-reference).
+
+**Update semantics:** direct reads remove the separate project-copy refresh step. They do not enable the client's updater or guarantee immediate hot reload. Managed rollout must enable/configure updates and confirm which version new sessions actually load. For example, Claude's marketplace auto-update behavior is configurable, third-party marketplaces default to disabled, and an existing session keeps its loaded version until reload/restart. Test equivalent behavior in every supported client. Updating this plugin also does not automatically update an independent CodeGuard installation or a separately published org corpus. [Claude plugin updates](https://code.claude.com/docs/en/discover-plugins).
+
+Treat installed files as immutable runtime assets. Ingest writes project-specific content only to an explicitly selected custom store, or proposes changes to the authoritative organization/plugin source for review and release. Never edit installed cache files as policy maintenance: updates can replace them. Ordinary query performs no writes and needs no init. Keep optional init for creating a custom store, without copying the whole baseline.
+
+Existing copied corpora require a one-time reviewed migration. Preserve them as explicit local policy until comparison identifies custom/adopted requirements, exceptions and unchanged duplicates. Remove duplication only after preserving policy intent and precedence; do not silently delete or reinterpret existing adopted policy during a plugin update.
 
 Avoid a universal “no edit until a standards-read marker exists” gate. A read marker proves neither relevance nor understanding, shell edits complicate coverage, and repetitive blocks create friction. Hard gates should validate concrete outcomes where possible: a prohibited deployment, missing required checks, an expired approved exception, or an invalid corpus change. The recall layer remains advisory.
 
@@ -262,23 +265,24 @@ These are modest sizes. The problem is not excessive Python code or a huge curre
 
 Prioritize these simplifications:
 
-1. Keep the canonical recall instruction around 80–150 words and the discovery description focused on ordinary coding. Measure the bounded overhead when both hook and native fallback load. Treat these as design targets, not platform limits.
-2. Keep one retrieval-first skill; disclose maintenance details only for init/ingest/lint. Retain precedence essentials on the read path.
+1. Keep the canonical recall instruction under roughly 150 words and the discovery description focused on ordinary coding. Measure lifecycle reinjection overhead. Treat this as a design target, not a platform limit.
+2. Keep one retrieval-first skill; disclose maintenance details only for optional custom-store init/ingest/lint. Retain precedence essentials on the read path. Read shipped files in place to remove copying and synchronization work.
 3. Keep one canonical metadata source and one parser. Generate or validate the index from that source rather than adding another routing format.
 4. Return concise task requirements plus source/revision/exception/gap information. Do not return only links: the implementer needs the actual obligation. Do not repeat entire policy pages in plans.
 5. Reuse already-read pages while scope and revision are unchanged. Retain source identifiers in the plan/handoff so a later session can re-read them without reconstructing the entire conversation.
 6. At larger scale, add domain indexes and targeted lexical search when measured index size/selection quality warrants them. Add semantic retrieval only if those measures still fail. Never truncate required controls silently to meet a token target.
 
-No recommendation to add a vector database, custom memory daemon, new orchestration service, per-topic skills, or a general-purpose policy compiler. The current files and existing setup path can solve most of the gap. A hosted wiki connector/MCP is justified by access and distribution requirements, not merely by calling the store “memory.”
+No recommendation to add a vector database, custom memory daemon, new orchestration service, per-topic skills, or a general-purpose policy compiler. The current files plus managed hook delivery can solve most of the gap without per-project setup. A hosted wiki connector/MCP is justified by access and distribution requirements, not merely by calling the store “memory.”
 
 ## Validation and rollout plan
 
 ### First changes: recall and truthful claims
 
 - Add the canonical recall text, shared startup hook and thin client registrations to the existing managed rollout. Verify delivery and trust in each target client without per-project init.
-- Add ordinary-coding triggers and the skill's native-rule presence check. Verify first invocation, repeat invocation, existing custom content, overrides and read-only destinations in temporary repositories.
-- Specify query behavior for both stores, `all-code`, statuses, missing sources, conflicts, and changed scope. Show resolved sources and uncovered topics.
-- Correct “always-on SKILL.md” and overly broad lint/coverage wording. State that the corpus is a local or shared checkout, not an automatically synchronized remote wiki.
+- Add ordinary-coding triggers and resolve the bundled index from the active skill installation. Verify a fresh project can retrieve standards without local corpus creation, rule installation or manual init.
+- Specify query behavior for the installed baseline and optional custom stores, `all-code`, statuses, missing sources, conflicts, and changed scope. Show resolved sources and uncovered topics.
+- Correct “always-on SKILL.md” and overly broad lint/coverage wording. Document installed baseline updates separately from custom policy publication and wiki refresh.
+- Limit init/ingest to explicitly selected custom stores or source changes for review; preserve existing copied policy through a reviewed migration.
 
 ### Next changes: retrieval integrity
 
@@ -286,9 +290,9 @@ No recommendation to add a vector database, custom memory daemon, new orchestrat
 - Validate CodeGuard completeness and actual revision; test partial download recovery and offline complete-cache behavior.
 - Verify central mandatory policy plus a local exception, expired exceptions, conflicting defaults, renamed pages and inaccessible central sources. Include source identity in evidence.
 
-### Then verify primary delivery and fallback behavior
+### Then verify recall, retrieval and update behavior
 
-Run the same tasks under (A) current skill-only setup, (B) the managed hook in a clean project with no native rule, and (C) the hook plus the rule installed by first skill use. Separately disable the hook after fallback installation and verify a new session receives the native instruction. Also test explicit invocation to distinguish broken access from poor activation. Start with a small representative suite, for example 12 tasks × 3 fresh runs per variant for each priority client/model; this is a pilot, not statistical proof of reliability.
+Compare (A) current skill-only discovery and (B) managed hook delivery using the same policies and tasks to isolate the effect of the recall cue. Exercise the proposed architecture in both clean projects using only installed assets and projects with configured organization/local policy. Disable the hook as a negative control; do not expect guaranteed automatic recovery. Also test explicit invocation to distinguish broken access from poor activation. Start with a small representative suite, for example 12 tasks × 3 fresh runs per variant for each priority client/model, with additional targeted update/migration checks. This is a pilot, not statistical proof of reliability.
 
 | Task family | What to check |
 |---|---|
@@ -298,17 +302,18 @@ Run the same tasks under (A) current skill-only setup, (B) the managed hook in a
 | Existing plan followed by scope expansion | Re-queries when a new boundary or data class appears |
 | Fresh session / resumed compacted session | Can recover requirements from persistent source references |
 | Managed deployment / changed hook definition | Instruction is actually delivered under current organization policy; do not infer trust from plugin presence |
-| First and repeated skill invocation | Missing native rule is added once; existing unrelated/customized content is preserved |
-| Hook disabled after fallback installation | Fresh session still receives the native instruction and retrieves the sentinel standard |
-| Hook absent and skill never invoked | Record missing delivery as a failure; do not claim the fallback repairs this case |
-| Two stores with a conflict/exception | Preserves mandatory requirement, cites both sources and approval evidence |
+| Clean repository / read-only query | Reads installed standards without creating rules, copying the corpus, modifying installed assets or requiring init |
+| Plugin version update / older active session | New session resolves its loaded version; no hardcoded cache path or arbitrary newest-version selection; custom policy survives |
+| Existing copied corpus migration | Preserves adopted/customized policy and exceptions until reviewed reconciliation |
+| Hook absent or disabled | Deployment checks expose missing delivery; record any discretionary skill activation separately |
+| Installed baseline plus custom conflict/exception | Preserves mandatory requirement, cites the relevant sources and approval evidence |
 | Missing index, stale page, deprecated rule | Reports the actual gap/status and does not imply complete coverage |
 | Documentation typo or unrelated question | Avoids needless deep retrieval and planning ceremony |
 | Incomplete/offline CodeGuard installation | Explicitly reports missing rules; never claims a complete baseline |
 
 Record client/model/plugin revisions, initial instructions, skill activation, file/tool-read order, relevant policy recall, unrelated reads, actual policy adherence in the code, context usage, latency, and false-positive interruptions. Prefer a unique organization-only requirement as a retrieval sentinel. A model producing generic secure code without reading it is not evidence of standards recall.
 
-Proposed pilot acceptance criteria: the managed hook delivers the instruction before the relevant implementation decision in each supported mode; no silent omissions of the sentinel or mandatory conflict across the sampled runs; every missing source is reported; no recursive whole-corpus load; the native fallback is added once and works in a fresh session with the hook disabled; and token/latency overhead fits the team's agreed budget. Report numerator/denominator and failures. Passing a finite sample cannot establish a universal guarantee. A client with missing or late delivery remains a compatibility gap until resolved; do not add untested runtime fallbacks to conceal it.
+Proposed pilot acceptance criteria: the managed hook delivers the instruction before the relevant implementation decision in each supported mode; no silent omissions of the sentinel or mandatory conflict across the sampled runs; every unavailable required/configured source is reported; no recursive whole-corpus load; clean projects need no init or corpus copy; ordinary query creates no files or rules; loaded plugin updates supply the new baseline while custom policy remains intact; and token/latency overhead fits the team's agreed budget. Report numerator/denominator and failures. Passing a finite sample cannot establish a universal guarantee. A client with missing or late delivery remains a compatibility gap until resolved; do not add untested runtime fallbacks to conceal it.
 
 ## Verification record
 
@@ -319,4 +324,4 @@ Proposed pilot acceptance criteria: the managed hook delivers the instruction be
 - Literal routing: `{api}` selects only denial-of-wallet; a broad AI scope selects ten pages. These expose missing selection semantics, not measured LLM behavior.
 - Configured CodeGuard `v1.4.0`: all 23 local pointer rule references match upstream filenames. No obsolete-rule-name finding.
 
-The implementation is worth retaining. The immediate investment should be managed hook delivery of one canonical recall instruction, the skill's idempotent native-rule fallback, a precise and tested retrieval contract, and reliable metadata/source validation. Those changes address the user's problem directly while preserving the current system's small footprint.
+The implementation is worth retaining. The immediate investment should be managed hook delivery of one canonical recall instruction, direct retrieval from the installed corpus, a precise and tested custom-policy retrieval contract, and reliable metadata/source validation. Those changes address the user's problem directly while preserving the current system's small footprint.

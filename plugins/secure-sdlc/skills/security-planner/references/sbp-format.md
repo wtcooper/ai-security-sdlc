@@ -17,7 +17,7 @@ Requirement ids are stable (`R1`, `R2`, …) — the evidence record and regress
 | R1 | /api/orders | Parameterize all queries; reject unknown fields with 400 | codeguard-0-input-validation-injection | scan-code, CodeQL |
 | R2 | agent tool `read_doc` | Resolve within DOCS_DIR only; deny path traversal; allowlist extensions | codeguard-0-file-handling-and-uploads | pentest (Strix), red team (`ssrf`/`indirect-prompt-injection`) |
 | R3 | system prompt | No secrets/internal notes in prompt; secrets via env | codeguard-1-hardcoded-credentials | red team (`prompt-extraction`) |
-| ... | | | knowledge/security/tool-least-privilege.md | red team (`excessive-agency`) |
+| ... | | | bundled: security-standards/seed/security/tool-least-privilege.md @ plugin version/hash | red team (`excessive-agency`) |
 
 ### Implementation checklist
 - [ ] ...
@@ -35,11 +35,11 @@ Requirement ids are stable (`R1`, `R2`, …) — the evidence record and regress
 | approved by | <name or role> · <date> |
 | approval reference | <PR / ticket / meeting note URL> |
 | artifact commit | <commit hash of the approved plan text> |
-| policy versions | standards corpus <commit or tag> · CodeGuard <ref> · profile <date> |
+| policy versions | bundled plugin <version/hash> · org/project policy <commit/hash> · CodeGuard <revision/hash> · profile <date> |
 | supersedes / superseded by | <plan path or "—"> |
 | evidence record | .ai-security/evidence/<slug>.md (filled in by fix-findings after verification) |
 ```
 The approval record is what makes "human approval" auditable: who, when, of which text, under
 which policy versions. Update `status` and `superseded by` rather than deleting an old plan.
-Keep it proportional to the change. Cite rules by id and standards pages by path
-(`knowledge/security/<page>.md`); do not paste rule or page text.
+Keep it proportional to the change. Cite rules by id and standards pages by source label,
+resolved path and revision; do not paste rule or page text.

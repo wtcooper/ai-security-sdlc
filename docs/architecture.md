@@ -13,10 +13,10 @@
   configured, what do I start from, and where does security fit in the workflow* (agent hardening,
   starter scaffolds, opt-in hooks, the SDLC map). `security-planner` answers *what requirements
   apply to this feature* (intent → spec → plan workflow, Secure Build Plans). `security-standards`
-  answers *where does institutional knowledge live*: an index-routed corpus at
-  `.ai-security/knowledge/` (llm-wiki style — read the index, then only the matching pages),
-  seeded with the AI control families and a CodeGuard pointer page, extensible by the org beyond
-  security. `fix-findings` closes the loop back into all three. MCP/skill vetting stays in
+  retrieves requirements before ordinary coding as well as planning. A session-start hook supplies
+  a terse recall cue; the skill reads its installed `seed/` index and applicable pages in place,
+  plus configured org policy and optional `.ai-security/knowledge/` project policy. It never creates
+  rules or copies the baseline during query. `fix-findings` closes the loop back into all three. MCP/skill vetting stays in
   `verify-ai`.
 - **Orchestrate, don't vendor.** Skills call upstream OSS (CodeGuard, Promptfoo, Strix, CodeQL,
   semgrep, Trivy, OSV-Scanner, zizmor) and
@@ -31,8 +31,10 @@
   `scripts/sync_manifests.py` now generates only the two root marketplaces.
 - **Shared state on disk.**
   - `.ai-security/profile.md` — the app security profile (written by `security-profile`).
-  - `.ai-security/knowledge/` — the standards corpus (seeded by `security-standards` init;
-    **committed**, unlike results/cache — standards are policy the team versions).
+  - `.ai-security/knowledge/` — optional custom project policy, exceptions and lessons;
+    **committed**, unlike results/cache. Normal retrieval needs no init or baseline copy.
+    Shipped standards remain read-only in the active skill installation; plugin updates supply
+    them when the client loads the new version. Existing adopted copies need reviewed migration.
   - `.ai-security/results/<phase>/…` — findings, SARIF where the tool provides it. The phase
     directory names (`evals`, `redteam`, `pentest`, `code-scan`, `asset-scan`) are a **stable
     contract** predating the plugin consolidation — scripts and skills reference them by name;
@@ -52,7 +54,7 @@
 ## Data flow
 ```
 security-guidance (agent hardening · scaffold ──▶ .ai-security/starter.md · opt-in hooks)
-security-standards ──▶ .ai-security/knowledge/ (index-routed corpus)
+session-start recall ──▶ security-standards ──▶ installed corpus + optional org/project policy
 security-profile ──▶ .ai-security/profile.md
        │                     │
        ▼                     ▼
@@ -78,13 +80,16 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
 ## Why these tools (Aug 2026)
 - **security-guidance** wraps no tool by design: vendor setup facts are dated (`asOf`) and sourced from
   live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps;
-  hook templates are inert scripts installed only with explicit approval; the one built-in hook,
+  hook templates are inert scripts installed only with explicit approval; the built-in policy hook,
   the `hooks/` mcp-install gate, is narrow (MCP installs only), fails closed when it cannot evaluate a
   call, and keeps a per-user allowlist of approved servers (name + command/URL) that the hooks write
   when the user says yes — in the client's prompt (matched by tool-call id), or with exactly `approve <name>` in the chat for clients that
   cannot prompt — so a server asks once; a post-tool watcher reports MCP config changes the gate could
   not see.
-- **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules
+- **Standards recall** injects only a short instruction through managed/bundled SessionStart hooks;
+  it does not enforce adherence. Client trust and lifecycle support must be verified separately.
+  No native-rule fallback or startup cache/asset checks. See [hook delivery](../plugins/secure-sdlc/hooks/README.md#standards-recall).
+- **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (discoverable skill metadata, rules
   read JIT) and multi-client. We scope it to a feature and turn it into a build-plan artifact.
 - **Promptfoo** covers both benign evals and adaptive red teaming, targets arbitrary HTTP apps with
   stateful sessions, and ships its own Claude Code skills + MCP.

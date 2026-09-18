@@ -15,15 +15,23 @@ Security enters at planning time, not review time. Two modes — confirm which f
 ## Inputs
 - `.ai-security/profile.md` (create it with `security-profile` if missing — do not guess).
 - The feature idea, request, or existing draft plan.
-- The standards corpus (`security-standards` query; run its init if the store is missing).
+- Applicable standards (`security-standards` query reads installed guidance plus optional custom policy; no init required).
 - CodeGuard rules, located by `scripts/find-codeguard.sh` (see Preflight).
 
 ## Preflight
-Run `bash scripts/find-codeguard.sh` (path relative to this skill). It prints the rules dir
-if CodeGuard is installed (Claude Code plugin cache, `.claude/skills/codeguard`,
-`.agents/skills/codeguard`, `.cursor/rules`), otherwise downloads the pinned release
-`skills/codeguard/rules` into `.ai-security/cache/codeguard/` and prints that.
-If it fails, tell the user how to install:
+Run `bash scripts/find-codeguard.sh` (path relative to this skill, working directory the project
+root). It reads existing installations or a verified cache without writing/downloading, prints
+the directory on stdout and source identity on stderr. For an active plugin installation, set
+`CODEGUARD_RULES_DIR` to its rules path supplied by the host; do not guess a cached version.
+After selecting topics, pass their rule IDs as arguments to check that all required files exist.
+The three baseline rules are always required. Record the reported revision/content identity;
+never label an independent installation with the fallback version.
+
+If missing, report the coverage gap. A separate preparation step, `bash scripts/find-codeguard.sh
+--download [rule-id ...]`, downloads the pinned `CODEGUARD_REF` (default `v1.4.0`) to
+`.ai-security/cache/codeguard/`, staging and checking the full download before publication.
+Use it when network/cache preparation is authorized; ordinary standards query stays read-only.
+Alternatively install CodeGuard:
 - Claude Code: `/plugin marketplace add cosai-oasis/project-codeguard` then
   `/plugin install codeguard-security@project-codeguard`
 - Codex/Cursor/Copilot/Windsurf: download `codeguard-<client>.zip` from the CodeGuard releases page.
@@ -61,13 +69,13 @@ none) before moving on.
 2. **Select requirements — progressive disclosure, never load everything**:
    - Always: the tier-1 rules `codeguard-1-*` (credentials, crypto, certificates).
    - Read the rules dir listing; pick tier-0 rules whose filename topic matches the scope
-     (topic → rule-family map: `knowledge/security/codeguard.md` after standards init).
+     (topic → rule-family map: `security-standards/seed/security/codeguard.md` in the active installation).
      Typical SBP reads 3–7 rule files.
    - Each rule has `languages:` frontmatter — skip rules whose languages don't intersect the
      scope unless the topic clearly applies.
    - AI-specific requirements not covered by CodeGuard (prompt injection, tool least-privilege,
      output handling, memory/RAG integrity, …) come from the standards corpus: query
-     `security-standards` with the scope and cite the pages (`knowledge/security/<page>.md`).
+     `security-standards` with the scope and cite source label, resolved page path and revision.
 3. **Write the SBP** using the format in [references/sbp-format.md](references/sbp-format.md):
    requirements per component with the rule id or standards page cited, explicit non-goals, an
    implementation checklist, and a **verification plan** that names the skill that checks each
@@ -80,8 +88,8 @@ none) before moving on.
    questions.
 
 ## Rules
-- Do not paste rule or standards-page bodies into the plan; cite `codeguard-<tier>-<topic>` or
-  `knowledge/security/<page>.md` and state the requirement.
+- Do not paste rule or standards-page bodies into the plan; state the requirement and cite its
+  rule ID/page path, source label and actual revision (bundled, org or project).
 - Do not invent rules; if CodeGuard and the corpus are silent on a topic say so and use judgement,
   then propose the gap to `security-standards` ingest.
 - Keep the SBP proportional: a small change gets a short SBP.

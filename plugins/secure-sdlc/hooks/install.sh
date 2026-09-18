@@ -1,5 +1,5 @@
 #!/bin/sh
-# install.sh — wire the mcp-install gate (pre-tool prompt), the mcp-config watch (post-tool approval recording and
+# install.sh — wire standards recall (session context), the mcp-install gate (pre-tool prompt), mcp-config watch (post-tool approval recording and
 # detector) and their shared library into one or more coding agents. All per-client logic lives here so the same
 # script can be run by a person, by the install-hooks skill, or by an admin/MDM job.
 #
@@ -12,13 +12,13 @@
 #                              an MDM package payload instead of writing to /). Codex's managed layer is
 #                              TOML, so for codex the script prints the requirements.toml block to add.
 #   --dry-run: print what would be written, write nothing.
-#   --check:   health check of an existing install — jq present, the three scripts present and executable, each
-#              client config carries exactly the pre and post entries this scope installs (command paths and matchers),
+#   --check:   health check of an existing install — jq present, the four scripts present and executable, each
+#              client config carries the session, pre and post entries this scope installs (command paths and matchers),
 #              and the installed gate declines a sample installer payload and allows a benign one. Exit 1 on any failure.
 #              It validates files; whether the client has loaded and trusted the hook is only visible in the client.
 # Idempotent and self-repairing: the entries this script owns (any hook whose command is mcp_install_gate.sh or
-# mcp_config_watch.sh) are removed and re-added on every run; every other hook and key is preserved. Needs jq.
-SCRIPTS="aisec_lib.sh mcp_install_gate.sh mcp_config_watch.sh"
+# mcp_config_watch.sh or standards_recall.sh) are removed and re-added on every run; every other hook and key is preserved. Needs jq.
+SCRIPTS="aisec_lib.sh mcp_install_gate.sh mcp_config_watch.sh standards_recall.sh"
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -61,7 +61,14 @@ stanza() { # stanza <tool>
     gemini)      f=clients/gemini.settings.json ;;
   esac
   if [ "$scope" = project ]; then cat "$HERE/$f"; else
-    sed -e "s|\$GEMINI_PROJECT_DIR/\.ai-security/hooks/|$dir_ref/|g" -e "s|\"\.ai-security/hooks/|\"$dir_ref/|g" "$HERE/$f"; fi
+    jq --arg dir "$dir_ref" 'walk(if type == "string" then
+      gsub("\"\\$GEMINI_PROJECT_DIR\"/\\.ai-security/hooks/"; ($dir + "/")) |
+      gsub("\\$GEMINI_PROJECT_DIR/\\.ai-security/hooks/"; ($dir + "/")) |
+      sub("^\\.ai-security/hooks/"; ($dir + "/")) |
+      if test("standards_recall\\.sh [a-z-]+$") then
+        capture("standards_recall\\.sh (?<client>[a-z-]+)$").client as $client |
+        (($dir + "/standards_recall.sh" | @sh) + " " + $client)
+      else . end else . end)' "$HERE/$f"; fi
 }
 # Target config file per tool and scope. System paths are each vendor's machine-wide managed location.
 target() { # target <tool>
@@ -87,7 +94,7 @@ target() { # target <tool>
 # matchers, paths or half-removed stanzas are repaired); append the current stanza to each hook-event array.
 merge() { # merge <existing-json-or-{}> <stanza-json>
   jq -s '.[0] as $cur | .[1] as $add
-         | def ours: (. // "") | test("mcp_install_gate\\.sh|mcp_config_watch\\.sh");
+         | def ours: (. // "") | test("mcp_install_gate\\.sh|mcp_config_watch\\.sh|standards_recall\\.sh");
            def strip: if type=="array" then map(
                           if has("hooks") then (if (.hooks | any(.command | ours)) then ((.hooks |= map(select(.command | ours | not))) | select((.hooks | length) > 0)) else . end)
                           else select((.command // .bash) | ours | not) end) else . end;
@@ -103,6 +110,14 @@ hooks = true
 
 [hooks]
 managed_dir = "/usr/local/lib/ai-security/hooks"
+
+[[hooks.SessionStart]]
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "$dir_ref/standards_recall.sh codex"
+timeout = 10
+statusMessage = "security standards"
 
 [[hooks.PreToolUse]]
 matcher = "Bash|apply_patch|Edit|Write"
@@ -146,7 +161,7 @@ if [ $check -eq 1 ]; then # health check: report, never write
   for sname in $SCRIPTS; do [ -x "$absdir/$sname" ] && say "ok    script present and executable: $absdir/$sname" || say "FAIL  script missing or not executable: $absdir/$sname"; done
   for t in $tools; do
     tgt=$(target "$t")
-    if [ -z "$tgt" ]; then say "info  $t: system scope is TOML-managed — check /etc/codex/requirements.toml for [[hooks.PreToolUse]] with $script_ref"; continue; fi
+    if [ -z "$tgt" ]; then say "info  $t: system scope is TOML-managed — check /etc/codex/requirements.toml for SessionStart, PreToolUse and PostToolUse registrations"; continue; fi
     if [ ! -f "$tgt" ] || ! jq -e . "$tgt" >/dev/null 2>&1; then say "FAIL  $t: $tgt missing or not valid JSON"; continue; fi
     stanza "$t" > "$tmp/want.json"
     for ev in $(jq -r '.hooks | keys[]' "$tmp/want.json"); do

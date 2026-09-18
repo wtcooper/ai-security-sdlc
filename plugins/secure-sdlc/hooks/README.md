@@ -5,7 +5,44 @@ autopilot and assisted approval, Codex approve-for-me. Those classifiers look fo
 destructive commands. They do not know an organization's rules: which actions need a named person's
 consent, which registries are approved, which files are governed. The PreToolUse hook layer is where
 those rules go, and this directory holds a **pattern** for writing them once and running them in every
-client, plus the first rule built on it.
+client, plus the first rule built on it. It also carries the advisory standards-recall hook below.
+
+## Standards recall
+
+`standards_recall.sh <client>` emits one short instruction to consult `security-standards` before
+planning, writing, changing or reviewing code. It has no payload interpretation, filesystem
+discovery, writes, downloads or persistent state. It needs `jq`, already required by this hook
+package. Invalid invocation or missing jq reports a hook error; it never requests a permission
+decision or claims to enforce standards. The skill reads the active installation's bundled index
+and relevant pages, plus optional custom policy. No native rules or corpus copies are installed.
+
+The shared installer registers recall alongside the existing gate/watch at project, user or system
+scope. Managed deployments distribute the discoverable skills/plugin as well as these scripts and
+registrations; installing hooks alone does not install the skill. Normal users need no per-project
+init. Refresh copied managed scripts through the same rollout when updating the plugin. Avoid
+registering both the bundled and managed recall hook in the same client: both may inject context.
+
+| Client | Event and output | Delivery boundary |
+|---|---|---|
+| Claude Code | `SessionStart`, `hookSpecificOutput.additionalContext` | Bundled or managed; startup/resume/clear/compact sources use the same registration |
+| Codex | `SessionStart`, `hookSpecificOutput.additionalContext` | Managed trust or explicitly trusted hook definition; installer prints managed TOML |
+| Cursor | `sessionStart`, `additional_context` | Asynchronous; verify first-decision timing; no compaction reinjection claim |
+| Copilot CLI | `sessionStart`, `additionalContext` | Bundled or managed; VS Code delivery requires separate live validation |
+| Gemini CLI | `SessionStart`, `hookSpecificOutput.additionalContext` | Startup/resume/clear; no compaction reinjection claim |
+
+Sources: [Claude](https://code.claude.com/docs/en/hooks), [Codex](https://learn.chatgpt.com/docs/hooks),
+[Cursor](https://cursor.com/docs/hooks), [Copilot](https://docs.github.com/en/copilot/reference/hooks-reference),
+[Gemini](https://geminicli.com/docs/hooks/reference/). Contracts checked 2026-09-18. The payload tests
+verify output/registration; they do not prove that every client loads it or that a model follows it.
+Use `--check` for deployment files, then a live ordinary coding task with an organization-only
+sentinel requirement to verify recall before implementation. A missing hook cannot report itself.
+See [standards evaluation](live-tests/standards-recall.md) for reproducible live checks and limits.
+
+Plugin updates provide the baseline when the host loads the updated skill version. They do not
+update an independently installed CodeGuard or separate org corpus. Preserve project-specific
+policy in `.ai-security/knowledge/`; ingestion never writes installed assets. Existing seed copies
+need reviewed reconciliation, not automatic deletion. Lint custom policy in CI using
+`uv run <skill>/scripts/lint_corpus.py <store>`; no argument validates the shipped corpus.
 
 **The pattern** (see [TEMPLATE_policy_hook.sh](TEMPLATE_policy_hook.sh)):
 
@@ -176,7 +213,7 @@ Cursor hot-reloads `mcp.json`, so there the detector is a record, not a stop.
 sh install.sh [--scope project|user|system] [--project DIR] [--dry-run|--check] <claude-code|codex|cursor|copilot|gemini>... | all
 ```
 
-Project scope (default) copies the three scripts to `DIR/.ai-security/hooks/` and merges the client
+Project scope (default) copies the four scripts to `DIR/.ai-security/hooks/` and merges the client
 stanza from `clients/` into the repo config; user scope uses `~/.ai-security/hooks/` and the home
 config with absolute paths. It is self-repairing: the entries it owns (any hook whose command is one of
 its scripts) are removed and re-added on every run, so an old matcher, a wrong path or a half-removed
@@ -187,7 +224,7 @@ scripts at `/usr/local/lib/ai-security/hooks/` and writes each vendor's machine-
 `settings.json`); Codex's managed layer is TOML, so the script prints the `requirements.toml` block.
 Full admin guidance: [docs/playbooks/enterprise-rollout.md](../../../docs/playbooks/enterprise-rollout.md).
 `sh install.sh --check <tools>` validates the files: scripts present and executable, each client config
-carrying exactly the pre and post entries this scope installs (command and matcher), the installed gate
+carrying the session, pre and post entries this scope installs (command and matcher), the installed gate
 declining a sample installer payload and allowing a benign one. Whether the client has loaded and
 trusted the hook is only visible in the client. `test_install.sh` covers all of that.
 
@@ -204,7 +241,7 @@ trusted the hook is only visible in the client. `test_install.sh` covers all of 
 Manual copy, if not using the script:
 
 ```sh
-mkdir -p .ai-security/hooks && cp <plugin-root>/hooks/{aisec_lib.sh,mcp_install_gate.sh,mcp_config_watch.sh} .ai-security/hooks/ && chmod +x .ai-security/hooks/*.sh
+mkdir -p .ai-security/hooks && cp <plugin-root>/hooks/{aisec_lib.sh,mcp_install_gate.sh,mcp_config_watch.sh,standards_recall.sh} .ai-security/hooks/ && chmod +x .ai-security/hooks/*.sh
 ```
 
 ## Verification (asOf 2026-09-18)
@@ -253,7 +290,9 @@ when a file did. All well inside the 10 s stanzas; vendor timeouts fail open, so
   template rule's namespace, and the corpus in `live-tests/fixtures/` recorded from live agents (with
   expected outcomes in `expected.tsv`). The regressions from the 2026-09-18 objective review (probes
   P01–P24) are all in it.
-- `test_install.sh` — installer, all scopes, self-repair and the strict health check.
+- `test_install.sh` — installer, all scopes, self-repair, recall commands and the strict health check.
+- `../../../scripts/test_security_standards.py` — safe metadata/routing validation, read-only
+  bundled-source checks, recall output and staged CodeGuard download/recovery (offline fixtures).
 - `live-tests/` — the harness for real agents: `recorder.sh` (a hook that logs every raw payload and
   denies only config-touching writes, so a prompt runs to the point of the write without changing the
   machine), `sdk_consent.py` (Claude Code through the Agent SDK with a scripted consent answer),

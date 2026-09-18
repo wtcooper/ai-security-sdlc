@@ -18,7 +18,7 @@ Principle: **use well-maintained OSS skills/tools; only build our own where prov
 | Set up (once per machine) | the coding agent's own permissions, sandbox, egress, MCP trust | `security-guidance` agent-setup path (**secure-sdlc**) | live-doc-verified vendor guides |
 | Start (new service) | secure-by-design scaffold with control-family TODOs | `security-guidance` scaffold path (**secure-sdlc**) | 3 architecture-matched templates |
 | Profile (once per app) | `.ai-security/profile.md` — the contract every verifier reads | `security-profile` (**secure-sdlc**) | — |
-| Standards (continuous) | index-routed knowledge corpus, queried at plan time | `security-standards` (**secure-sdlc**) | llm-wiki pattern; [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) pointers |
+| Standards (continuous) | session recall + index-routed guidance before coding and planning | `security-standards` (**secure-sdlc**) | llm-wiki pattern; [Project CodeGuard](https://github.com/cosai-oasis/project-codeguard) pointers |
 | Plan (per feature) | intent → spec → plan with approval stops; Secure Build Plans | `security-planner` (**secure-sdlc**) | CodeGuard rules, standards corpus |
 | Build | client's native plan mode implements `plan.md`; business-logic hooks at the pre-tool-call layer | built-in `mcp-install gate` (consent before an agent installs an MCP server) on a reusable hook pattern (`hooks/`, `install-hooks`); opt-in templates installed on request by `security-guidance`: `secrets-in-diff`, `test-file protection`, `deploy gate` (**secure-sdlc**) | — |
 | Verify — code you ship | SAST ensemble → one triaged SARIF; CodeQL CI; DAST pentest | `scan-code`, `codeql-ci`, `codeql-report`, `pentest-app` (**verify**) | [semgrep](https://semgrep.dev), [CodeQL](https://github.com/github/codeql-action), [Trivy](https://trivy.dev), [OSV-Scanner](https://google.github.io/osv-scanner/), [zizmor](https://zizmor.sh), [Strix](https://github.com/usestrix/strix) |
@@ -30,7 +30,10 @@ All verifiers share the per-app profile at `.ai-security/profile.md` — derived
 deliberately app-type agnostic (entry points, flows, sinks, boundaries), so scanners are not
 funnelled into pre-declared pathways — and write findings to `.ai-security/results/<phase>/…`
 (SARIF where the tool provides it), which `fix-findings` consumes. Institutional knowledge lives
-in `.ai-security/knowledge/` (committed, org-owned, extensible beyond security).
+in the installed `security-standards/seed/` corpus, with optional organization policy at
+`AISEC_KNOWLEDGE_DIR` and project-specific policy in `.ai-security/knowledge/` (committed).
+A session-start hook supplies a terse recall instruction; the skill reads applicable pages
+on demand. No standards copy or per-project init is needed. See [standards recall](plugins/secure-sdlc/hooks/README.md#standards-recall).
 
 ## Business logic at the hook layer
 
@@ -171,8 +174,8 @@ the remediation, the regression checks, and the one false positive that a carele
 
 ```
 security-guidance          # once per machine: orient + harden the coding agent (+ scaffold a new service)
-security-standards (init)  # once per repo: seed the knowledge corpus
-install-hooks              # wire the mcp-install gate into Codex / Cursor / Copilot / Gemini (Claude Code: automatic)
+install-hooks              # developer alternative to managed rollout: standards recall + MCP gate/watch
+security-standards         # JIT query of installed guidance + optional custom policy; no init needed
 security-profile           # once per app
 security-planner           # per feature: intent → spec → plan (or inject an SBP into an existing plan)
 eval-baseline              # establish quality benchmark        (verify-ai)

@@ -1,6 +1,9 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      { "type": "command", "bash": ".ai-security/hooks/standards_recall.sh copilot", "timeoutSec": 10 }
+    ],
     "preToolUse": [
       { "type": "command", "bash": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "bash|powershell|create|edit|str_replace_editor|apply_patch", "timeoutSec": 10 }
     ],

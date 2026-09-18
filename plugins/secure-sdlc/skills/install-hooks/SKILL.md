@@ -1,8 +1,8 @@
 ---
 name: install-hooks
-description: Install the ai-security-sdlc business-logic build-phase hook (the mcp-install gate, which asks the user for consent before an agent installs an MCP server) into the user's coding agents — Claude Code, Codex, Cursor, GitHub Copilot CLI, Gemini CLI — at project or user scope, by asking which tools they use and running the shared hooks/install.sh script. Use when asked to "install the security hooks", "add the MCP gate to Codex/Cursor/Copilot/Gemini", "wire the hooks into my repo", "set up the gate for the team", or right after the plugin was installed in a client other than Claude Code.
+description: Install standards session-start recall and the MCP install gate/watch into Claude Code, Codex, Cursor, Copilot CLI or Gemini CLI through the shared hooks/install.sh script. Use when asked to install security hooks, enable standards recall, wire hooks into a repo or set up the gate for a team. Managed fleets can deploy the same script without per-project developer setup.
 license: MIT
-compatibility: needs jq; writes only the client config files it shows in the dry run, never anything else
+compatibility: needs jq; copies hook scripts and merges client configuration shown in the dry run
 ---
 
 # Install hooks
@@ -13,7 +13,7 @@ MDM job later. This skill only decides *what* to run and shows the user the resu
 If this skill was installed as a plain skill copy (no plugin root), the script is wherever the repo is
 vendored — commonly `/opt/ai-security-sdlc/plugins/secure-sdlc/hooks/install.sh` — or clone the repo.
 
-Claude Code users who enabled the `secure-sdlc` plugin already have the gate active; offer the
+Claude Code users who enabled the `secure-sdlc` plugin already have recall and the gate active; offer the
 settings-level install anyway only if they want it without the plugin (CI, teammates, other machines).
 
 ## Steps
@@ -33,7 +33,9 @@ settings-level install anyway only if they want it without the plugin (CI, teamm
    script, each client config, a declined sample payload and the installed client versions; exit 0
    means healthy. Relay the per-client notes the install printed — Codex needs the hook trusted via
    `/hooks`, Copilot `-p` mode needs the folder trusted, Gemini headless needs `--skip-trust`.
-6. **Report** in ≤8 lines: files written (three scripts and the stanzas); that the first install of an MCP
+6. **Report** in ≤8 lines: files written (four scripts and the stanzas); standards recall sends a short
+   instruction and requires the security-standards skill/plugin to be discoverable (no corpus init);
+   that the first install of an MCP
    server prompts in the client (Codex: the agent asks in the chat and the user replies exactly `approve <name>`),
    that approved servers are recorded in `~/.ai-security/mcp-allowlist.json` and never prompt again unless
    their command or URL changes; that the post-tool watcher reports MCP config changes the gate could not
