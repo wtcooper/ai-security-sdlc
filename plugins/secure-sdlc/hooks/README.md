@@ -83,19 +83,22 @@ vendor MCP allowlists (playbook §4) are the preventive control against a hostil
 - CLI reconfiguration by `claude | codex | agent (Cursor) | cursor-agent | copilot | gemini`, by name, by
   path, through `sudo`/`bash -c`, or via `npx`/`bunx`/`pnpx` of the published package:
   `mcp add[-json|-from-claude-desktop] | remove | rm | login | enable | disable | reset-project-choices`,
-  and `import …` (which imports MCP servers from another agent)
-- Session-only MCP injection on a nested agent: `--mcp-config`, `--additional-mcp-config`, `--add-mcp`
-  (VS Code), `-c`/`--config mcp_servers…` (Codex), `--approve-mcps` (Cursor)
+  `import …` (which imports MCP servers from another agent), and `plugin|plugins install | add | i |
+  marketplace add` / `extensions install | link` (a plugin can bundle MCP servers and the bundle is not
+  visible until it is installed, so the install is the consent point)
+- Session-only MCP or plugin injection on a nested agent: `--mcp-config`, `--additional-mcp-config`,
+  `--add-mcp` (VS Code), `-c`/`--config mcp_servers…` (Codex), `--approve-mcps` (Cursor), `--plugin-dir`, `--plugin-url`
 - Install deeplinks: `cursor://…/mcp/install`, `vscode:mcp/install`
 - Inline interpreter code (`python -c`, `node -e`, `perl -e`, `ruby -e`, `deno`/`bun eval`, `-` from
   stdin) that names an MCP config file or key **and** carries a write call
   (`json.dump`, `open(…,'w')`, `writeFile`, `.write(`, a redirect); read-only inspection scripts pass
 - Shell writes (`>`, `>>`, `tee`, `cp`, `mv`, `install`, `ln -s`, `rm`, `dd of=`, `curl -o`, `wget -O`,
-  `git checkout|restore --`, `sed -i`, `perl -i`) to an MCP config file; the file must be the destination (a redirect, `2>&1` or heredoc may follow it), so copying a
+  `git checkout|restore --`, `sed -i`, `perl -i`) to an MCP config file or into an agent plugin directory
+  (a manual plugin install); the file must be the destination (a redirect, `2>&1` or heredoc may follow it), so copying a
   config *out* to a backup passes. Both heredoc forms are covered (`cat <<EOF > f` and `cat > f <<EOF`)
 - Editor-tool writes (Write, Edit, MultiEdit, NotebookEdit, Copilot `create`/`edit`, Gemini
   `write_file`/`replace`, VS Code `files[]`, Codex `apply_patch` Add/Update/Delete hunks) to an MCP
-  config file
+  config file or into a plugin directory
 - Shared config files: a whole-file shell replacement (content unknown) always asks; an edit asks when
   the old or new text carries an **MCP key** or an **MCP server field**, so changing an existing
   server's command or URL, or a project's `enabledMcpjsonServers`, is covered without the section header
@@ -105,22 +108,22 @@ Files and names, exactly:
 | Class | Members |
 |---|---|
 | MCP config files (any write) | `.mcp.json`, `mcp.json` (Cursor, VS Code user/workspace, Copilot, wherever it lives, including inside a plugin), `mcp-config.json` (Copilot CLI), `gemini-extension.json` |
-| Shared files (key or field required) | `.codex/config.toml` and `.codex/<profile>.config.toml`, `~/.claude.json`, `claude_desktop_config.json`, every `settings.json` / `settings.local.json` (Claude, Gemini, Copilot, VS Code, Cursor), `*.code-workspace`, `devcontainer.json`, `plugin.json` (a plugin manifest's `mcpServers`), Cursor `permissions.json` / `cli.json` / `cli-config.json` (their MCP allowlists) |
-| MCP keys | `mcp_servers`, `mcpServers`, `managedMcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers`, `enabledMcpServers`, `disabledMcpServers`, `enableAllProjectMcpServers`, `allowedMcpServers`, `deniedMcpServers`, `allowManagedMcpServersOnly`, `mcpContextUris`, `allowMCPServers`, `excludeMCPServers`, `mcp.allowed`, `mcp.excluded`, `mcpAllowlist`, `chat.mcp.*`, `"mcp":`, `"servers":` |
+| Plugin directories (any write = manual plugin install) | `~/.claude/plugins`, `~/.cursor/plugins`, `~/.codex/plugins`, `~/.copilot/installed-plugins`, `~/.gemini/extensions` |
+| Shared files (key or field required) | `.codex/config.toml` and `.codex/<profile>.config.toml`, `~/.claude.json`, `claude_desktop_config.json`, every `settings.json` / `settings.local.json` (Claude, Gemini, Copilot, VS Code, Cursor), `*.code-workspace`, `devcontainer.json`, `plugin.json` (a plugin manifest's `mcpServers`), `installed_plugins.json`, `known_marketplaces.json`, Cursor `permissions.json` / `cli.json` / `cli-config.json` (their MCP allowlists) |
+| MCP keys | `mcp_servers`, `mcpServers`, `managedMcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers`, `enabledMcpServers`, `disabledMcpServers`, `enableAllProjectMcpServers`, `allowedMcpServers`, `deniedMcpServers`, `allowManagedMcpServersOnly`, `mcpContextUris`, `allowMCPServers`, `excludeMCPServers`, `mcp.allowed`, `mcp.excluded`, `mcpAllowlist`, `chat.mcp.*`, `"mcp":`, `"servers":`, and the plugin enablement keys `enabledPlugins`, `extraKnownMarketplaces`, `[plugins.`, `[marketplaces` (enabling a plugin starts its servers) |
 | MCP server fields | `command`, `args`, `url`, `httpUrl`, `env`, `env_vars`, `headers`, `http_headers`, `bearer_token_env_var`, `cwd`, `envFile`, `identity`, `enabled`, `disabled`, `trust`, `type` |
 
 Reading or listing MCP config (`mcp list`, `mcp get`, `cat`, `jq`, `grep`), copying a config *out* to a
 backup, a plain nested `claude -p`, and edits to shared files that touch neither a key nor a field
 (`model`, `approval_policy`, `theme`, `editor.formatOnType`) pass.
 
-**Scope, stated exactly.** The gate covers installing, removing and reconfiguring MCP servers and
-nothing else. Three neighbouring actions can lead to an MCP server and are **deliberately not gated**,
-because gating them would turn this into a general plugin or agent-launch policy: installing a plugin or
-extension (`claude plugin install`, `codex plugin add`, `gemini extensions install`, `--plugin-url`),
-editing plugin enablement or hook-disabling keys (`enabledPlugins`, `disableAllHooks`), and launching
-an agent with a redirected config directory (`CODEX_HOME=… codex`). MCP servers that arrive by those
-paths are reported by `mcp_config_watch.sh`, which also scans the plugin directories. A second rule on
-the same pattern is the right place for a plugin or hook-tamper policy.
+**Scope, stated exactly.** The gate covers installing, removing and reconfiguring MCP servers, by any
+route that delivers one: the CLIs, the config files, and plugins or extensions, whose bundled servers
+cannot be seen before the install, so the install itself is the consent point. Two neighbouring actions
+are **deliberately not gated**, because they are not MCP installation: editing hook-disabling keys
+(`disableAllHooks`) and launching an agent with a redirected config directory (`CODEX_HOME=… codex`).
+A second rule on the same pattern is the right place for those; `mcp_config_watch.sh` still reports
+any MCP config they end up changing.
 
 **Detectable scope.** The gate sees the tool call's command text, target paths and the text being
 written. It cannot see the effect of a script run by path (`node install.mjs`), a `sed` expression that

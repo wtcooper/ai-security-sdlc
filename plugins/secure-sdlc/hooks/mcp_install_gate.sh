@@ -29,11 +29,14 @@
 # command, path or content is simply not applicable and passes.
 #
 # Triggers, and nothing else:
-#   - CLI reconfiguration: <cli> mcp add[-…]|remove|rm|login|enable|disable|reset-project-choices and
-#     <cli> import … (which imports MCP servers), where <cli> is claude|codex|agent|cursor-agent|copilot|
-#     gemini by name, by path, through a wrapper, or via npx/bunx/pnpx of the published package
-#   - session-only MCP injection on a nested agent: --mcp-config, --additional-mcp-config, --add-mcp
-#     (VS Code), -c/--config mcp_servers… (Codex), --approve-mcps (Cursor)
+#   - CLI reconfiguration: <cli> mcp add[-…]|remove|rm|login|enable|disable|reset-project-choices,
+#     <cli> import … (which imports MCP servers), and <cli> plugin|plugins install|add|i|marketplace add /
+#     <cli> extensions install|link (a plugin or extension can bundle MCP servers, and the bundle is not
+#     visible until it is installed), where <cli> is claude|codex|agent|cursor-agent|copilot|gemini by
+#     name, by path, through a wrapper, or via npx/bunx/pnpx of the published package
+#   - session-only MCP or plugin injection on a nested agent: --mcp-config, --additional-mcp-config,
+#     --add-mcp (VS Code), -c/--config mcp_servers… (Codex), --approve-mcps (Cursor), --plugin-dir, --plugin-url
+#   - writes into an agent plugin directory (a manual plugin install)
 #   - install deeplinks: cursor://…/mcp/install, vscode:mcp/install
 #   - inline interpreter code (python -c, node -e, perl -e, ruby -e, deno/bun eval, "-" from stdin) that
 #     names an MCP config file or key AND carries a write call (json.dump, open(…,'w'),
@@ -48,17 +51,19 @@
 #     client's MCP allowlist and to mcp_config_watch.sh, the post-write detector.
 # MCP config files: .mcp.json, mcp.json (Cursor / VS Code / Copilot, wherever it lives, including inside a
 #   plugin), mcp-config.json (Copilot CLI), gemini-extension.json (its mcpServers block).
+# Plugin directories (any write = a manual plugin install): ~/.claude/plugins, ~/.cursor/plugins,
+#   ~/.codex/plugins, ~/.copilot/installed-plugins, ~/.gemini/extensions.
 # Shared files: .codex/config.toml and .codex/<profile>.config.toml, ~/.claude.json, Claude Desktop's
 #   claude_desktop_config.json, every settings.json / settings.local.json (Claude, Gemini, Copilot, VS Code,
-#   Cursor), .code-workspace, devcontainer.json, plugin.json (a plugin manifest's mcpServers), Cursor
-#   permissions.json / cli.json / cli-config.json (their MCP allowlists).
+#   Cursor), .code-workspace, devcontainer.json, plugin.json (a plugin manifest's mcpServers),
+#   installed_plugins.json, known_marketplaces.json, Cursor permissions.json / cli.json / cli-config.json.
 # MCP keys: mcp_servers, mcpServers, managedMcpServers, enabledMcpjsonServers, disabledMcpjsonServers,
 #   enabledMcpServers, disabledMcpServers, enableAllProjectMcpServers, allowedMcpServers, deniedMcpServers,
 #   allowManagedMcpServersOnly, mcpContextUris, allowMCPServers, excludeMCPServers, mcp.allowed,
-#   mcp.excluded, mcpAllowlist, chat.mcp.*, "mcp":, "servers":.
-# Deliberately out of scope (not MCP installation, even though they can lead to it): plugin and extension
-#   installs, plugin enablement keys, hook-disabling keys, launching an agent with a redirected config
-#   directory. MCP servers that arrive inside a plugin are reported by mcp_config_watch.sh after the fact.
+#   mcp.excluded, mcpAllowlist, chat.mcp.*, "mcp":, "servers":, and the plugin enablement keys
+#   enabledPlugins, extraKnownMarketplaces, [plugins., [marketplaces (enabling a plugin starts its servers).
+# Deliberately out of scope (not MCP installation): hook-disabling keys (disableAllHooks) and launching an
+#   agent with a redirected config directory (CODEX_HOME=… codex). A separate rule is the place for those.
 # MCP server fields: command, args, url, httpUrl, env, env_vars, headers, http_headers,
 #   bearer_token_env_var, cwd, envFile, identity, enabled, disabled, trust, type.
 #
@@ -151,15 +156,17 @@ tamper() { log deny-tamper "$1" ""; echo "$RULE: this call would $1. Consent is 
 # ---- 2. the rule ---------------------------------------------------------------------------------------
 mcp_names='(\.mcp\.json|mcp\.json|mcp-config\.json|gemini-extension\.json)'
 mcp_files="(^|/)${mcp_names}\$"
-shared_names='(\.codex/[^/[:space:]"'"'"']*config\.toml|settings(\.local)?\.json|\.claude\.json|claude_desktop_config\.json|[^/[:space:]"'"'"']*\.code-workspace|devcontainer\.json|plugin\.json|\.cursor/(permissions|cli)\.json|cli-config\.json)'
+plugin_names='(\.(claude|cursor|codex)/plugins/|\.copilot/installed-plugins/|\.gemini/extensions/)'
+shared_names='(\.codex/[^/[:space:]"'"'"']*config\.toml|settings(\.local)?\.json|\.claude\.json|claude_desktop_config\.json|[^/[:space:]"'"'"']*\.code-workspace|devcontainer\.json|plugin\.json|installed_plugins\.json|known_marketplaces\.json|\.cursor/(permissions|cli)\.json|cli-config\.json)'
 shared_files="(^|/)${shared_names}\$"
-mcp_keys='mcp_servers|mcpServers|managedMcpServers|enabledMcpjsonServers|disabledMcpjsonServers|enabledMcpServers|disabledMcpServers|enableAllProjectMcpServers|allowedMcpServers|deniedMcpServers|allowManagedMcpServersOnly|mcpContextUris|allowMCPServers|excludeMCPServers|mcp\.allowed|mcp\.excluded|mcpAllowlist|chat\.mcp\.|"mcp"[[:space:]]*:|"servers"[[:space:]]*:'
+mcp_keys='mcp_servers|mcpServers|managedMcpServers|enabledMcpjsonServers|disabledMcpjsonServers|enabledMcpServers|disabledMcpServers|enableAllProjectMcpServers|allowedMcpServers|deniedMcpServers|allowManagedMcpServersOnly|mcpContextUris|allowMCPServers|excludeMCPServers|mcp\.allowed|mcp\.excluded|mcpAllowlist|chat\.mcp\.|"mcp"[[:space:]]*:|"servers"[[:space:]]*:|enabledPlugins|extraKnownMarketplaces|\[plugins\.|\[marketplaces'
 mcp_fields='(^|[[:space:]{,"'"'"'/+|-])(command|args|url|httpUrl|env|env_vars|headers|http_headers|bearer_token_env_var|cwd|envFile|identity|enabled|disabled|trust|type)["'"'"' ]*[:=]'
 pre='(^|[;&|[:space:]"'"'"'])'
 cli='((npx|bunx|pnpx)[[:space:]]+(-y[[:space:]]+|--yes[[:space:]]+)?(@anthropic-ai/claude-code|@openai/codex|@github/copilot|@google/gemini-cli)|([^;&|[:space:]"'"'"']*/)?(claude|codex|agent|cursor-agent|copilot|gemini))'
 installers="${pre}${cli}[[:space:]]+mcp[[:space:]]+(add(-[a-z-]+)?|remove|rm|login|enable|disable|reset-project-choices)([[:space:]]|\$)"
 importers="${pre}${cli}[[:space:]]+import([[:space:]]|\$)"
-session_inject='--mcp-config([[:space:]=]|$)|--additional-mcp-config|--add-mcp([[:space:]=]|$)|--approve-mcps|(^|[[:space:]])(-c|--config)[[:space:]=]*["'"'"']?mcp_servers'
+plugin_installs="${pre}${cli}[[:space:]]+(plugins?|extensions)[[:space:]]+(install|add|i|link|marketplace[[:space:]]+add)([[:space:]]|\$)"
+session_inject='--mcp-config([[:space:]=]|$)|--additional-mcp-config|--add-mcp([[:space:]=]|$)|--approve-mcps|--plugin-(dir|url)|(^|[[:space:]])(-c|--config)[[:space:]=]*["'"'"']?mcp_servers'
 deeplinks='cursor://[^[:space:]]*mcp/install|vscode(-insiders)?:mcp/install'
 interp="${pre}(python[0-9.]*|node|perl|ruby|deno|bun|php)([[:space:]]+-[A-Za-z]+)*[[:space:]]+(-c|-e|-E|--eval|eval|-)([[:space:]]|\$)"
 write_hint='json\.dump\(|open\([^)]*["'"'"'][wa]|writeFile|appendFile|createWriteStream|write_text|File\.(write|open)|\.write\(|toml\.dump|dump\(|>[[:space:]]*[^&=[:space:]]|tee[[:space:]]|-i[[:space:]]|-pi'
@@ -174,6 +181,7 @@ consent_names='aisec_consent|\.ai-security/consent'
 check_file() {
   printf '%s' "$1" | grep -Eq "$consent_names" && tamper "write the consent ledger '$1'"
   printf '%s' "$1" | grep -Eq "$mcp_files" && respond "write MCP config '$1'" "$(subject_of_path "$1" "$2")"
+  printf '%s' "$1" | grep -Eq "$plugin_names" && respond "install into an agent plugin directory ('$1'); plugins can bundle MCP servers" "$(subject_of_path "$1" "$2")"
   if printf '%s' "$1" | grep -Eq "$shared_files" && printf '%s' "$2" | grep -Eq "$mcp_keys|$mcp_fields"; then
     respond "write MCP server entries in '$1'" "$(subject_of_path "$1" "$2")"
   fi
@@ -185,12 +193,14 @@ if [ -n "$cmd" ]; then
   printf '%s' "$cmd" | grep -Eq "$consent_names" && tamper "grant or edit MCP consent from inside the agent"
   printf '%s' "$cmd" | grep -Eq "$installers" && respond "run an MCP installer command" "$s"
   printf '%s' "$cmd" | grep -Eq "$importers" && respond "import MCP servers from another agent's config" "$s"
+  printf '%s' "$cmd" | grep -Eq "$plugin_installs" && respond "install an agent plugin or extension, which can bundle MCP servers" "$s"
   printf '%s' "$cmd" | grep -Eq -e "$session_inject" && respond "start an agent session with injected MCP or plugin config" "$s"
   printf '%s' "$cmd" | grep -Eq "$deeplinks" && respond "open an MCP install link" "$s"
-  if printf '%s' "$cmd" | grep -Eq "$interp" && printf '%s' "$cmd" | grep -Eq "$mcp_names|$shared_names|$mcp_keys" && printf '%s' "$cmd" | grep -Eq "$write_hint"; then
+  if printf '%s' "$cmd" | grep -Eq "$interp" && printf '%s' "$cmd" | grep -Eq "$mcp_names|$shared_names|$plugin_names|$mcp_keys" && printf '%s' "$cmd" | grep -Eq "$write_hint"; then
     respond "run inline script code that writes an MCP config" "$s"
   fi
   printf '%s' "$cmd" | grep -Eq "${replace_write}${mcp_names}${end}|${sed_write}${mcp_names}|${fetch_write}[^[:space:]\"'|;&]*${mcp_names}${after}" && respond "write an MCP config file from the shell" "$s"
+  printf '%s' "$cmd" | grep -Eq "(${replace_write}|${sed_write})${plugin_names}[^[:space:]\"'|;&]*${end}|${fetch_write}[^[:space:]\"'|;&]*${plugin_names}[^[:space:]\"'|;&]*${after}" && respond "install into an agent plugin directory from the shell; plugins can bundle MCP servers" "$s"
   printf '%s' "$cmd" | grep -Eq "${replace_write}${shared_names}${end}|${fetch_write}[^[:space:]\"'|;&]*${shared_names}${after}" && respond "replace a config file that holds MCP server entries from the shell" "$s"
   if printf '%s' "$cmd" | grep -Eq "${sed_write}${shared_names}" && printf '%s' "$cmd" | grep -Eq "$mcp_keys|$mcp_fields"; then
     respond "write MCP server entries from the shell" "$s"

@@ -240,12 +240,12 @@ allowlists are the preventive control for a hostile one.
 All ten items in §6 were implemented; the audit above is kept as the record of what was found. What
 changed, and where the implementation deliberately differs from §6:
 
-- **Scope was tightened, not widened.** Items 4 and 5 listed plugin/extension installers, plugin
-  directories, plugin enablement keys, `disableAllHooks` and config-directory redirection as gaps. On
-  review those are not MCP installation, and gating them would make this a plugin or agent-launch policy.
-  They are **not gated**; `mcp_config_watch.sh` scans the plugin directories and reports MCP config files
-  that appear or change there. A separate rule on the template is the right home for a plugin or
-  hook-tamper policy.
+- **Scope decision.** Plugin and extension installs, plugin-directory writes and plugin enablement keys
+  **are gated**: a plugin can bundle MCP servers, the bundle is invisible before install, and Wade's
+  requirement is consent for any MCP server that arrives, so the install is the consent point. Two of the
+  §6 items are not MCP installation and stay out: `disableAllHooks` (hook tampering) and config-directory
+  redirection (`CODEX_HOME=… codex`); a separate rule on the template is their home. The watcher still
+  scans the plugin directories as a second line.
 - **Consent ledger (item 7)** is `aisec_consent.sh` plus `pending/` and `granted/` records under
   `~/.ai-security/consent`. A grant is bound to the exact command text or to the file path **and its
   content** (whitespace-insensitive digest) after a live Codex run showed a path-only grant covering a

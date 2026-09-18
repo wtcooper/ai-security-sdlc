@@ -24,8 +24,9 @@ then passes for 15 minutes. Reads, `mcp list`, and non-MCP edits pass. `AISEC_MC
 the gate into a hard stop everywhere and ignores grants. Without `jq`, or on a malformed payload, the gate
 declines rather than allows. A post-tool hook, `mcp_config_watch.sh`, reports any MCP config that changed
 without a grant, whatever wrote it. Four files per client: the three scripts and a hook stanza in that
-client's hook config. Scope is MCP installation and reconfiguration only: plugin installs, hook-disabling
-keys and agent-launch tricks are deliberately not gated (the watcher reports MCP servers they bring).
+client's hook config. Scope is MCP installation and reconfiguration by any route, including plugin and
+extension installs (their bundled servers are invisible until installed); hook-disabling keys and
+agent-launch tricks are deliberately not gated.
 
 ## 0. Prerequisites
 
@@ -244,8 +245,7 @@ sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/live-tests/run_claude.sh     
 ```
 
 Not covered by the gate, by design: servers added through a client's own UI (`/mcp`, Cursor's MCP
-page, VS Code's *Add MCP server*, Claude Desktop extensions), plugin and extension installs, and a script
-run by file name. The watcher reports what those change; the client's MCP allowlist (full playbook §4)
+page, VS Code's *Add MCP server*, Claude Desktop extensions) and a script run by file name. The watcher reports what those change; the client's MCP allowlist (full playbook §4)
 is the preventive control for them, and the natural next tier alongside skills.
 
 ### 3.1 What to measure during the pilot
