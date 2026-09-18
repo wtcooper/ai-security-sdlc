@@ -199,7 +199,7 @@ run by file) is reported by the watcher on the next tool call.
 | Claude Code 2.1.258 | yes | yes: SDK host no → nothing; yes → installed once and allowlisted; same server silent; changed command prompts; `-p` deny then `approve ctx7` in the next turn passes | enforced | deny, or routed to SDK/`--permission-prompt-tool stdio` host | 600 s, fail-open |
 | Codex CLI 0.153.2 | yes | yes: declined, agent asks; `approve context7` in chat → resume passes with hooks active and allowlists; same server silent; other server declined | **rejected, fails open** — the gate never sends it | `exec` never prompts | 600 s, fail-open |
 | Cursor agent 2026.09.02 | yes | no (CLI not logged in) | shell: enforced; file: accepted, not enforced | undocumented | undocumented; `failClosed` covers non-zero exit only |
-| Copilot CLI 1.0.82 | yes | no (org policy) | enforced, every call | `-p` needs `--allow-all-tools`; cloud agent ask→deny | 30 s, fail-open even for policy hooks; crash/exit 2 fail-closed |
+| Copilot CLI 1.0.82 | yes | no (test account lacks an active Copilot license) | enforced, every call | `-p` needs `--allow-all-tools`; cloud agent ask→deny | 30 s, fail-open even for policy hooks; crash/exit 2 fail-closed |
 | Copilot in VS Code | yes | no | enforced | GUI | 30 s fail-open; matchers ignored |
 | Gemini CLI 0.60.0 | yes | no (account tier) | enforced (undocumented), overrides yolo | ask→deny | 60 s fail-open; any non-zero exit = deny |
 

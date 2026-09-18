@@ -1,0 +1,24 @@
+P01 changed file content after approval: ALLOW; ledger={"good":{"identity":"good-mcp","approved":"2026-09-18T10:12:50Z","client":"codex"}}
+P02 negated approval: ALLOW
+P03 unrelated edit after denied MCP write: ALLOW; ledger={"good":{"identity":"good-mcp","approved":"2026-09-18T10:12:51Z","client":"codex"}}
+P04 opaque write retry after requested reply: EXIT-2
+P05 changed multiline TOML args: ALLOW; ledger={"good":{"identity":"npx","approved":"2026-09-18T10:12:52Z","client":"codex"}}
+P06 JSON argument boundary collision: ALLOW
+P07 equals URL flag changes approved endpoint: ALLOW
+P08 new env_http_headers credential source: ALLOW
+P09 first watcher invocation after unseen install: unapproved=0
+P10 watcher misses named Codex profile config: unapproved=0
+P11 printing a command triggers consent: EXIT-2
+P12 read-only allowlist inventory: EXIT-2
+P13 unrelated settings file shell write: EXIT-2
+P14 Cursor matcher dispatches plugin install: no; direct gate=EXIT-2
+P15 chat approval skips later protected-state target in same patch: ALLOW
+P16 repository-provided grant without user approval: ALLOW
+P17 approval from another session transcript: ALLOW
+P18 synthetic credential echoed in denial: 1; persisted in pending=1
+P19 changed command quoting conservatively re-prompts: EXIT-2
+P20 wrong-type command field: ALLOW
+P21 MultiEdit changing command and args checks unchanged file: ALLOW
+P22 malformed files type bypasses explicit exit-2 failure contract: EXIT-5
+P23 previously approved plugin path accepts unseen MCP identity: ALLOW
+P24 plugin option parsed as reusable plugin identity: ALLOW; ledger={"--scope":{"approved":"2026-09-18T10:12:54Z","client":"codex"}}

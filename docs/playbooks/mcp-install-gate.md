@@ -177,7 +177,7 @@ signed-in user) or skills to `~/.agents/skills`.
   VS Code reads that file and `.github/hooks/*.json` in the repo, converting the CLI format itself.
   The file is user-editable; accept that for this tier or add `.github/hooks/ai-security.json` to
   template repositories as a second copy. Do not let an org policy that disables VS Code hooks be in force.
-- Copilot hooks are verified at payload level only in this repo (org policy blocked live CLI runs);
+- Copilot hooks are verified at payload level only in this repo (the test account had no active Copilot license);
   the pilot must cover a VS Code user and a CLI user before fleet.
 - Verify: `copilot plugin list` is irrelevant here; run cases 1 and 4 in VS Code agent mode and in
   the CLI.

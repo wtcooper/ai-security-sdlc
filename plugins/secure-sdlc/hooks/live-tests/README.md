@@ -17,6 +17,6 @@ Recording new shapes: wire `recorder.sh` as the only PreToolUse hook of a scratc
 from `docs/playbooks/mcp-install-gate.md` §3 headless (`claude -p`, `codex exec …`), then copy the
 write-shaped lines from `REC_LOG` into `fixtures/` and add a row to `expected.tsv`.
 
-Clients not runnable here (Cursor `agent`: not logged in; Copilot CLI: org policy; Gemini: account tier):
+Clients not runnable here (Cursor `agent`: not logged in; Copilot CLI: the account has no active Copilot license, which the CLI reports as `Access denied by policy settings`; Gemini: account tier):
 their `-p` / ACP modes are the equivalent path (`agent -p --trust`, `copilot --acp`, `gemini -p --approval-mode yolo`);
 see `docs/audits/mcp-gate-audit-2026-09-17.md` §5.
