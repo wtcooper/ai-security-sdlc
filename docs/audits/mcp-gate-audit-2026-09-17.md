@@ -259,6 +259,12 @@ The second pass (2026-09-18) replaced it with the allowlist design now in place:
 - **Tests**: 274 payload cases including the recorded corpus, allowlist and chat-approval flows for both
   transcript formats, and the watcher; live runners verified on Claude Code and Codex.
 
+Hardening from the post-commit security review (2026-09-18): approval messages must be short and tag-free
+(clients inject `AGENTS.md` and environment context as user-role messages); `env`, `headers` and `cwd`
+are part of a server's identity (an `env` change is code execution); pending ids hash the full command
+(no truncation collisions); an approved unparseable write records only servers new or changed versus the
+file before the call; shell targets are resolved against the session cwd.
+
 Observed while implementing: bash-as-`sh` on macOS brace-expands `{"a":1,"b":2}` inside `$(...)` in a
 test script (the suite sets `set +B`); `codex exec resume` without `--dangerously-bypass-hook-trust`
 silently skips project hooks, so a "pass" after resume must be read together with the gate log.

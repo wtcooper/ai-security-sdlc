@@ -106,7 +106,7 @@ shared_names='(\.codex/[^/[:space:]"'"'"']*config\.toml|settings(\.local)?\.json
 shared_files="(^|/)${shared_names}\$"
 mcp_keys='mcp_servers|mcpServers|managedMcpServers|enabledMcpjsonServers|disabledMcpjsonServers|enabledMcpServers|disabledMcpServers|enableAllProjectMcpServers|allowedMcpServers|deniedMcpServers|allowManagedMcpServersOnly|mcpContextUris|allowMCPServers|excludeMCPServers|mcp\.allowed|mcp\.excluded|mcpAllowlist|chat\.mcp\.|"mcp"[[:space:]]*:|"servers"[[:space:]]*:|enabledPlugins|extraKnownMarketplaces|\[plugins\.|\[marketplaces'
 mcp_fields='(^|[[:space:]{,"'"'"'/+|-])(command|args|url|httpUrl|env|env_vars|headers|http_headers|bearer_token_env_var|cwd|envFile|identity|enabled|disabled|trust|type)["'"'"' ]*[:=]'
-identity_fields='(^|[[:space:]{,"'"'"'/+|-])(command|args|url|httpUrl)["'"'"' ]*[:=]'
+identity_fields='(^|[[:space:]{,"'"'"'/+|-])(command|args|url|httpUrl|env|env_vars|envFile|headers|http_headers|env_http_headers|cwd)["'"'"' ]*[:=]|\[mcp_servers\.[^]]*\.(env|http_headers)\]'
 pre='(^|[;&|[:space:]"'"'"'])'
 cli='((npx|bunx|pnpx)[[:space:]]+(-y[[:space:]]+|--yes[[:space:]]+)?(@anthropic-ai/claude-code|@openai/codex|@github/copilot|@google/gemini-cli)|([^;&|[:space:]"'"'"']*/)?(claude|codex|agent|cursor-agent|copilot|gemini))'
 adders="${pre}${cli}[[:space:]]+mcp[[:space:]]+add(-json)?([[:space:]]|\$)"
@@ -130,7 +130,7 @@ heredoc_body() { # heredoc_body <command>: the body of the first here-document, 
   [ -n "$term" ] || return 0
   printf '%s\n' "$1" | awk -v t="$term" 'NR>1 && $0==t {exit} NR>1 {print}'
 }
-target_file() { printf '%s' "$1" | grep -Eo "[^[:space:]\"'|;&<>]*${2}" | head -1; }
+target_file() { f=$(printf '%s' "$1" | grep -Eo "[^[:space:]\"'|;&<>]*${2}" | head -1); case "$f" in /*) ;; "~/"*) f="$HOME/${f#~/}" ;; "") ;; *) f="$cwd/$f" ;; esac; printf '%s' "$f"; }   # resolved against the session cwd so the post hook can read it back
 
 check_file() { # check_file <path>
   printf '%s' "$1" | grep -Eq "$state_names" && tamper "write the MCP allowlist or gate state ('$1')"
@@ -193,7 +193,7 @@ if [ -n "$cmd" ]; then
     [ -n "$sv" ] || respond "write MCP config '$f' from the shell (content not visible)" "$s" file "" "" "$f"
   fi
   if printf '%s' "$cmd" | grep -Eq "(${replace_write}|${sed_write})${plugin_names}[^[:space:]\"'|;&]*${end}|${fetch_write}[^[:space:]\"'|;&]*${plugin_names}[^[:space:]\"'|;&]*${after}"; then
-    f=$(printf '%s' "$cmd" | grep -Eo "[^[:space:]\"'|;&<>]*${plugin_names}[^[:space:]\"'|;&<>]*" | head -1)
+    f=$(printf '%s' "$cmd" | grep -Eo "[^[:space:]\"'|;&<>]*${plugin_names}[^[:space:]\"'|;&<>]*" | head -1); case "$f" in /*) ;; "~/"*) f="$HOME/${f#~/}" ;; *) f="$cwd/$f" ;; esac
     [ "$mode" != block ] && allowed_plugin "$f" && log allowed "plugin path allowlisted" "" || respond "install into an agent plugin directory ('$f') from the shell; plugins can bundle MCP servers" "$s" plugin "" "$f" "$f"
   fi
   if printf '%s' "$cmd" | grep -Eq "${replace_write}${shared_names}${end}|${fetch_write}[^[:space:]\"'|;&]*${shared_names}${after}"; then

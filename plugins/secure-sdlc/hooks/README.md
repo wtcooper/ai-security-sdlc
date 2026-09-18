@@ -53,15 +53,20 @@ From then on the agent may install, edit or remove X without a prompt. A change 
 prompts again and shows both values. Nobody types a terminal command. An admin who wants a fleet-wide
 allowlist drops the file via MDM; there is no other pre-seeding mechanism by design.
 
-What the allowlist keys on: the server **name** and its **identity** (`command arg…` for stdio, the URL
-for remote), taken from the CLI arguments, the JSON or TOML being written (for edits, the resulting file
-is computed), the body of a heredoc, or read back from disk after an approved write. Plugins and
+What the allowlist keys on: the server **name** and its **identity**: `command arg…` for stdio or the URL
+for remote, plus its `env`, `headers` and `cwd` when set (an `env` change such as `NODE_OPTIONS` is code
+execution, so it counts as a new server). Identities are taken from the CLI arguments (`-e`, `-H`
+included), the JSON or TOML being written (for edits, the resulting file is computed), the body of a
+heredoc, or read back from disk after an approved write; an approved write the gate could not parse
+records only the servers that are new or changed versus the file before the call. Plugins and
 extensions are allowlisted by their install spec, because their bundled servers are invisible until
 installed. A write the gate cannot parse (a copied file, an unparseable patch) asks every time.
 
 The agent is never allowed to write the allowlist or the gate's state (declined and logged
 `deny-tamper`), and only a message the **user** wrote in the chat counts as approval: assistant text and
-tool results are ignored, and only messages after the decline count. Honest limit: a same-user agent that
+tool results are ignored, only messages after the decline count, and only short plain messages (300
+characters, no `<tag>` wrappers) qualify, because clients also inject files and environment context as
+user-role messages and a planted "approve x" inside such a document must not pass. Honest limit: a same-user agent that
 scripts a write to the allowlist through an interpreter can forge an entry, exactly as it could forge any
 same-user file. The gate raises the bar against an instructed or injected agent and puts the user's eyes
 on every first install; the vendor MCP allowlists (playbook §4) are the preventive control against a
