@@ -40,12 +40,15 @@ on demand. No standards copy or per-project init is needed. See [standards recal
 Agents already judge risk on their own (Claude Code auto mode, Copilot autopilot, Codex approve-for-me).
 What they cannot know is an organization's rules. The PreToolUse hook is where those go, and
 [plugins/secure-sdlc/hooks/](plugins/secure-sdlc/hooks/) is a pattern for writing one rule that runs in
-every client: **one POSIX script → normalize the payload (command, paths, content, client) → rule →
-respond in the client's own vocabulary** (allow · native `ask` so the user decides · decline with
-instructions), with a `_MODE=block` switch, an action-bound `_APPROVAL` variable for headless consent, and a
-fail-closed contract (no `jq` or a malformed payload declines rather than allows). The first rule
-is the **mcp-install gate**: before an agent runs `mcp add` or edits an MCP config, the user is asked. Two
-opt-in rules (test-file protection, deploy gate) ship on the same pattern under `security-guidance`.
+every client: **one POSIX script → normalize the payload (command, paths, content, edits, session, client)
+→ rule → one consent decision per call, answered in the client's own vocabulary** (allow · native `ask` so
+the user decides · decline with instructions to ask in the chat, where the user replies exactly
+`approve <name>`), with a `_MODE=block` switch and a fail-closed contract (no `jq`, an unknown payload
+shape or an internal error declines rather than allows). Approvals are remembered per user and bound
+to the exact server descriptor or plugin bundle. The first rule is the **mcp-install gate**: before an
+agent runs `mcp add`, writes an MCP config or installs a plugin, the user is asked once. A session-start
+**standards recall** hook ships beside it. Two opt-in rules (test-file protection, deploy gate) ship on
+the same pattern under `security-guidance`.
 `TEMPLATE_policy_hook.sh` is the starting point for the next rule; the playbooks show how to roll one out.
 A hook gates what it can see — the call's command, paths and content — so each rule documents its
 detectable scope, and the trust boundary for MCP stays with each client's managed allowlist.
@@ -59,7 +62,7 @@ point), then `verify` (any app) and `verify-ai` (apps built on LLMs / AI assets)
 | Client | Install the plugins | mcp-install gate (build-phase hook) |
 |---|---|---|
 | Claude Code | `/plugin marketplace add wtcooper/ai-security-sdlc` (or a local path) → `/plugin install secure-sdlc@ai-security-sdlc` | active automatically — the plugin ships `hooks/hooks.json` |
-| Codex | `codex plugin marketplace add wtcooper/ai-security-sdlc` → `codex plugin add secure-sdlc@ai-security-sdlc` | manual — Codex 0.153 does not load hooks from a spec-manifest plugin: run `sh plugins/secure-sdlc/hooks/install.sh codex` (copies the gate, the consent CLI and the watcher to `.ai-security/hooks/` and merges `.codex/hooks.json`), then trust it via `/hooks` |
+| Codex | `codex plugin marketplace add wtcooper/ai-security-sdlc` → `codex plugin add secure-sdlc@ai-security-sdlc` | manual — Codex 0.153 does not load hooks from a spec-manifest plugin: run `sh plugins/secure-sdlc/hooks/install.sh codex` (copies the library, gate, watcher and recall hook to `.ai-security/hooks/` and merges `.codex/hooks.json`), then trust it via `/hooks` |
 | Cursor | install the repo from Customize → Plugins, drop `plugins/<name>` into `~/.cursor/plugins/local`, or `agent --plugin-dir plugins/<name>` | manual — merge `hooks/clients/cursor.hooks.json` into `.cursor/hooks.json` (Cursor plugin hooks need a Cursor-specific manifest this repo does not ship) |
 | GitHub Copilot CLI | `copilot plugin marketplace add wtcooper/ai-security-sdlc` → `copilot plugin install secure-sdlc@ai-security-sdlc` (reads the Claude marketplace file) | bundled at `com.github.copilot/hooks/hooks.json`, the namespace Copilot reads for spec plugins; not yet verified live |
 | Gemini CLI | not a plugin client here (no `gemini-extension.json` is shipped — see repo layout) | manual — merge `hooks/clients/gemini.settings.json` into `.gemini/settings.json` |
@@ -187,10 +190,22 @@ scan-model / scan-mcp / scan-skill               # vet models, MCP servers, skil
 fix-findings               # fix everything, add regressions, close the loop into standards/plans
 ```
 
+## Plugins and skills
+
+Each plugin and each skill carries its own `README.md` describing what it does, when to run it, what it
+wraps, and what it reads and writes:
+
+| Plugin | Skills |
+|---|---|
+| [secure-sdlc](plugins/secure-sdlc/) | [security-guidance](plugins/secure-sdlc/skills/security-guidance/) · [security-profile](plugins/secure-sdlc/skills/security-profile/) · [security-standards](plugins/secure-sdlc/skills/security-standards/) · [security-planner](plugins/secure-sdlc/skills/security-planner/) · [fix-findings](plugins/secure-sdlc/skills/fix-findings/) · [install-hooks](plugins/secure-sdlc/skills/install-hooks/) · hooks: [mcp-install gate, standards recall](plugins/secure-sdlc/hooks/) |
+| [verify](plugins/verify/) | [scan-code](plugins/verify/skills/scan-code/) · [codeql-ci](plugins/verify/skills/codeql-ci/) · [codeql-report](plugins/verify/skills/codeql-report/) · [pentest-app](plugins/verify/skills/pentest-app/) |
+| [verify-ai](plugins/verify-ai/) | [eval-baseline](plugins/verify-ai/skills/eval-baseline/) · [eval-security](plugins/verify-ai/skills/eval-security/) · [redteam-app](plugins/verify-ai/skills/redteam-app/) · [scan-model](plugins/verify-ai/skills/scan-model/) · [scan-mcp](plugins/verify-ai/skills/scan-mcp/) · [scan-skill](plugins/verify-ai/skills/scan-skill/) |
+
 ## Repo layout & development
 
 ```
-plugins/<name>/             spec plugin.json (the manifest) + skills/ (+ mcp.json where needed)
+plugins/<name>/             README.md + spec plugin.json (the manifest) + skills/<skill>/ (README.md, SKILL.md, scripts, templates, references) (+ mcp.json where needed)
+plugins/secure-sdlc/hooks/  mcp-install gate + watcher, standards recall, shared library, install.sh, per-client stanzas, payload and live tests
 testbed/                    LiteLLM gateway + sample target app
 scripts/sync_manifests.py   regenerate the two root marketplaces from each plugin.json
 scripts/validate.sh         marketplaces in sync, JSON parses, SKILL frontmatter, no stray wrappers
