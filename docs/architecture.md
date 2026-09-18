@@ -81,7 +81,7 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   hook templates are inert scripts installed only with explicit approval; the one built-in hook,
   the `hooks/` mcp-install gate, is narrow (MCP installs only), fails closed when it cannot evaluate a
   call, and keeps a per-user allowlist of approved servers (name + command/URL) that the hooks write
-  when the user says yes — in the client's prompt, or with `approve <name>` in the chat for clients that
+  when the user says yes — in the client's prompt (matched by tool-call id), or with exactly `approve <name>` in the chat for clients that
   cannot prompt — so a server asks once; a post-tool watcher reports MCP config changes the gate could
   not see.
 - **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules

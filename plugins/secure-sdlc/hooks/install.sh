@@ -13,8 +13,11 @@
 #                              TOML, so for codex the script prints the requirements.toml block to add.
 #   --dry-run: print what would be written, write nothing.
 #   --check:   health check of an existing install — jq present, the three scripts present and executable, each
-#              client config references the gate, and the gate declines a sample installer payload. Exit 1 on any failure.
-# Idempotent: a config that already references mcp_install_gate.sh is left alone. Needs jq.
+#              client config carries exactly the pre and post entries this scope installs (command paths and matchers),
+#              and the installed gate declines a sample installer payload and allows a benign one. Exit 1 on any failure.
+#              It validates files; whether the client has loaded and trusted the hook is only visible in the client.
+# Idempotent and self-repairing: the entries this script owns (any hook whose command is mcp_install_gate.sh or
+# mcp_config_watch.sh) are removed and re-added on every run; every other hook and key is preserved. Needs jq.
 SCRIPTS="aisec_lib.sh mcp_install_gate.sh mcp_config_watch.sh"
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -80,11 +83,16 @@ target() { # target <tool>
     system:codex)        echo "" ;;
   esac
 }
-# Merge: keep every existing key; append our entries to each hook-event array (never replace).
+# Merge: keep every existing key and every hook that is not ours; drop our previous entries (by script name, so old
+# matchers, paths or half-removed stanzas are repaired); append the current stanza to each hook-event array.
 merge() { # merge <existing-json-or-{}> <stanza-json>
   jq -s '.[0] as $cur | .[1] as $add
-         | ($cur + $add)
-         | .hooks = (reduce ($add.hooks | keys[]) as $k ($cur.hooks // {}; .[$k] = ((.[$k] // []) + $add.hooks[$k])))' \
+         | def ours: (. // "") | test("mcp_install_gate\\.sh|mcp_config_watch\\.sh");
+           def strip: if type=="array" then map(
+                          if has("hooks") then (if (.hooks | any(.command | ours)) then ((.hooks |= map(select(.command | ours | not))) | select((.hooks | length) > 0)) else . end)
+                          else select((.command // .bash) | ours | not) end) else . end;
+           ($cur + $add)
+         | .hooks = (reduce ($add.hooks | keys[]) as $k (($cur.hooks // {}) | with_entries(.value |= strip); .[$k] = ((.[$k] // []) + $add.hooks[$k])))' \
      "$1" "$2"
 }
 codex_system_toml() {
@@ -139,8 +147,16 @@ if [ $check -eq 1 ]; then # health check: report, never write
   for t in $tools; do
     tgt=$(target "$t")
     if [ -z "$tgt" ]; then say "info  $t: system scope is TOML-managed — check /etc/codex/requirements.toml for [[hooks.PreToolUse]] with $script_ref"; continue; fi
-    if [ -f "$tgt" ] && grep -q mcp_install_gate.sh "$tgt"; then say "ok    $t: $tgt references the gate"; else say "FAIL  $t: $tgt missing or does not reference the gate"; fi
+    if [ ! -f "$tgt" ] || ! jq -e . "$tgt" >/dev/null 2>&1; then say "FAIL  $t: $tgt missing or not valid JSON"; continue; fi
+    stanza "$t" > "$tmp/want.json"
+    for ev in $(jq -r '.hooks | keys[]' "$tmp/want.json"); do
+      jq -c --arg ev "$ev" '.hooks[$ev][]' "$tmp/want.json" | while IFS= read -r entry; do
+        if jq -e --arg ev "$ev" --argjson want "$entry" '(.hooks[$ev] // []) | any(. == $want)' "$tgt" >/dev/null 2>&1; then echo "ok    $t: $tgt has the $ev entry (command and matcher as installed)"
+        else echo "FAIL  $t: $tgt lacks the $ev entry this scope installs: $entry"; fi
+      done
+    done > "$tmp/ev.out"; while IFS= read -r l; do say "$l"; done < "$tmp/ev.out"
   done
+  echo "info  a passing check proves the files; whether the client has loaded and trusted the hook is visible only in the client (Codex /hooks, Copilot folder trust, Gemini trust)"
   if [ -x "$abs" ]; then
     rc=0; printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | (cd "$project" && AISEC_STATE_DIR=$tmp/state AISEC_MCP_ALLOWLIST=$tmp/allow.json "$abs" >/dev/null 2>&1) || rc=$?
     [ $rc -eq 2 ] && say "ok    installer payload declined (exit 2)" || say "FAIL  installer payload not declined (exit $rc)"
@@ -157,14 +173,14 @@ fi
 for t in $tools; do
   tgt=$(target "$t")
   if [ -z "$tgt" ]; then echo "$t: system scope is TOML-managed; add this block yourself:"; codex_system_toml; notes "$t"; continue; fi
-  if [ -f "$tgt" ] && grep -q mcp_install_gate.sh "$tgt"; then echo "$t: already installed in $tgt — skipped"; continue; fi
   if [ -f "$tgt" ]; then jq . "$tgt" > "$tmp/cur.json" || { echo "$t: $tgt is not valid JSON — fix it first" >&2; exit 1; }; else echo '{}' > "$tmp/cur.json"; fi
   stanza "$t" > "$tmp/add.json"
   merge "$tmp/cur.json" "$tmp/add.json" > "$tmp/out.json"
   if [ $dry -eq 1 ]; then
     echo "[dry-run] $t: would write $tgt:"; sed 's/^/    /' "$tmp/out.json"
   else
-    mkdir -p "$(dirname "$tgt")" && cp "$tmp/out.json" "$tgt" && { [ "$scope" = system ] && chmod 644 "$tgt"; echo "$t: wrote $tgt"; }
+    if [ -f "$tgt" ] && cmp -s "$tmp/out.json" "$tgt"; then echo "$t: already installed in $tgt — unchanged"
+    else mkdir -p "$(dirname "$tgt")" && cp "$tmp/out.json" "$tgt" && { [ "$scope" = system ] && chmod 644 "$tgt"; echo "$t: wrote $tgt"; }; fi
   fi
   notes "$t"
 done

@@ -1,0 +1,115 @@
+{
+  "measurement_note": "Character/4 estimates are not model tokenizer measurements.",
+  "sizes": {
+    "skill": {
+      "lines": 73,
+      "characters": 4979,
+      "approx_tokens_chars_div_4": 1245
+    },
+    "description": {
+      "lines": 1,
+      "characters": 709,
+      "approx_tokens_chars_div_4": 177
+    },
+    "index": {
+      "lines": 18,
+      "characters": 1627,
+      "approx_tokens_chars_div_4": 407
+    },
+    "conventions": {
+      "lines": 59,
+      "characters": 3378,
+      "approx_tokens_chars_div_4": 844
+    },
+    "all_topic_pages": {
+      "lines": 329,
+      "characters": 14002,
+      "approx_tokens_chars_div_4": 3500
+    },
+    "linter": {
+      "lines": 140,
+      "characters": 5793,
+      "approx_tokens_chars_div_4": 1448
+    }
+  },
+  "page_count": 11,
+  "literal_tag_routing": {
+    "api": [
+      "security/denial-of-wallet.md"
+    ],
+    "agents, data, gateway, infra, llm-output, logging, prompts, rag, tools": [
+      "security/prompt-injection.md",
+      "security/tool-least-privilege.md",
+      "security/output-handling.md",
+      "security/secrets-system-prompt.md",
+      "security/data-minimization.md",
+      "security/memory-rag-integrity.md",
+      "security/excessive-agency.md",
+      "security/denial-of-wallet.md",
+      "security/logging-audit.md",
+      "security/model-gateway-trust.md"
+    ]
+  },
+  "lint_probes": [
+    {
+      "case": "index tags disagree with page",
+      "errors": [],
+      "warning_count": 11
+    },
+    {
+      "case": "duplicate index row",
+      "errors": [],
+      "warning_count": 11
+    },
+    {
+      "case": "empty applicability list",
+      "errors": [],
+      "warning_count": 11
+    },
+    {
+      "case": "empty sources list",
+      "errors": [],
+      "warning_count": 11
+    },
+    {
+      "case": "missing required body section",
+      "errors": [],
+      "warning_count": 11
+    },
+    {
+      "case": "domain disagrees with directory",
+      "errors": [],
+      "warning_count": 11
+    },
+    {
+      "case": "ordinary quoted YAML tags",
+      "errors": [
+        "security/prompt-injection.md: applies-to '\"llm-input\"' not in vocabulary",
+        "security/prompt-injection.md: applies-to '\"prompts\"' not in vocabulary",
+        "security/prompt-injection.md: applies-to '\"rag\"' not in vocabulary",
+        "security/prompt-injection.md: applies-to '\"tools\"' not in vocabulary",
+        "security/prompt-injection.md: applies-to '\"agents\"' not in vocabulary"
+      ],
+      "warning_count": 11
+    },
+    {
+      "case": "quoted YAML status",
+      "errors": [
+        "security/prompt-injection.md: status must be one of ['active', 'deprecated', 'seed']",
+        "security/prompt-injection.md: owner is unassigned on a non-seed page"
+      ],
+      "warning_count": 10
+    },
+    {
+      "case": "active page with empty quoted owner",
+      "errors": [],
+      "warning_count": 10
+    }
+  ],
+  "incomplete_codeguard_install": {
+    "exit_code": 0,
+    "accepted_fixture": true,
+    "files_present": 1,
+    "stderr": ""
+  }
+}

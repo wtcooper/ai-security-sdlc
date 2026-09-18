@@ -1,0 +1,48 @@
+{
+  "review_date": "2026-09-18",
+  "repository_head": "3682e0b17bc015af23a619a7795cae898b62aae4",
+  "upstream": {
+    "anthropics/claude-plugins-official": {
+      "commit": "1aa8f02ec8327f513686934f458a620f83db91ed",
+      "commit_date": "2026-09-17T14:56:01Z",
+      "downloaded_source_sha256": {
+        "anthropic-README.md": "8e9f9ed1f43a2b877de1040a0a5181a80deed95417a919eee55efc58bd5f48eb",
+        "anthropic-patterns.py": "8cd874aa113801f869679045e0b38b669988b6a7d33b611b10ef01f474ca1eef",
+        "anthropic-security_reminder_hook.py": "b3cbbb546d8f28d7efdd23968446cf049e62a48dcbcedd004aec034788991c54"
+      }
+    },
+    "cosai-oasis/project-codeguard": {
+      "commit": "ab81a61472c6690a60300aa9edb39e32de8bef53",
+      "commit_date": "2026-09-16T18:25:23Z",
+      "downloaded_source_sha256": {
+        "codeguard-README.md": "7dafcc78626740ccd61602bf27077a1dbf505a9478fe84a4e71dd5f39d4d1c53",
+        "codeguard-SKILL.md": "53ca1201f3fe935aae94ff78b6d47d81956a7558c16d4a7b6932371512d5f984"
+      }
+    }
+  },
+  "codeguard_v1.4.0_rule_names": [
+    "codeguard-0-additional-cryptography.md",
+    "codeguard-0-api-web-services.md",
+    "codeguard-0-authentication-mfa.md",
+    "codeguard-0-authorization-access-control.md",
+    "codeguard-0-client-side-web-security.md",
+    "codeguard-0-cloud-orchestration-kubernetes.md",
+    "codeguard-0-data-storage.md",
+    "codeguard-0-devops-ci-cd-containers.md",
+    "codeguard-0-file-handling-and-uploads.md",
+    "codeguard-0-framework-and-languages.md",
+    "codeguard-0-iac-security.md",
+    "codeguard-0-input-validation-injection.md",
+    "codeguard-0-logging.md",
+    "codeguard-0-mcp-security.md",
+    "codeguard-0-mobile-apps.md",
+    "codeguard-0-privacy-data-protection.md",
+    "codeguard-0-safe-c-functions.md",
+    "codeguard-0-session-management-and-cookies.md",
+    "codeguard-0-supply-chain-security.md",
+    "codeguard-0-xml-and-serialization.md",
+    "codeguard-1-crypto-algorithms.md",
+    "codeguard-1-digital-certificates.md",
+    "codeguard-1-hardcoded-credentials.md"
+  ]
+}

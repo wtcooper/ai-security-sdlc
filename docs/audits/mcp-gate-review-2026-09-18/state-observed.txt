@@ -1,0 +1,4 @@
+Concurrent grants recorded (expected 20): empty (file size 0 bytes)
+Temporary-file rename errors:       15
+Reinstall restored missing post hook: false
+Health check with missing post hook: exit 0

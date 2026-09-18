@@ -1,12 +1,14 @@
-# MCP install consent gate: objective review
+# MCP and plugin install consent gate: objective review
 
 Date: 2026-09-18. Reviewed checkout: `b69b8aafb718938a95229fc07a98dd52d695f26b`; implementation commit referenced by the brief: `3aea252`.
 
+Scope clarification from the owner: agent-initiated plugin and extension installs, including marketplace installs, require user awareness and consent just as MCP installs do. This applies even when a plugin has no declared MCP servers or its contents are not yet known. The recommendations below incorporate that requirement.
+
 ## Assessment
 
-**The approach is appropriate, but the current implementation does not reliably deliver the requested human approval guarantee.** It catches many common MCP installation routes and implements the basic first-approval/reuse journey. However, reproducible errors let an unrelated action create a grant, let a changed request consume an earlier approval, and interpret an explicit refusal as consent. These are defects within supported paths, separate from the acknowledged limitation of inspecting arbitrary scripts.
+**The approach is appropriate, but the current implementation does not reliably deliver the requested human approval guarantee.** It catches many common MCP and plugin installation routes and implements the basic first-approval/reuse journey. However, reproducible errors let an unrelated action create a grant, let a changed request consume an earlier approval, and interpret an explicit refusal as consent. These are defects within supported paths, separate from the acknowledged limitation of inspecting arbitrary scripts.
 
-I would retain the hook-based design, fix the approval transaction and identity model first, and defer generalizing it into a reusable business-policy framework. I would not describe the current version as ensuring that every first MCP install receives human approval, including in autonomous modes.
+I would retain the hook-based design and plugin-install detection, fix the approval transaction and identity model first, and defer generalizing it into a reusable business-policy framework. I would not describe the current version as ensuring that every first MCP or plugin install receives human approval, including in autonomous modes.
 
 The implementation is **small in file count but complex in behavior**: 504 lines across the gate, library and watcher, plus 172 in the installer, including comments. The main excess is duplicated parsing, implicit state and permissive fallbacks, rather than unnecessary product features. Simplification should preserve detection coverage while replacing these mechanisms.
 
@@ -19,18 +21,18 @@ The implementation is **small in file count but complex in behavior**: 504 lines
 
 ## Does it implement the intended journey?
 
-I treated the goal as: **when an agent adds, enables or materially changes an MCP connection, a human approves that connection unless an applicable, previously trusted grant already covers it.** The agent's general permission to complete a task is not that grant. Ordinary tool use and unrelated software installation remain outside this policy.
+The clarified goal is: **when an agent adds, enables or materially changes an MCP connection, or installs, loads or materially changes an agent plugin or extension, a human approves that connection or bundle unless an applicable, previously trusted grant already covers it.** Plugin installation is an independent consent boundary; detecting a bundled MCP definition is not a prerequisite. The agent's general permission to complete a task is not that grant. Ordinary tool use and unrelated software installation remain outside this policy.
 
 | Step | Current assessment |
 |---|---|
-| Agent decides an MCP would help | Correct interception point: inspect the resulting action regardless of whether it came from research, a document or an injection. |
+| Agent decides an MCP or plugin would help | Correct interception point: inspect the resulting action regardless of whether it came from research, a document or an injection. |
 | Detect the attempted install/change | Broad coverage of visible commands and edits; incomplete dispatch and parsing create additional misses. Arbitrary scripts remain an inherent limit. |
-| Check previous approval | Implemented, but identities lose meaningful information, repository entries are trusted automatically, and plugins use broader grants than servers. |
+| Check previous approval | Implemented, but identities lose meaningful information, repository entries are trusted automatically, and plugin grants are not reliably bound to the intended bundle. |
 | Require a human even in auto modes | Implemented on selected paths, with client-specific dependencies. Transcript approval is currently unsafe; some denied operations have no working approval route. |
 | Explain why approval is needed | Generally good. Known servers get useful names and identities; opaque actions lack that specificity. Raw credential values can enter the explanation. |
 | Record approval for reuse | Implemented, but the record can be created without consent, applied to a changed request, or lost/corrupted under concurrency. |
 
-The correct claim today is a **best-effort MCP installation consent guardrail with a supplementary change detector**. Preventing every installation or use requires an additional boundary, such as client-managed MCP restrictions. That stronger boundary need not become part of this hook's implementation.
+The correct claim today is a **best-effort MCP and plugin installation consent guardrail with a supplementary MCP change detector**. Preventing every installation or use requires an additional boundary, such as client-managed MCP/plugin restrictions. That stronger boundary need not become part of this hook's implementation.
 
 ## Verification and evidence
 
@@ -44,7 +46,7 @@ I read the brief, current scripts, registration files, installer, tests, live ha
 
 The probes call the hooks with synthetic payloads and use disposable state. They do not execute installer commands or install MCP servers. Production hook code was not changed. The pre-existing untracked `.playwright-mcp/` directory was left alone.
 
-Reproduction artifacts: [payload probes](mcp-gate-review-2026-09-18/probes.sh), [observed payload results](mcp-gate-review-2026-09-18/observed.txt), [state/installer probes](mcp-gate-review-2026-09-18/state-probes.sh).
+Reproduction artifacts: [payload probes](mcp-gate-review-2026-09-18/probes.sh), [observed payload results](mcp-gate-review-2026-09-18/observed.txt), [state/installer probes](mcp-gate-review-2026-09-18/state-probes.sh), [repeat state/installer results](mcp-gate-review-2026-09-18/state-observed.txt).
 
 ```sh
 sh docs/audits/mcp-gate-review-2026-09-18/probes.sh
@@ -117,15 +119,15 @@ Opaque actions have no server or plugin names. The denial tells the user to repl
 
 **Recommendation:** make every pending operation approvable by its transaction ID, including opaque operations. Opaque consent should grant one execution of the reviewed action. Persist server grants only for confidently identified, approved effects; otherwise ask again on subsequent opaque actions. Use accurate fallback instructions when no human-response channel is available.
 
-### 6. High: plugin grants are broader than server consent, and option parsing can broaden them further
+### 6. High: plugin grants are not bound to the actual bundle, and option parsing can transfer approval
 
 Sources: [gate:134](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh#L134), [gate:177](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh#L177), [library:127](../../plugins/secure-sdlc/hooks/aisec_lib.sh#L127).
 
 **P24:** `claude plugin install --scope user first@market` records `--scope` as the plugin spec. Approving it allows `second@market` with the same option. The local CLI help confirms options are accepted before the plugin argument.
 
-Even with correct option parsing, a mutable plugin spec or local path is not the identity of the servers inside it. **P23:** a previously approved plugin file path permits an unseen server identity because plugin-path handling precedes MCP-file handling. Plugins without MCP servers also trigger consent, and any file write under an installed-plugin directory is treated as installation.
+Even with correct option parsing, a mutable plugin spec or local path does not identify a fixed bundle. **P23:** a previously approved plugin file path permits an unseen server identity because plugin-path handling precedes MCP-file handling. Under the clarified scope, prompting for plugins without MCP servers is correct. The defect is that approval of one bundle/path can cover later unreviewed content; unrelated file edits beneath a plugin directory are a separate classification issue.
 
-**Recommendation:** parse the actual plugin operand first. For a known manifest, gate its MCP additions/changes. For an opaque bundle, explain that consent covers installing that specific bundle, bind it to resolved source/version or content where available, and reconcile its declared MCP configuration. Changes to the bundle or server descriptors need another decision. Do not present indefinite approval of a mutable plugin path as “each MCP server asks once.” Keep an opaque-bundle fallback where inspection before activation is unavailable.
+**Recommendation:** retain consent for every unapproved plugin/extension install, including marketplace, URL and local installs, regardless of whether MCP definitions are present. Parse the actual plugin operand and show the plugin name, source/marketplace, installation scope and why approval is required. Bind the grant to the resolved bundle/source/version or content where available. Manifest inspection informs the explanation and subsequent reconciliation; it must not exempt an install from consent. One approval can cover the identified bundle and its disclosed MCP definitions without redundant prompts. Material bundle changes or later MCP changes beyond that grant need another decision. An opaque bundle still needs explicit consent, and a mutable path must not become an indefinite grant for arbitrary future content.
 
 ### 7. High policy mismatch: repository content can assert that the user already approved a server
 
@@ -165,21 +167,21 @@ Cursor's current documentation says `failClosed` includes empty output and timeo
 
 Sources: [library:128](../../plugins/secure-sdlc/hooks/aisec_lib.sh#L128), [library:143](../../plugins/secure-sdlc/hooks/aisec_lib.sh#L143), [gate:98](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh#L98).
 
-Concurrent grants share `$allowlist.tmp` and an unlocked read/modify/write. A 20-writer probe produced **14 rename errors and an empty allowlist** on one run. Exact outcomes depend on scheduling. There is also no explicit private creation mode for state files. Errors can be followed by a misleading `allowlisted` log entry, and invalid existing state is overwritten with an empty ledger.
+Concurrent grants share `$allowlist.tmp` and an unlocked read/modify/write. A 20-writer probe produced **14 rename errors and an empty allowlist** on one run; the saved repeat produced 15 rename errors and another empty allowlist. Exact outcomes depend on scheduling. There is also no explicit private creation mode for state files. Errors can be followed by a misleading `allowlisted` log entry, and invalid existing state is overwritten with an empty ledger.
 
 **P18:** a synthetic API key was copied into both the denial text and pending record. Raw `env` and header values also flow into grant identities, logs and old/new identity explanations. This increases exposure even when the original credential was already present in the configuration.
 
 **Recommendation:** serialize ledger updates; use unique temporary files and atomic replacement under a lock, with private permissions and checked persistence. Retain invalid state for diagnosis rather than silently replacing it. Separate a redacted display description from the identity comparison representation. Prefer credential references; never print raw authentication values as part of a reason or audit line.
 
-### 11. Medium: false prompts expand the policy beyond MCP installation/modification
+### 11. Medium: false prompts expand the policy beyond MCP and plugin installation/modification
 
 Sources: [gate:107](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh#L107), [gate:162](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh#L162).
 
 Reproduced: printing a sample install command triggers the gate (**P11**); reading the allowlist is treated as tampering (**P12**); a shell write containing only a theme setting triggers consent (**P13**). The unconditional substring state check also makes the documented `cat ~/.ai-security/mcp-allowlist.json` diagnostic incompatible with agent execution.
 
-Generic shared-file fields such as `type`, `enabled` and `command`, all plugin-directory writes, marketplace registration, and removal/disable operations further broaden the effective policy. These conservative choices are understandable, but they impose prompts unrelated to introducing shadow MCP capability.
+Generic shared-file fields such as `type`, `enabled` and `command`, unrelated edits under plugin directories, and removal/disable operations further broaden the effective policy. These conservative choices are understandable, but they can impose prompts unrelated to installing or changing MCP connections or agent plugins. Plugin/extension installation itself is valid coverage, including plugins without declared MCP servers. Retain marketplace-source consent, while distinguishing approval of a source from approval to install its individual plugins.
 
-**Recommendation:** compare the MCP-relevant semantic before/after state for recognized configuration files. Restrict state protection to mutations. Allow reads, documentation, formatting-only changes and unrelated config changes. For unknown whole-file writes, retain a clearly labeled conservative fallback. Prefer allowing removal/disable unless you deliberately add a separate change-control requirement; re-enabling an unapproved server belongs in scope.
+**Recommendation:** compare MCP-relevant semantic before/after state for recognized configuration files and detect plugin installation/activation independently. Restrict state protection to mutations. Allow reads, documentation, formatting-only changes and unrelated config changes. For unknown whole-file writes, retain a clearly labeled conservative fallback. Prefer allowing removal/disable unless you deliberately add a separate change-control requirement; enabling an unapproved server or plugin belongs in scope. Simplification must preserve plugin-install coverage.
 
 ### 12. Medium: installer idempotency and health checks can certify an incomplete installation
 
@@ -207,21 +209,23 @@ This breaks remembered native consent and watcher coverage while reporting a hea
 | Add/register an MCP server; activate a previously unapproved server | Require a matching grant or human consent. |
 | Change executable, arguments, endpoint, execution environment, credential source or relevant working directory | Re-evaluate the structured identity and ask when materially different. |
 | Inject session-only MCP configuration into a nested agent | In scope: it creates an MCP connection even without a persistent install. |
-| Install/enable a plugin that introduces MCP servers | Inspect and gate the MCP change; use explicit one-time bundle consent when opaque. |
-| Plugin has no MCP effect; marketplace registration alone | Outside the narrow rule when that can be established. Retain conservative handling only when effects are unknown. |
+| Install/enable/load any agent plugin or extension, including from a marketplace, URL or local path | Require a matching bundle grant or human consent before installation/activation, whether or not MCP definitions are declared. Explain the plugin identity, source and scope. |
+| Plugin has no MCP effect or its contents are unknown | Still in scope. Manifest inspection improves disclosure; it does not remove the consent requirement. |
+| Register a new marketplace source | Retain consent for the new installation source. Source approval must not silently approve every plugin offered by that marketplace. |
+| Materially change an approved plugin's source, bundle or bundled MCP configuration | Re-evaluate the grant and ask when the change exceeds what was approved. |
 | Read/list configs, document commands, edit unrelated settings, install ordinary dependencies | Allow. |
 | Remove/disable an MCP server | Allow by default for the shadow-install objective; log if useful. |
 | Call an already configured MCP tool | Outside this install policy. A separate usage-control policy could govern it. |
 | Modify hook enforcement or launch with alternate configuration roots | Separate enforcement-integrity concern. Keep the limitation explicit rather than growing this detector into general endpoint control. |
 
-“All modifications” and “prevent introduction of shadow capability” are slightly different product scopes. I recommend the latter: ask for additions, activation and material identity changes. If all MCP modifications must receive consent, retain removal/disable gating as an explicit requirement, with dedicated tests.
+“All modifications” and “prevent introduction of shadow capability” are slightly different product scopes. I recommend the latter: ask for MCP and plugin additions, activation and material identity changes. Plugin installation remains in scope independently of its MCP contents. If all MCP modifications must receive consent, retain removal/disable gating as an explicit requirement, with dedicated tests.
 
 ## Simplify while retaining useful functionality
 
 Keep four responsibilities with clear inputs and outputs; they need not become four packages:
 
 1. **Client adapter:** normalize actual tool events, targets, edits, workspace/session identifiers and verified human decisions; serialize native responses.
-2. **MCP change analyzer:** produce structured before/after server descriptors, or an explicit opaque action. Use one registry of configuration locations/shapes for prevention and observation.
+2. **MCP and plugin change analyzer:** produce structured before/after server descriptors, plugin bundle identities or an explicit opaque action. Detect plugin installs independently of manifest contents. Use one registry of configuration locations/shapes for prevention and observation.
 3. **Consent transaction:** evaluate trusted grants, create one request covering all changes, accept one attributable decision, and persist the intended grants safely.
 4. **Post observer:** confirm the matching execution and detect unapproved drift without granting permissions merely because it happened.
 
@@ -231,7 +235,7 @@ Remove duplicated response logic from the generic template and gate. Remove shel
 
 The reusable abstraction should be **a human decision bound to a proposed action**, with a rule-specific grant model. Today the generic template writes MCP-shaped pending records into the same namespace, and the MCP post watcher can consume command-matching records. Add a rule namespace before reuse; another policy's approval must not become an MCP allowlist entry.
 
-Preserve the current detection corpus during refactoring. Add negative semantic pairs—same filenames or words with no MCP change—to keep narrower scope from reducing true coverage. Expanding dispatch to more relevant tool events while simplifying classification can improve coverage and reduce duplicate regex maintenance at the same time.
+Preserve the current detection corpus during refactoring, including marketplace/plugin/extension installs. Add negative semantic pairs—same filenames or words with no MCP or plugin installation/change—to reduce false prompts without losing true coverage. Expanding dispatch to more relevant tool events while simplifying classification can improve coverage and reduce duplicate regex maintenance at the same time.
 
 ## Answers to the brief's design questions
 
@@ -239,11 +243,11 @@ Preserve the current detection corpus during refactoring. Add negative semantic 
 
 **Chat approval:** acceptable as a constrained fallback when tied to an exact request and verifiable human input. The current short/tag-free substring heuristic is insufficient. Preserve the user-facing conversation; strengthen the machine-readable acknowledgement.
 
-**Plugin-spec approval:** acceptable only if explicitly sold as trust in that bundle/source and appropriately versioned or reviewed on change. It is not equivalent to approving each contained server once.
+**Plugin-spec approval:** plugin consent is required in its own right, even without declared MCP servers. A grant should identify the approved bundle and source and be appropriately versioned or reviewed on change. The same decision may cover disclosed bundled servers; it must not authorize arbitrary later content, a different plugin or every plugin in the marketplace.
 
 **Watcher rollback:** keep it observational. Offer an explicit review/removal path and maintain unresolved findings. Automatic reversion introduces race and data-loss problems and cannot reverse prior execution.
 
-**Trigger scope:** it is currently too broad in some places and too narrow in others. Semantic MCP differences, accurate dispatch and explicit opaque cases are the remedy; adding more command substrings alone will not settle this.
+**Trigger scope:** preserve all plugin/extension installation triggers. The excess scope lies in unrelated reads, examples and edits, while dispatch still misses some real installs. Semantic MCP differences, explicit plugin-install detection, accurate dispatch and opaque cases are the remedy; adding more command substrings alone will not settle this.
 
 ## Client assurance and release criteria
 
@@ -258,11 +262,13 @@ Prioritize work in this order:
 | Priority | Deliverable | Verification required |
 |---|---|---|
 | P0 | Bind consent to the complete request and session; correct refusal parsing; fix MultiEdit and unknown-identity matching | P01–P03, P05–P08, P15, P17 and P21 must no longer authorize unintended actions. Same approved descriptor must still pass. |
-| P0 | Working approval for opaque actions; correct plugin operand parsing and grant boundaries | P04 completes only after exact consent; P23/P24 cannot transfer grants to unseen identities/bundles. |
+| P0 | Working approval for opaque actions; retain all plugin-install consent and correct operand parsing/grant boundaries | P04 completes only after exact consent; P23/P24 cannot transfer grants to unseen identities/bundles; plugins with and without MCP definitions both require consent. |
 | P1 | Trusted-policy provenance, safe state writes and credential redaction | Untrusted repo grants do not authorize; concurrent grants all survive; no synthetic secret appears in reasons/logs. |
 | P1 | Adapter dispatch/failure contracts, watcher coverage and installation repair | Installed matchers catch advertised actions; allowed actions remain allowed; first-call changes and missing post hooks are detected. |
 | P2 | Shared parsers/registry, narrow scope and measured performance | Preserve true-positive corpus, remove false prompts, measure representative inventories and concurrent sessions. |
 
 For each supported client and relevant mode, the final acceptance test should show: no configuration change before consent; refusal leaves no grant; exact approval permits only the reviewed action; repeated approved installation is silent; changed identity or extra target prompts again; opaque consent works; cancellation/failure does not fabricate consent; and concurrent sessions cannot overwrite or borrow pending decisions. Test these through the installed hook registrations, not only by piping JSON into scripts.
+
+For plugins, explicitly test marketplace installs with bundled MCP definitions, without MCP definitions, and with unknown contents. Each unapproved install must prompt before installation, including in autonomous modes. Declining must leave the plugin uninstalled and unapproved; approval must identify that bundle; a different plugin from the same marketplace must still prompt. Include URL/local installs and nested-agent plugin loading so alternate delivery paths preserve the same consent boundary.
 
 That establishes the intended custom HITL behavior without expanding this into a general security policy engine.

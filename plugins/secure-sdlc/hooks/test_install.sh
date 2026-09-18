@@ -28,6 +28,15 @@ jq -e '(.hooks.AfterTool|length)==1' $P/.gemini/settings.json >/dev/null && ok |
 before=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json $P/.github/hooks/ai-security.json $P/.gemini/settings.json | cksum)
 ./install.sh --project $P all >/dev/null 2>&1; after=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json $P/.github/hooks/ai-security.json $P/.gemini/settings.json | cksum)
 [ "$before" = "$after" ] && ok || bad "second install changed files"
+# --- self-repair: a removed or altered owned entry is restored; unrelated hooks survive
+jq 'del(.hooks.PostToolUse)' $P/.codex/hooks.json > $T/h.json && mv $T/h.json $P/.codex/hooks.json
+./install.sh --check --project $P codex >/dev/null 2>&1 && bad "check should fail with the post hook missing" || ok
+./install.sh --project $P codex >/dev/null 2>&1; jq -e '(.hooks.PostToolUse|length)==1 and (.hooks.PostToolUse[0].hooks[0].command|endswith("mcp_config_watch.sh"))' $P/.codex/hooks.json >/dev/null && ok || bad "reinstall restored the missing post hook"
+jq '.hooks.PreToolUse[0].matcher="Bash" | .hooks.PreToolUse += [{"matcher":"Write","hooks":[{"type":"command","command":"my-own-hook.sh"}]}]' $P/.claude/settings.json > $T/c.json && mv $T/c.json $P/.claude/settings.json
+./install.sh --check --project $P claude-code >/dev/null 2>&1 && bad "check should fail on an altered matcher" || ok
+./install.sh --project $P claude-code >/dev/null 2>&1
+jq -e '(.hooks.PreToolUse|length)==2 and (.hooks.PreToolUse[0].hooks[0].command=="my-own-hook.sh") and (.hooks.PreToolUse[1].matcher=="Bash|Edit|Write|MultiEdit|NotebookEdit")' $P/.claude/settings.json >/dev/null && ok || bad "reinstall repaired the matcher and kept the user's own hook"
+./install.sh --check --project $P all >/dev/null 2>&1 && ok || bad "check passes again after repair"
 # --- installed script works from the project root, as a client would run it
 (cd $P && printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | AISEC_STATE_DIR=$T/state AISEC_MCP_ALLOWLIST=$T/allow.json .ai-security/hooks/mcp_install_gate.sh >/dev/null 2>&1); [ $? -eq 2 ] && ok || bad "installed gate did not block"
 [ -n "$(ls $T/state/pending 2>/dev/null)" ] && ok || bad "installed gate did not record a pending approval"

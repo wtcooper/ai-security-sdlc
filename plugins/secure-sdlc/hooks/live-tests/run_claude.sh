@@ -21,7 +21,7 @@ DECISION=deny "$HERE/.venv/bin/python" "$HERE/sdk_consent.py" "$PROMPT" >/dev/nu
 grep -q '	ask	' "$AISEC_HOOK_LOG" && grep -q '"tool_name": "Bash"' "$CONSENT_LOG" && [ ! -f .mcp.json ] && [ ! -f "$AISEC_MCP_ALLOWLIST" ] && ok "prompted; no install, nothing allowlisted" || bad "deny path"
 echo "2. first install: host says yes"; : > "$AISEC_HOOK_LOG"; : > "$CONSENT_LOG"
 DECISION=allow "$HERE/.venv/bin/python" "$HERE/sdk_consent.py" "$PROMPT" >/dev/null 2>&1 || true
-[ "$(grep -c '	ask	' "$AISEC_HOOK_LOG")" = 1 ] && grep -q ctx7 .mcp.json 2>/dev/null && jq -e '.servers.ctx7.identity=="npx -y @upstash/context7-mcp"' "$AISEC_MCP_ALLOWLIST" >/dev/null 2>&1 && ok "prompted once; installed; ctx7 recorded in the allowlist" || bad "allow path"
+[ "$(grep -c '	ask	' "$AISEC_HOOK_LOG")" = 1 ] && grep -q ctx7 .mcp.json 2>/dev/null && jq -e '.servers.ctx7.identity=="{\"args\":[\"-y\",\"@upstash/context7-mcp\"],\"command\":\"npx\"}"' "$AISEC_MCP_ALLOWLIST" >/dev/null 2>&1 && ok "prompted once; installed; ctx7 recorded in the allowlist" || bad "allow path"
 echo "3. same server again: no prompt"; : > "$AISEC_HOOK_LOG"; : > "$CONSENT_LOG"; rm -f .mcp.json
 DECISION=deny "$HERE/.venv/bin/python" "$HERE/sdk_consent.py" "$PROMPT" >/dev/null 2>&1 || true
 grep -q '	allowed	' "$AISEC_HOOK_LOG" && ! grep -q '	ask	' "$AISEC_HOOK_LOG" && grep -q ctx7 .mcp.json 2>/dev/null && ok "allowlisted server installed silently (host never consulted, would have said no)" || bad "allowlist pass"
@@ -32,6 +32,6 @@ elif ! grep -q '"tool_name": "Bash"' "$CONSENT_LOG" && ! grep -q 'mcp-install-ga
 else bad "identity change"; fi
 echo "5. headless -p, no host: deny, then the user's chat approval"; rm -f .mcp.json; rm -rf "$AISEC_STATE_DIR"; rm -f "$AISEC_MCP_ALLOWLIST"; : > "$AISEC_HOOK_LOG"
 claude -p --model "$MODEL" --output-format json "$PROMPT" < /dev/null 2>/dev/null | jq -e '.permission_denials|length>=1' >/dev/null && [ ! -f .mcp.json ] && ok "denied, nothing written" || bad "headless deny"
-claude -p --model "$MODEL" --continue "approve ctx7 — yes, go ahead and retry the same command now." < /dev/null >/dev/null 2>&1 || true
+claude -p --model "$MODEL" --continue "approve ctx7" < /dev/null >/dev/null 2>&1 || true   # the whole message, exactly: that is the approval contract
 grep -q '	approved	' "$AISEC_HOOK_LOG" && grep -q ctx7 .mcp.json 2>/dev/null && jq -e '.servers.ctx7' "$AISEC_MCP_ALLOWLIST" >/dev/null 2>&1 && ok "'approve ctx7' in chat let the retry through and recorded it" || bad "transcript approval (see $W)"
 echo "claude live tests: $pass passed, $fail failed (scratch: $W)"; [ $fail -eq 0 ]
