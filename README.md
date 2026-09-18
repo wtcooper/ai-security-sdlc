@@ -49,7 +49,7 @@ to the exact server descriptor or plugin bundle. The first rule is the **mcp-ins
 agent runs `mcp add`, writes an MCP config or installs a plugin, the user is asked once. A session-start
 **standards recall** hook ships beside it. Two opt-in rules (test-file protection, deploy gate) ship on
 the same pattern under `security-guidance`.
-`TEMPLATE_policy_hook.sh` is the starting point for the next rule; the playbooks show how to roll one out.
+`TEMPLATE_policy_hook.sh` (under `security-guidance/references/hooks/scripts/`, beside the opt-in rules) is the starting point for the next rule; the playbooks show how to roll one out.
 A hook gates what it can see — the call's command, paths and content — so each rule documents its
 detectable scope, and the trust boundary for MCP stays with each client's managed allowlist.
 
@@ -205,7 +205,8 @@ wraps, and what it reads and writes:
 
 ```
 plugins/<name>/             README.md + spec plugin.json (the manifest) + skills/<skill>/ (README.md, SKILL.md, scripts, templates, references) (+ mcp.json where needed)
-plugins/secure-sdlc/hooks/  mcp-install gate + watcher, standards recall, shared library, install.sh, per-client stanzas, payload and live tests
+plugins/secure-sdlc/hooks/  deployable hooks only: mcp-install gate + watcher, standards recall, shared library, install.sh, per-client stanzas
+tests/hooks/                hook payload suite, installer suite, live-agent harness and recorded fixtures, pilot scenarios (never deployed)
 testbed/                    LiteLLM gateway + sample target app
 scripts/sync_manifests.py   regenerate the two root marketplaces from each plugin.json
 scripts/validate.sh         marketplaces in sync, JSON parses, SKILL frontmatter, no stray wrappers

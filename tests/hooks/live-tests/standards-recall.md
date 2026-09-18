@@ -3,8 +3,8 @@
 Run from the repository's local virtual environment with an authenticated CLI:
 
 ```sh
-uv run python plugins/secure-sdlc/hooks/live-tests/standards_recall.py claude-code
-uv run python plugins/secure-sdlc/hooks/live-tests/standards_recall.py codex
+uv run python tests/hooks/live-tests/standards_recall.py claude-code
+uv run python tests/hooks/live-tests/standards_recall.py codex
 ```
 
 This creates a disposable project with the actual standards/planner skills, a configured org

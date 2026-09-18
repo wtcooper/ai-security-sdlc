@@ -1,12 +1,12 @@
 #!/bin/sh
 # Payload-level tests for mcp_install_gate.sh in each client's real PreToolUse payload shape, plus the allowlist and
 # chat approval, the post-write detector (mcp_config_watch.sh), the corpus of payloads recorded from live agents
-# (live-tests/fixtures/), and the regressions from the 2026-09-18 objective review (docs/audits/…, probes P01–P24).
+# (tests/hooks/live-tests/fixtures/), and the regressions from the 2026-09-18 objective review (docs/audits/…, probes P01–P24).
 # Outcomes: ASK   = exit 0 and client-native "ask" JSON on stdout (consent prompt)
 #           DENY  = exit 2 (declined; deny JSON on stdout for clients that have one, instructions on stderr)
 #           ALLOW = exit 0 and no stdout (Cursor: an explicit {"permission":"allow"})
-# Deterministic, no network, no agent. Run: sh test_mcp_install_gate.sh
-cd "$(dirname "$0")"; pass=0; fail=0
+# Deterministic, no network, no agent. Run: sh tests/hooks/test_mcp_install_gate.sh (from anywhere)
+TD=$(cd "$(dirname "$0")" && pwd); cd "$TD/../../plugins/secure-sdlc/hooks"; pass=0; fail=0   # the deployable hooks under test
 set +B 2>/dev/null || true   # bash-as-sh brace-expands {"a":1,"b":2} payloads inside $(...); dash has no brace expansion
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export AISEC_STATE_DIR=$T/state AISEC_MCP_ALLOWLIST=$T/allow.json HOME=$T/home; unset AISEC_MCP_GATE_MODE AISEC_HOOK_LOG; mkdir -p "$HOME"   # a throwaway HOME: ~ paths and the watcher's inventory
@@ -552,7 +552,8 @@ t ALLOW "TOML multiline args equal to the approved server" "$(codex Write "{\"fi
 
 # ===================== 13. the template rule shares the machinery under its own rule name =====================
 reset
-tpl() { printf '%s' "$2" | env $1 ./TEMPLATE_policy_hook.sh 2>"$T/err"; }
+mkdir -p "$T/tpl"; cp aisec_lib.sh "$T/tpl/"; cp "$TD/../../plugins/secure-sdlc/skills/security-guidance/references/hooks/scripts/TEMPLATE_policy_hook.sh" "$T/tpl/"   # the template rule runs beside the library, as an installed rule would
+tpl() { printf '%s' "$2" | env $1 "$T/tpl/TEMPLATE_policy_hook.sh" 2>"$T/err"; }
 out=$(tpl "" "$(claude Bash '{"command":"npm publish"}')"); [ $? -eq 0 ] && printf '%s' "$out" | grep -q '"ask"' && ok || bad "template: npm publish asks"
 jq -e '.rule=="my-rule" and .names==["publish"] and .state=="ask"' "$AISEC_STATE_DIR"/pending/*.json >/dev/null && ok || bad "template: pending record carries its own rule name"
 printf '%s' "$(claude Bash '{"command":"npm publish"}')" | ./mcp_config_watch.sh >/dev/null 2>&1; [ ! -f "$AISEC_MCP_ALLOWLIST" ] && ls "$AISEC_STATE_DIR"/pending/*.json >/dev/null 2>&1 && ok || bad "template: the MCP watcher never consumes another rule's record"
@@ -564,8 +565,8 @@ out=$(tpl "" "$(claude Write '{"file_path":"/h/.ai-security/state/x","content":"
 # ===================== 14. corpus of payloads recorded from live agents =====================
 reset
 while IFS='	' read -r f want note; do
-  [ -f "live-tests/fixtures/$f" ] || { bad "fixture missing: $f"; continue; }
-  t "$want" "fixture $f ($note)" "$(cat "live-tests/fixtures/$f")"
-done < live-tests/fixtures/expected.tsv
+  [ -f "$TD/live-tests/fixtures/$f" ] || { bad "fixture missing: $f"; continue; }
+  t "$want" "fixture $f ($note)" "$(cat "$TD/live-tests/fixtures/$f")"
+done < "$TD/live-tests/fixtures/expected.tsv"
 
 echo "mcp_install_gate tests: $pass passed, $fail failed"; [ $fail -eq 0 ]

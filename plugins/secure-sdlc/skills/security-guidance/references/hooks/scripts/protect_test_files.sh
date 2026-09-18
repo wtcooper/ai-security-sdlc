@@ -1,5 +1,5 @@
 #!/bin/sh
-# test-file protection — a business-logic rule on the pattern in plugins/secure-sdlc/hooks/TEMPLATE_policy_hook.sh.
+# test-file protection — a business-logic rule on the pattern in TEMPLATE_policy_hook.sh (this directory).
 # During remediation (AISEC_PROTECT_TESTS=1) an edit to a test file needs the user's consent, so a fix cannot pass
 # by weakening its own regression. Off unless AISEC_PROTECT_TESTS=1 (set it for the duration of a fix-findings run).
 # Covers editor-tool writes, Codex apply_patch targets, and shell writes (>, tee, cp, mv, sed -i, rm) to test paths.

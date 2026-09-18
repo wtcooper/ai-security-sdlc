@@ -27,7 +27,9 @@ the rules built on it:
 - **standards recall** (`standards_recall.sh`): a session-start instruction to consult
   `security-standards` before coding.
 - `install.sh` installs both into Claude Code, Codex, Cursor, Copilot and Gemini at project, user or
-  system scope; `TEMPLATE_policy_hook.sh` is the starting point for the next rule.
+  system scope. The directory holds only what gets deployed; its tests, live-agent harness and pilot
+  scenarios live in the repo's `tests/hooks/`, and `TEMPLATE_policy_hook.sh` (the starting point for
+  the next rule) sits with the other hook templates under `skills/security-guidance/references/hooks/scripts/`.
 
 Claude Code loads `hooks/hooks.json` automatically when the plugin is enabled; Copilot reads
 `com.github.copilot/hooks/hooks.json`; other clients use `install.sh`. Details, tests and the

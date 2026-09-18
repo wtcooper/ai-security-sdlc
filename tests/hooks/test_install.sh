@@ -1,8 +1,8 @@
 #!/bin/sh
 # Tests for install.sh: installs into a throwaway project (and a throwaway HOME for user scope), checks every
 # client config is valid JSON, references the gate, preserves pre-existing settings, is idempotent, and that
-# --dry-run writes nothing. Deterministic, no agent, no network. Run: sh test_install.sh
-cd "$(dirname "$0")"; pass=0; fail=0
+# --dry-run writes nothing. Deterministic, no agent, no network. Run: sh tests/hooks/test_install.sh (from anywhere)
+cd "$(dirname "$0")/../../plugins/secure-sdlc/hooks"; pass=0; fail=0   # the deployable hooks under test
 ok() { pass=$((pass+1)); }; bad() { fail=$((fail+1)); echo "FAIL: $1"; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 P=$T/project; mkdir -p $P/.claude $P/.gemini

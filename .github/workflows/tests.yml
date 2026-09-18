@@ -33,11 +33,11 @@ jobs:
       - name: Validate repository
         run: bash scripts/validate.sh | tee results-validate.txt
       - name: Hook payload suite (mcp-install gate)
-        run: sh plugins/secure-sdlc/hooks/test_mcp_install_gate.sh | tee results-gate.txt
+        run: sh tests/hooks/test_mcp_install_gate.sh | tee results-gate.txt
       - name: Opt-in hook suite
         run: sh plugins/secure-sdlc/skills/security-guidance/references/hooks/scripts/test_opt_in_hooks.sh | tee results-opt-in-hooks.txt
       - name: Hook installer suite
-        run: sh plugins/secure-sdlc/hooks/test_install.sh | tee results-install.txt
+        run: sh tests/hooks/test_install.sh | tee results-install.txt
       - name: Skills installer suite
         run: sh scripts/test_install_skills.sh | tee results-install-skills.txt
       - name: Python helper tests

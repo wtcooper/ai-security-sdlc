@@ -4,7 +4,7 @@
 # through with hooks active and records the server; the same server then passes silently; a different server is
 # declined again. Scratch project only. Usage: sh run_codex.sh
 set -eu
-HERE=$(cd "$(dirname "$0")" && pwd); G=$(dirname "$HERE")
+HERE=$(cd "$(dirname "$0")" && pwd); G=$(cd "$HERE/../../../plugins/secure-sdlc/hooks" && pwd)
 W=$(mktemp -d); P=$W/proj; mkdir -p "$P/.codex"; cd "$P"; git init -q .; echo '# scratch' > README.md
 cat > .codex/hooks.json <<JSON
 {"hooks":{"PreToolUse":[{"matcher":"Bash|apply_patch|Edit|Write","hooks":[{"type":"command","command":"$G/mcp_install_gate.sh","statusMessage":"mcp-install gate"}]}],

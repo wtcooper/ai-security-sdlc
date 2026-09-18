@@ -36,7 +36,7 @@ Sources: [Claude](https://code.claude.com/docs/en/hooks), [Codex](https://learn.
 verify output/registration; they do not prove that every client loads it or that a model follows it.
 Use `--check` for deployment files, then a live ordinary coding task with an organization-only
 sentinel requirement to verify recall before implementation. A missing hook cannot report itself.
-See [standards evaluation](live-tests/standards-recall.md) for reproducible live checks and limits.
+See [standards evaluation](../../../tests/hooks/live-tests/standards-recall.md) for reproducible live checks and limits.
 
 Plugin updates provide the baseline when the host loads the updated skill version. They do not
 update an independently installed CodeGuard or separate org corpus. Preserve project-specific
@@ -44,7 +44,7 @@ policy in `.ai-security/knowledge/`; ingestion never writes installed assets. Ex
 need reviewed reconciliation, not automatic deletion. Lint custom policy in CI using
 `uv run <skill>/scripts/lint_corpus.py <store>`; no argument validates the shipped corpus.
 
-**The pattern** (see [TEMPLATE_policy_hook.sh](TEMPLATE_policy_hook.sh)):
+**The pattern** (see [TEMPLATE_policy_hook.sh](../skills/security-guidance/references/hooks/scripts/TEMPLATE_policy_hook.sh)):
 
 1. **One POSIX script** reads the PreToolUse payload on stdin. No client-specific forks.
 2. **Normalize** — the library extracts `command`, the file paths a tool will write, the new and old
@@ -69,7 +69,9 @@ need reviewed reconciliation, not automatic deletion. Lint custom policy in CI u
    stdout stays the client protocol channel. Pending records carry the rule's name, so one rule's
    approval can never satisfy another's.
 5. **Ship** with a stanza per client in `clients/`, `install.sh` for project/user/system scope, and a
-   payload-level test suite in each client's real payload shape.
+   payload-level test suite in each client's real payload shape. This directory holds only what gets
+   deployed; the suites, the live-agent harness and the pilot scenarios live in the repo's
+   [tests/hooks/](../../../tests/hooks/).
 
 ## The first rule: mcp-install gate
 
@@ -226,7 +228,7 @@ Full admin guidance: [docs/playbooks/enterprise-rollout.md](../../../docs/playbo
 `sh install.sh --check <tools>` validates the files: scripts present and executable, each client config
 carrying the session, pre and post entries this scope installs (command and matcher), the installed gate
 declining a sample installer payload and allowing a benign one. Whether the client has loaded and
-trusted the hook is only visible in the client. `test_install.sh` covers all of that.
+trusted the hook is only visible in the client. `tests/hooks/test_install.sh` covers all of that.
 
 ## Install per client
 
@@ -276,7 +278,7 @@ Measured on this machine (75 inventory files, 2026-09-18): the gate answers a be
 about 1 s (it writes the baseline); the watcher takes about 0.35 s when nothing changed and about 0.45 s
 when a file did. All well inside the 10 s stanzas; vendor timeouts fail open, so keep it that way.
 
-### Tests
+### Tests (in `tests/hooks/`, never deployed)
 
 - `test_mcp_install_gate.sh` — 390-odd payload cases in each client's real shape: installers, shell
   writes, shared files (semantic before/after on real files), interpreter code, editor tools, response
@@ -287,16 +289,17 @@ when a file did. All well inside the 10 s stanzas; vendor timeouts fail open, so
   transcript shapes, exact-message rule, session binding, negation and injected documents rejected),
   the watcher (baseline before the first call, observed changes approvable by name, profile configs,
   plugin files, expiry), the installed matchers, MultiEdit and `apply_patch` reconstruction, the
-  template rule's namespace, and the corpus in `live-tests/fixtures/` recorded from live agents (with
+  template rule's namespace, and the corpus in `tests/hooks/live-tests/fixtures/` recorded from live agents (with
   expected outcomes in `expected.tsv`). The regressions from the 2026-09-18 objective review (probes
   P01–P24) are all in it.
 - `test_install.sh` — installer, all scopes, self-repair, recall commands and the strict health check.
 - `../../../scripts/test_security_standards.py` — safe metadata/routing validation, read-only
   bundled-source checks, recall output and staged CodeGuard download/recovery (offline fixtures).
-- `live-tests/` — the harness for real agents: `recorder.sh` (a hook that logs every raw payload and
+- `tests/hooks/live-tests/` — the harness for real agents: `recorder.sh` (a hook that logs every raw payload and
   denies only config-touching writes, so a prompt runs to the point of the write without changing the
   machine), `sdk_consent.py` (Claude Code through the Agent SDK with a scripted consent answer),
-  `run_claude.sh` and `run_codex.sh` (the round-trips in the matrix). See `live-tests/README.md`.
+  `run_claude.sh` and `run_codex.sh` (the round-trips in the matrix). See `tests/hooks/live-tests/README.md`.
+- `tests/hooks/scenarios/` — the knowledge-worker prompts and injection fixtures for a pilot (`make_test_repo.sh`).
 
 Re-run the live criteria for a client when its version changes from
 [docs/compatibility.md](../../../docs/compatibility.md), and at least every 90 days; three of five hook
@@ -304,13 +307,13 @@ contracts moved within one quarter (Codex `ask`, Gemini `ask`, Copilot `disableA
 
 ## Add your own rule
 
-1. Copy `TEMPLATE_policy_hook.sh` to `<rule>.sh`; set `RULE_NAME`; edit only section 2 using `$cmd`,
+1. Copy `skills/security-guidance/references/hooks/scripts/TEMPLATE_policy_hook.sh` to `<rule>.sh` in this directory; set `RULE_NAME`; edit only section 2 using `$cmd`,
    `$paths`, `$body`, `$old`, `$text`, `$client` and `resulting_text <path>`; queue what the call would do
    with `opaque_item "<what>" "<name>"`. The name is what the user replies in a deny-only client
    (`approve <name>`). Sections 1 and 3 are the library's contract and are the same in every rule.
    Rule-specific memory (like the MCP allowlist) is the rule's own; the library gives every rule its own
    pending records (namespaced by rule), the exact-message chat approval, and the per-client responses.
-2. Copy `test_mcp_install_gate.sh`, keep its payload builders, and write ASK / DENY / ALLOW cases for the rule.
+2. Copy `tests/hooks/test_mcp_install_gate.sh`, keep its payload builders, and write ASK / DENY / ALLOW cases for the rule.
 3. Add the script to the same stanzas (a second entry in each `clients/*.json` and in `hooks.json`) and to
    `install.sh`'s `SCRIPTS` list (it sources `aisec_lib.sh` from its own directory), or install it with the
    same `--scope` commands by hand.

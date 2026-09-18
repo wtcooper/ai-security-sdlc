@@ -5,7 +5,7 @@
 # headless -p with no host denies, and the user's "approve <name>" in the next turn lets the retry through.
 # Scratch project only; scratch allowlist and state. Usage: sh run_claude.sh [model]
 set -eu
-HERE=$(cd "$(dirname "$0")" && pwd); G=$(dirname "$HERE"); MODEL=${1:-claude-sonnet-5}
+HERE=$(cd "$(dirname "$0")" && pwd); G=$(cd "$HERE/../../../plugins/secure-sdlc/hooks" && pwd); MODEL=${1:-claude-sonnet-5}
 W=$(mktemp -d); P=$W/proj; mkdir -p "$P/.claude"; cd "$P"; git init -q .
 cat > .claude/settings.json <<JSON
 {"hooks":{"PreToolUse":[{"matcher":"Bash|Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":"$G/mcp_install_gate.sh","timeout":10}]}],

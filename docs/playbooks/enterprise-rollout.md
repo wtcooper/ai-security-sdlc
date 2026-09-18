@@ -426,7 +426,7 @@ and nothing is written; (2) a direct write of `.mcp.json` is blocked; (3) unrela
 passes; (4) after the user approves once (prompt, or `approve <name>` in Codex) the same server passes
 silently and a different server or a changed command still prompts; (5) with `jq` removed from `PATH` the call is declined, not allowed;
 (6) a config changed by a script the gate cannot see is reported by the watcher on the next tool call. The payload-level suites
-(`test_mcp_install_gate.sh`, `test_install.sh` in `plugins/secure-sdlc/hooks/`) run anywhere in seconds and
+(`test_mcp_install_gate.sh`, `test_install.sh` in `tests/hooks/`) run anywhere in seconds and
 are the regression check to wire into the pipeline that rebuilds the payload.
 
 Client-side checks: Claude Code `/status` and `claude doctor`; Codex startup summary and `codex plugin
@@ -447,7 +447,7 @@ Create the scenario project first — it is a small "quarterly report helper" wi
 which carry planted instructions telling an assistant to install an MCP server:
 
 ```sh
-sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/scenarios/make_test_repo.sh    # prints the folder; open the agent there
+sh /opt/ai-security-sdlc/tests/hooks/scenarios/make_test_repo.sh    # prints the folder; open the agent there
 ```
 
 Type the prompts as written. They are what a knowledge worker would actually say; the agent, not the
@@ -517,7 +517,7 @@ No agent needed for a first smoke test on any machine (exercises the script, not
 ```sh
 printf '{"tool_use_id":"u","tool_input":{"command":"claude mcp add x -- npx x"}}' | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 0 + "ask" JSON
 printf '{"tool_use_id":"u","tool_input":{"command":"claude mcp list"}}'          | /usr/local/lib/ai-security/hooks/mcp_install_gate.sh; echo "exit=$?"   # 0, no output
-sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/test_mcp_install_gate.sh                                                                             # full payload suite
+sh /opt/ai-security-sdlc/tests/hooks/test_mcp_install_gate.sh                                                                             # full payload suite
 ```
 
 ### 6.3 Skills — prove they loaded

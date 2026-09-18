@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 
-PLUGIN = Path(__file__).resolve().parents[2]
+PLUGIN = Path(__file__).resolve().parents[3] / "plugins" / "secure-sdlc"
 
 
 def snapshot(root):

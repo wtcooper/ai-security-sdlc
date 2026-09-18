@@ -194,7 +194,7 @@ Create the scenario project first — it is a small "quarterly report helper" wi
 which carry planted instructions telling an assistant to install an MCP server:
 
 ```sh
-sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/scenarios/make_test_repo.sh    # prints the folder; open the agent there
+sh /opt/ai-security-sdlc/tests/hooks/scenarios/make_test_repo.sh    # prints the folder; open the agent there
 ```
 
 Type the prompts as written. They are what a knowledge worker would actually say; the agent, not the
@@ -249,8 +249,8 @@ G=~/.ai-security/hooks/mcp_install_gate.sh
 printf '{"session_id":"s","tool_use_id":"u","tool_input":{"command":"claude mcp add x -- npx x"}}' | $G; echo "exit=$?"   # expect exit 0 + "ask" JSON (Claude shape); exit 2 for a Codex shape
 printf '{"session_id":"s","tool_input":{"command":"claude mcp list"}}'          | $G; echo "exit=$?"   # expect 0
 cat ~/.ai-security/mcp-allowlist.json                                                    # what the user has approved so far
-sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/test_mcp_install_gate.sh            # full payload suite: ASK / DENY / ALLOW per client, ledger, watcher, recorded corpus
-sh /opt/ai-security-sdlc/plugins/secure-sdlc/hooks/live-tests/run_claude.sh            # real Claude Code round-trip (needs login); run_codex.sh for Codex
+sh /opt/ai-security-sdlc/tests/hooks/test_mcp_install_gate.sh            # full payload suite: ASK / DENY / ALLOW per client, ledger, watcher, recorded corpus
+sh /opt/ai-security-sdlc/tests/hooks/live-tests/run_claude.sh            # real Claude Code round-trip (needs login); run_codex.sh for Codex
 ```
 
 Not covered by the gate, by design: servers added through a client's own UI (`/mcp`, Cursor's MCP

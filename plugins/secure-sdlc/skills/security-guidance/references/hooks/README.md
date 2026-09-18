@@ -5,7 +5,7 @@ policy; a hook enforces it deterministically within what the hook can see — th
 command, paths and content — regardless of the model's judgment. Three gates, thin per-client
 wiring. All are **opt-in** — install only what the user picks, show the config diff before writing
 anything. Two of the three (test-file protection, deploy gate) are built on the same pattern as the
-plugin's mcp-install gate ([`plugins/secure-sdlc/hooks/TEMPLATE_policy_hook.sh`](../../../../hooks/TEMPLATE_policy_hook.sh)):
+plugin's mcp-install gate ([`scripts/TEMPLATE_policy_hook.sh`](scripts/TEMPLATE_policy_hook.sh)):
 one script for all five clients, client-native `ask` where the client supports it, `<RULE>_MODE`,
 an action-bound `<RULE>_APPROVAL`, and the same fail-closed contract (no jq or a malformed payload
 declines). The secrets gate is different in kind — it inspects git state, not the tool call — and
@@ -65,5 +65,5 @@ Client hook schemas drift. Re-verify a stanza against the cited page whenever th
 changes from the one recorded in [docs/compatibility.md](../../../../../../docs/compatibility.md),
 and at least every 90 days — hook contracts have moved faster than the six-month rule used for the
 setup guides. Payload-level tests for the pattern live in
-`plugins/secure-sdlc/hooks/test_mcp_install_gate.sh`; the two pattern-based gates here have smoke
+`tests/hooks/test_mcp_install_gate.sh`; the two pattern-based gates here have smoke
 checks in `scripts/test_opt_in_hooks.sh`.

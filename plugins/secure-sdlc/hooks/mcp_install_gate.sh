@@ -3,7 +3,7 @@
 # MCP server, change one materially, or install a plugin or extension, and the user has not approved that exact thing
 # before, the decision goes to the user. Clients ship their own risk classifiers (Claude Code auto mode, Copilot
 # autopilot, Codex approve-for-me); this layer is where an organization adds its own rules. First rule on the pattern in
-# TEMPLATE_policy_hook.sh; the shared machinery is in aisec_lib.sh.
+# skills/security-guidance/references/hooks/scripts/TEMPLATE_policy_hook.sh; the shared machinery is in aisec_lib.sh.
 #
 # The user journey
 #   1. The agent decides to install MCP server X (by CLI, by writing a config file, by a plugin).

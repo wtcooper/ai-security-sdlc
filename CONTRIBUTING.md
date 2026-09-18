@@ -10,9 +10,9 @@ pull request and retains the results:
 
 ```sh
 bash scripts/validate.sh                                             # manifests, JSON, frontmatter, spec schema
-sh plugins/secure-sdlc/hooks/test_mcp_install_gate.sh                # gate payload suite, every client
+sh tests/hooks/test_mcp_install_gate.sh                             # gate payload suite, every client
 sh plugins/secure-sdlc/skills/security-guidance/references/hooks/scripts/test_opt_in_hooks.sh
-sh plugins/secure-sdlc/hooks/test_install.sh                         # hook installer
+sh tests/hooks/test_install.sh                                               # hook installer
 sh scripts/test_install_skills.sh                                    # skills installer
 python3 scripts/test_helpers.py                                      # scan containment, run status, benchmark labels, corpus lint
 python3 plugins/secure-sdlc/skills/security-standards/scripts/lint_corpus.py plugins/secure-sdlc/skills/security-standards/seed

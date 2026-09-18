@@ -1,5 +1,5 @@
 #!/bin/sh
-# deploy gate — a business-logic rule on the pattern in plugins/secure-sdlc/hooks/TEMPLATE_policy_hook.sh.
+# deploy gate — a business-logic rule on the pattern in TEMPLATE_policy_hook.sh (this directory).
 # A shell command that looks like a production deploy needs a named person's release sign-off before it runs.
 # Env: DEPLOY_GATE_MODE=ask|block (default ask), DEPLOY_GATE_APPROVAL=<token that appears in the approved command,
 # e.g. the target environment or release tag> = sign-off recorded for that command; AISEC_HOOK_LOG=<file> = telemetry.
