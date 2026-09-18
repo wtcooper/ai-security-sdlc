@@ -13,7 +13,7 @@ echo '{"theme":"dark","hooks":{"BeforeTool":[{"matcher":"x","hooks":[]}]}}' > $P
 [ ! -e $P/.ai-security ] && [ ! -e $P/.codex ] && ok || bad "dry-run wrote files"
 # --- project scope, all tools
 ./install.sh --project $P all >/dev/null 2>&1 || bad "install exit"
-for sname in mcp_install_gate.sh mcp_config_watch.sh aisec_consent.sh; do [ -x $P/.ai-security/hooks/$sname ] && ok || bad "$sname not copied"; done
+for sname in aisec_lib.sh mcp_install_gate.sh mcp_config_watch.sh; do [ -x $P/.ai-security/hooks/$sname ] && ok || bad "$sname not copied"; done
 for f in .claude/settings.json .codex/hooks.json .cursor/hooks.json .github/hooks/ai-security.json .gemini/settings.json; do
   jq -e . $P/$f >/dev/null 2>&1 && grep -q '\.ai-security/hooks/mcp_install_gate.sh' $P/$f && ok || bad "$f missing/invalid/no gate"
 done
@@ -29,8 +29,8 @@ before=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json
 ./install.sh --project $P all >/dev/null 2>&1; after=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json $P/.github/hooks/ai-security.json $P/.gemini/settings.json | cksum)
 [ "$before" = "$after" ] && ok || bad "second install changed files"
 # --- installed script works from the project root, as a client would run it
-(cd $P && printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | AISEC_CONSENT_DIR=$T/consent .ai-security/hooks/mcp_install_gate.sh >/dev/null 2>&1); [ $? -eq 2 ] && ok || bad "installed gate did not block"
-[ -n "$(ls $T/consent/pending 2>/dev/null)" ] && ok || bad "installed gate did not record a pending consent"
+(cd $P && printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | AISEC_STATE_DIR=$T/state AISEC_MCP_ALLOWLIST=$T/allow.json .ai-security/hooks/mcp_install_gate.sh >/dev/null 2>&1); [ $? -eq 2 ] && ok || bad "installed gate did not block"
+[ -n "$(ls $T/state/pending 2>/dev/null)" ] && ok || bad "installed gate did not record a pending approval"
 # --- health check: passes on the installed project, fails on an empty one, never writes
 ./install.sh --check --project $P all >/dev/null 2>&1 && ok || bad "check should pass after install"
 E=$T/empty; mkdir -p $E; ./install.sh --check --project $E all >/dev/null 2>&1 && bad "check should fail on empty project" || ok
@@ -41,7 +41,7 @@ H=$T/home; mkdir -p $H; HOME=$H ./install.sh --scope user codex gemini copilot >
 jq -e --arg p "$H/.ai-security/hooks/mcp_install_gate.sh" '.hooks.PreToolUse[0].hooks[0].command==$p' $H/.codex/hooks.json >/dev/null && ok || bad "user codex path not absolute"
 jq -e --arg p "$H/.ai-security/hooks/mcp_install_gate.sh" '.hooks.BeforeTool[0].hooks[0].command==$p' $H/.gemini/settings.json >/dev/null && ok || bad "user gemini path not absolute"
 jq -e --arg p "$H/.ai-security/hooks/mcp_config_watch.sh" '.hooks.AfterTool[0].hooks[0].command==$p' $H/.gemini/settings.json >/dev/null && ok || bad "user gemini watch path not absolute"
-[ -x $H/.ai-security/hooks/aisec_consent.sh ] && ok || bad "user consent cli not copied"
+[ -f $H/.ai-security/hooks/aisec_lib.sh ] && ok || bad "user lib not copied"
 [ -f $H/.copilot/hooks/ai-security.json ] && ok || bad "user copilot file"
 # --- system scope staged with DESTDIR (no root needed), absolute paths, codex prints TOML
 D=$T/pkg; mkdir -p $D; out=$(DESTDIR=$D ./install.sh --scope system all 2>&1) || bad "system-scope exit"

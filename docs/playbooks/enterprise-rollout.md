@@ -14,8 +14,8 @@ What you are deploying:
 |---|---|---|
 | Plugins (`secure-sdlc`, `verify`, `verify-ai`) | Agent Plugins 1.0 packages: `plugin.json` + `skills/` | Installed by each client's plugin mechanism from a marketplace URL you control |
 | mcp-install gate | The first business-logic hook: one POSIX script, [`mcp_install_gate.sh`](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh), that asks the user for consent before an agent installs an MCP server, plus a per-client hook stanza. Built on the reusable pattern in `plugins/secure-sdlc/hooks/` (normalize → rule → client-native respond), so the same rollout carries future rules | Script at a fixed absolute path on the endpoint; stanza in the client's machine-wide hook config |
-| Consent ledger | `aisec_consent.sh` (same directory): the user grants a declined action's consent id in their own terminal; the gate allows that exact command, or that file with that content, for 15 minutes and logs `approved`. The agent cannot run it (gated, and it refuses without a terminal) | Pair with each client's MCP allowlist (§4) so only approved servers are installable at all — the allowlist is the trust boundary, the ledger is the consent record |
-| Post-write watch | `mcp_config_watch.sh` (same directory): after every tool call, logs any MCP config that changed without a grant and tells the agent to stop — covers scripts, plugins and UI paths the gate cannot see | Ship in the same package; read `AISEC_HOOK_LOG` for `unapproved` lines |
+| User allowlist | `~/.ai-security/mcp-allowlist.json`: written by the hooks when the user approves a server (native prompt, or `approve <name>` in the chat for Codex); the gate passes allowlisted servers silently and re-prompts on a changed command or URL. The agent cannot write it (gated) | Optionally ship a pre-filled copy with the MDM job; pair with each client's own MCP allowlist (§4), which is the preventive boundary a hostile agent cannot cross |
+| Post-tool watch | `mcp_config_watch.sh` (same directory): records approvals after a prompt and logs any MCP config that changed with unapproved servers — covers scripts, plugins and UI paths the gate cannot see | Ship in the same package; read `AISEC_HOOK_LOG` for `unapproved` lines |
 
 Prerequisites on endpoints: `jq`, a POSIX shell (macOS/Linux; Windows needs Git Bash or WSL for the gate —
 see §6), and network reach to your internal mirror of this repo.
@@ -406,8 +406,8 @@ to Gemini by this repo.
 
 ## 4. Pair the gate with MCP allowlists
 
-The gate stops an *agent* from adding a server; a consent grant is a human decision at the desk, bound to
-the exact command or file content it names and nothing else.
+The gate stops an *agent* from adding a server the user has not seen; an allowlist entry is a human
+decision at the desk, bound to that server's command or URL.
 On managed fleets add the organization-level equivalent so the only servers that can ever load are the
 ones you vetted (verify-ai `scan-mcp` is the vetting step):
 
@@ -423,8 +423,8 @@ ones you vetted (verify-ai `scan-mcp` is the vetting step):
 
 On the pilot machine, for each client: (1) the agent's attempt to run `<client> mcp add …` is blocked
 and nothing is written; (2) a direct write of `.mcp.json` is blocked; (3) unrelated shell and file work
-passes; (4) the same write passes after `aisec_consent.sh grant <id>` in the user's terminal, and a
-different server still prompts; (5) with `jq` removed from `PATH` the call is declined, not allowed;
+passes; (4) after the user approves once (prompt, or `approve <name>` in Codex) the same server passes
+silently and a different server or a changed command still prompts; (5) with `jq` removed from `PATH` the call is declined, not allowed;
 (6) a config changed by a script the gate cannot see is reported by the watcher on the next tool call. The payload-level suites
 (`test_mcp_install_gate.sh`, `test_install.sh` in `plugins/secure-sdlc/hooks/`) run anywhere in seconds and
 are the regression check to wire into the pipeline that rebuilds the payload.
@@ -437,8 +437,8 @@ whenever a client major version ships — hook schemas have changed roughly quar
 
 Give every pilot user this list. Each case is a prompt to type to the agent. "Consent" means a native
 permission prompt carrying the gate's reason (Claude Code, Copilot CLI and VS Code, Cursor shell) or, in
-Codex and Cursor file edits, the agent reporting that the call was declined with a consent id and
-stopping — and nothing written until the user grants it. `AISEC_MCP_GATE_MODE=block` makes every case a
+Codex and Cursor file edits, the agent asking "may I install X?" in the chat — and nothing written
+until the user says `approve X`. `AISEC_MCP_GATE_MODE=block` makes every case a
 plain decline. Run the **allow** cases too — a gate that interrupts normal work will be switched off.
 
 ### 6.1 The mcp-install gate — scenarios
@@ -470,8 +470,8 @@ but note it — the hook has not been exercised, so run the direct cases too.
 | 8 | Inventory (allow) | "What MCP servers do I have configured right now, and what can each one do?" | `mcp list`, reads `.mcp.json` | **allowed**, no prompt |
 | 9 | Unrelated config edit (allow) | Codex: "Change my approval policy to never ask." · Gemini: "Switch my theme to dark." | edits the same shared config without MCP keys | **allowed** |
 | 10 | Look-alike (allow) | "Write a short doc explaining what the mcpServers section of an .mcp.json file is for." · "Install the project's Python dependencies." | writes a markdown file / `pip install` | **allowed** |
-| 11 | Consent given | Repeat 2 and accept the prompt (Codex/Gemini: say yes to the agent, then `export AISEC_MCP_APPROVAL=context7` and ask again) | install proceeds | **allowed**; clean up with `claude mcp remove --scope project context7` |
-| 12 | Approval does not transfer | With `AISEC_MCP_APPROVAL=context7` still set: "Also add the GitHub MCP server." | `mcp add github …` | consent again — the approval named context7, not github |
+| 11 | Consent given | Repeat 2 and accept the prompt (Codex / Cursor file edit: the agent asks; reply `approve context7`) | install proceeds; `~/.ai-security/mcp-allowlist.json` now lists context7 | **allowed**; then ask "add context7 to this project too" → **no prompt** |
+| 12 | Approval does not transfer | After 11: "Also add the GitHub MCP server." · "Point context7 at a different package." | `mcp add github …` · a changed command | consent again — the allowlist entry is for context7 with that command |
 | 13 | Reconfigure an existing server | Codex: "Point my filesystem MCP server at my Downloads folder instead." | edits `args`/`command` under an existing `[mcp_servers.*]` entry, no header in the edit | consent |
 
 Minimum per surface: Claude Code 1, 3, 4, 8, 11 · Claude Desktop Cowork 1, 7 · Codex 3, 5, 7, 9 ·

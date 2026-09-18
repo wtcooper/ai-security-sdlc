@@ -17,66 +17,55 @@ client, plus the first rule built on it.
    rule changes.
 4. **Respond** in the client's native vocabulary: exit 0 with no output = allow; exit 0 with the client's
    `ask` JSON = hand the decision to the user (Claude Code, Copilot CLI, VS Code, Cursor shell hook,
-   Gemini CLI); exit 2 with a message = decline and tell the agent to **stop and hand the decision back**
-   (Codex, Cursor file hook, anything unrecognized). Every ask or decline records a **pending consent**
-   with a short id; the user grants it in their own terminal with `aisec_consent.sh grant <id>` and the
-   same action then passes. `<RULE>_MODE=block` forces the decline everywhere, ignoring grants.
+   Gemini CLI); exit 2 with a message = decline and tell the agent to **stop and ask the user in the
+   chat** (Codex, Cursor file hook, anything unrecognized). Every ask or decline records a **pending
+   approval**; the user's answer reaches the hook either because the tool then ran (a prompt client's
+   "yes", seen by the post-tool hook) or because the user wrote `approve <name>` in the chat (found in
+   the session transcript on the retry). `<RULE>_MODE=block` forces the decline everywhere.
    **Failure contract:** no `jq`, or a payload that is not a JSON object, declines the call with the
    reason — a gate that cannot evaluate never silently allows. `AISEC_HOOK_LOG=<file>` appends one line
-   per decision (time, rule, client, decision, consent id, action); stdout stays the client protocol channel.
+   per decision (time, rule, client, decision, id, action); stdout stays the client protocol channel.
 5. **Ship** with a stanza per client in `clients/`, `install.sh` for project/user/system scope, and a
    payload-level test suite in each client's real payload shape.
 
 ## The first rule: mcp-install gate
 
-Three scripts, one control:
+Three files, one control:
 
-| Script | Layer | What it does |
+| File | Layer | What it does |
 |---|---|---|
-| `mcp_install_gate.sh` | PreToolUse (preventive) | asks or declines before an agent installs or reconfigures an MCP server |
-| `aisec_consent.sh` | user's terminal | the consent ledger: `list`, `grant <id>`, `revoke`, `prune` |
-| `mcp_config_watch.sh` | PostToolUse (detective) | after every tool call, reports any MCP config file that changed without a grant, however it was written |
+| `mcp_install_gate.sh` | PreToolUse (before the call) | passes an allowlisted MCP server silently; asks the user about a new or changed one |
+| `mcp_config_watch.sh` | PostToolUse (after the call) | records the user's "yes" to the allowlist; reports MCP config changes the gate could not see |
+| `aisec_lib.sh` | shared | payload normalisation, server parsing, allowlist, pending approvals, transcript approval |
 
-When an agent is about to install or reconfigure an MCP server, the gate asks the user for consent
-before the call runs. It is **not** a hard block by default: in clients that enforce a native `ask` the
-user sees a confirmation prompt with the reason; elsewhere the agent is told the call was not run, to stop
-and report, and how the user can grant that exact action. Headless sessions (`claude -p`, `copilot -p` /
-autopilot, `gemini -p`) turn `ask` into deny because nobody can answer; the deny reason carries the consent
-id, so an operator can grant and resume.
+**The user journey.** The agent decides an MCP server X would help and starts to install it. The gate
+looks X up in the allowlist (`~/.ai-security/mcp-allowlist.json`, plus a read-only project copy at
+`.ai-security/mcp-allowlist.json` that a team can commit). Allowlisted with the same command or URL → the
+call passes and nothing is shown. Otherwise the user is asked, once, in the client:
 
-| Client | On trigger | Verified |
+| Client | First time X is installed | How the "yes" is recorded |
 |---|---|---|
-| Claude Code (terminal, IDE, Desktop Code tab, Cowork) | native permission prompt, reason shown; the hook is not re-run after approval | live: `-p` (ask → deny), Agent SDK `can_use_tool` allow/deny round-trip, `bypassPermissions` still gated |
-| Copilot CLI · Copilot in VS Code | native confirmation prompt, every call (no "remember") | payload only (org policy blocks live CLI here) |
-| Cursor — shell commands | native `ask` prompt | payload only |
-| Cursor — file edits | declined with consent instructions (`preToolUse` accepts `ask` but does not enforce it) | payload only |
-| Gemini CLI | native prompt via `{"decision":"ask"}` (implemented, undocumented; survives `--yolo`; `-p` turns it into deny) | payload only |
-| Codex CLI / IDE | declined with consent instructions. **Never send `ask` to Codex**: its parser rejects it and the tool runs | live: one deny, agent stops; grant → `codex exec resume` passes |
+| Claude Code (terminal, IDE, Desktop, Cowork) · Copilot CLI · Copilot in VS Code · Cursor shell · Gemini CLI | the client's native permission prompt, naming X and its command or URL | the tool runs only if the user approved, so the post-tool hook records X |
+| Codex · Cursor file edits (their hooks cannot prompt; Codex fails open on `ask`) | the call is declined and the agent asks in the chat: "may I install X (npx …)?" | the user replies `approve X`; on the retry the gate finds that reply in the session transcript, allows, and records X |
+| Headless (`claude -p`, `codex exec`) | denied; the agent reports what it wanted | the user's `approve X` in the next turn (`--continue`, `resume`) lets the retry through |
 
-### Consent: how a "yes" reaches the hook
+From then on the agent may install, edit or remove X without a prompt. A change to X's command or URL
+prompts again and shows both values. Nobody types a terminal command. An admin who wants a fleet-wide
+allowlist drops the file via MDM; there is no other pre-seeding mechanism by design.
 
-A hook has no memory. Every retry re-runs it, and a "yes" typed into the chat never reaches it, so
-"ask the user, then retry" loops forever in the clients that can only deny. The gate therefore keeps a
-ledger under `~/.ai-security/consent` (`AISEC_CONSENT_DIR`):
+What the allowlist keys on: the server **name** and its **identity** (`command arg…` for stdio, the URL
+for remote), taken from the CLI arguments, the JSON or TOML being written (for edits, the resulting file
+is computed), the body of a heredoc, or read back from disk after an approved write. Plugins and
+extensions are allowlisted by their install spec, because their bundled servers are invisible until
+installed. A write the gate cannot parse (a copied file, an unparseable patch) asks every time.
 
-1. On every ask or decline the gate writes `pending/<id>.json` — the client, the exact **subject** (the
-   command text with whitespace collapsed, or `write:<path>`), and what it would do — and puts the id in
-   its message.
-2. The user, in **their own terminal**, runs `sh ~/.ai-security/hooks/aisec_consent.sh grant <id>`
-   (`list` shows what is pending). The grant lasts `AISEC_CONSENT_TTL` seconds (default 900) and
-   covers that subject only: a different server, scope flag or file asks again.
-3. The agent retries; the gate finds the grant and allows, logging `approved`.
-
-Headless operators pre-grant an exact subject: `aisec_consent.sh grant --subject "claude mcp add ctx7 -- npx -y @upstash/context7-mcp"`
-or `--subject "write:.mcp.json"`. `AISEC_MCP_GATE_MODE=block` ignores grants.
-
-Two guards keep the agent out of the ledger: the gate declines any tool call that runs `aisec_consent`
-or writes under the consent directory (no pending record, logged as `deny-tamper`), and
-`aisec_consent.sh grant` refuses to run without a terminal on stdin (agents' shell tools have none; CI
-sets `AISEC_CONSENT_ALLOW_NOTTY=1`). Honest limit: a same-user agent that scripts a write to the ledger
-through an interpreter can forge a grant, exactly as it could forge any same-user file. The ledger raises
-the bar against an instructed or injected agent and creates a consent moment with an audit record; the
-vendor MCP allowlists (playbook §4) are the preventive control against a hostile one.
+The agent is never allowed to write the allowlist or the gate's state (declined and logged
+`deny-tamper`), and only a message the **user** wrote in the chat counts as approval: assistant text and
+tool results are ignored, and only messages after the decline count. Honest limit: a same-user agent that
+scripts a write to the allowlist through an interpreter can forge an entry, exactly as it could forge any
+same-user file. The gate raises the bar against an instructed or injected agent and puts the user's eyes
+on every first install; the vendor MCP allowlists (playbook §4) are the preventive control against a
+hostile one. `AISEC_MCP_GATE_MODE=block` declines everything and ignores the allowlist.
 
 ### What triggers it (and nothing else)
 
@@ -142,9 +131,9 @@ every `mcp.json` / `.mcp.json` / `gemini-extension.json` under the plugin direct
 `~/.cursor/plugins`, `~/.codex/plugins`, `~/.copilot/installed-plugins`, `~/.gemini/extensions`;
 `AISEC_WATCH_EXTRA=path:path` adds more) and compares it with the previous call's.
 Claude Code's own bookkeeping in `~/.claude.json` and Codex's `[projects]` trust entries are excluded, so
-they do not trigger it. On a change without an unexpired grant naming that file it logs `unapproved`,
-prints the file to stderr, and (Claude Code) returns a PostToolUse `additionalContext` telling the agent
-to stop and report. It never reverts and never fails the tool call. Most clients read MCP config at
+they do not trigger it. On a change whose servers are not all allowlisted with the same identity it logs
+`unapproved`, prints the file to stderr, and (Claude Code) returns a PostToolUse `additionalContext`
+telling the agent to stop and report. It never reverts and never fails the tool call. Most clients read MCP config at
 session start, so a change caught here is reviewable before it takes effect; Cursor hot-reloads
 `mcp.json`, so there the detector is a record, not a stop.
 
@@ -181,7 +170,7 @@ Codex's managed layer is TOML, so the script prints the `requirements.toml` bloc
 Manual copy, if not using the script:
 
 ```sh
-mkdir -p .ai-security/hooks && cp <plugin-root>/hooks/{mcp_install_gate.sh,mcp_config_watch.sh,aisec_consent.sh} .ai-security/hooks/ && chmod +x .ai-security/hooks/*.sh
+mkdir -p .ai-security/hooks && cp <plugin-root>/hooks/{aisec_lib.sh,mcp_install_gate.sh,mcp_config_watch.sh} .ai-security/hooks/ && chmod +x .ai-security/hooks/*.sh
 ```
 
 ## Verification (asOf 2026-09-17)
@@ -189,8 +178,9 @@ mkdir -p .ai-security/hooks && cp <plugin-root>/hooks/{mcp_install_gate.sh,mcp_c
 Success criteria, per client: (1) `mcp add` triggers the consent prompt (or the decline, per the table
 above) and nothing is written until the user approves; (2) a direct write of an MCP config file does the
 same, in both heredoc forms and through the editor tool; (3) an unrelated shell command, a read of the
-same files, and a non-MCP edit of a shared file pass; (4) the same call passes after the user accepts the
-prompt or grants the consent id, and a different server still asks; (5) with `jq` absent, or a malformed
+same files, and a non-MCP edit of a shared file pass; (4) after the user accepts the prompt (or replies `approve <name>`
+in Codex) the server is in the allowlist, the same server never prompts again, and a different server or
+a changed command still asks; (5) with `jq` absent, or a malformed
 payload, the call is declined with the reason; (6) a change written by a path the gate cannot see (a script
 run by file) is reported by the watcher on the next tool call.
 
@@ -201,8 +191,8 @@ run by file) is reported by the watcher on the next tool call.
 
 | Client | Payload-tested | Live-tested | Hook `ask` | Headless | Timeout (vendor) |
 |---|---|---|---|---|---|
-| Claude Code 2.1.258 | yes | yes: `-p` ask→deny with consent id; Agent SDK `can_use_tool` allow (runs once, hook not re-run) and deny; `bypassPermissions` still gated; grant → `--continue` passes | enforced | deny, or routed to SDK/`--permission-prompt-tool stdio` host | 600 s, fail-open |
-| Codex CLI 0.153.2 | yes | yes: one deny, agent stops and reports the id; grant → `codex exec resume` passes | **rejected, fails open** — the gate never sends it | `exec` never prompts | 600 s, fail-open |
+| Claude Code 2.1.258 | yes | yes: SDK host no → nothing; yes → installed once and allowlisted; same server silent; changed command prompts; `-p` deny then `approve ctx7` in the next turn passes | enforced | deny, or routed to SDK/`--permission-prompt-tool stdio` host | 600 s, fail-open |
+| Codex CLI 0.153.2 | yes | yes: declined, agent asks; `approve context7` in chat → resume passes with hooks active and allowlists; same server silent; other server declined | **rejected, fails open** — the gate never sends it | `exec` never prompts | 600 s, fail-open |
 | Cursor agent 2026.09.02 | yes | no (CLI not logged in) | shell: enforced; file: accepted, not enforced | undocumented | undocumented; `failClosed` covers non-zero exit only |
 | Copilot CLI 1.0.82 | yes | no (org policy) | enforced, every call | `-p` needs `--allow-all-tools`; cloud agent ask→deny | 30 s, fail-open even for policy hooks; crash/exit 2 fail-closed |
 | Copilot in VS Code | yes | no | enforced | GUI | 30 s fail-open; matchers ignored |
@@ -212,11 +202,12 @@ Every hook here finishes in well under a second; vendor timeouts all fail open, 
 
 ### Tests
 
-- `test_mcp_install_gate.sh` — 230-odd payload cases in each client's real shape: installers, shell writes,
+- `test_mcp_install_gate.sh` — 270-odd payload cases in each client's real shape: installers, shell writes,
   shared files, interpreter code, editor tools, response JSON per client, modes and failure contract,
-  the consent ledger (pending, grant, subject match, expiry, revoke, agent-side tamper), the watcher
-  (baseline, change, noise exclusion, grant, removal), and the corpus in `live-tests/fixtures/` recorded
-  from live agents (with expected outcomes in `expected.tsv`).
+  the allowlist (first ask, yes recorded by the post hook, silent thereafter, identity change, project
+  allowlist, plugins, agent-side tamper), chat approval for deny-only clients (Codex and Claude transcript
+  shapes, assistant text and tool results ignored, only messages after the decline), the watcher, and the
+  corpus in `live-tests/fixtures/` recorded from live agents (with expected outcomes in `expected.tsv`).
 - `test_install.sh` — installer, all scopes.
 - `live-tests/` — the harness for real agents: `recorder.sh` (a hook that logs every raw payload and
   denies only config-touching writes, so a prompt runs to the point of the write without changing the
@@ -230,11 +221,14 @@ contracts moved within one quarter (Codex `ask`, Gemini `ask`, Copilot `disableA
 ## Add your own rule
 
 1. Copy `TEMPLATE_policy_hook.sh` to `<rule>.sh`; set `RULE_NAME`; edit only section 2 using `$cmd`,
-   `$paths`, `$body`, `$old`, `$client`; call `respond "<what the call would do>" "<subject>" "<why>"`.
-   The subject is what a grant covers: the command text for shell calls, `write:<path>` for files.
+   `$paths`, `$body`, `$old`, `$client`; call `respond "<what the call would do>" "<subject>" "<approval word>" "<why>"`.
+   The subject identifies the call (command text, or `write:<path>`); the approval word is what the user
+   replies in a deny-only client (`approve <word>`). Rule-specific memory (like the MCP allowlist) is the
+   rule's own; the library gives every rule pending records and transcript approval.
 2. Copy `test_mcp_install_gate.sh`, keep its payload builders, and write ASK / DENY / ALLOW cases for the rule.
 3. Add the script to the same stanzas (a second entry in each `clients/*.json` and in `hooks.json`) and to
-   `install.sh`'s `SCRIPTS` list, or install it with the same `--scope` commands by hand.
+   `install.sh`'s `SCRIPTS` list (it sources `aisec_lib.sh` from its own directory), or install it with the
+   same `--scope` commands by hand.
 4. Keep rules narrow and deterministic: every trigger must be something a reviewer can name in one line,
    and write down what the rule cannot see (its detectable scope) next to what it gates.
 5. Two more rules already exist on the pattern as opt-in templates — test-file protection and the deploy

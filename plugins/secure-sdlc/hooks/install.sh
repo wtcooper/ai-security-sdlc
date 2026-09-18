@@ -1,6 +1,6 @@
 #!/bin/sh
-# install.sh — wire the mcp-install gate (pre-tool consent), the mcp-config watch (post-tool detector) and
-# the aisec_consent ledger CLI into one or more coding agents. All per-client logic lives here so the same
+# install.sh — wire the mcp-install gate (pre-tool prompt), the mcp-config watch (post-tool approval recording and
+# detector) and their shared library into one or more coding agents. All per-client logic lives here so the same
 # script can be run by a person, by the install-hooks skill, or by an admin/MDM job.
 #
 # Usage: install.sh [--scope project|user|system] [--project DIR] [--dry-run|--check] <tool>... | all
@@ -15,7 +15,7 @@
 #   --check:   health check of an existing install — jq present, the three scripts present and executable, each
 #              client config references the gate, and the gate declines a sample installer payload. Exit 1 on any failure.
 # Idempotent: a config that already references mcp_install_gate.sh is left alone. Needs jq.
-SCRIPTS="mcp_install_gate.sh mcp_config_watch.sh aisec_consent.sh"
+SCRIPTS="aisec_lib.sh mcp_install_gate.sh mcp_config_watch.sh"
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -142,7 +142,7 @@ if [ $check -eq 1 ]; then # health check: report, never write
     if [ -f "$tgt" ] && grep -q mcp_install_gate.sh "$tgt"; then say "ok    $t: $tgt references the gate"; else say "FAIL  $t: $tgt missing or does not reference the gate"; fi
   done
   if [ -x "$abs" ]; then
-    rc=0; printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | (cd "$project" && AISEC_CONSENT_DIR=$tmp/consent "$abs" >/dev/null 2>&1) || rc=$?
+    rc=0; printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | (cd "$project" && AISEC_STATE_DIR=$tmp/state AISEC_MCP_ALLOWLIST=$tmp/allow.json "$abs" >/dev/null 2>&1) || rc=$?
     [ $rc -eq 2 ] && say "ok    installer payload declined (exit 2)" || say "FAIL  installer payload not declined (exit $rc)"
     if printf '{"tool_input":{"command":"ls"}}' | (cd "$project" && "$abs" >/dev/null 2>&1); then say "ok    benign payload allowed"; else say "FAIL  benign payload not allowed"; fi
   fi
@@ -168,5 +168,5 @@ for t in $tools; do
   fi
   notes "$t"
 done
-echo "when the gate declines, approve that exact action yourself with: sh $dir_ref/aisec_consent.sh grant <id>   (the id is in the gate's message; sh $dir_ref/aisec_consent.sh list shows what is pending)"
+echo "first install of an MCP server prompts (or, in Codex, the agent asks you to reply 'approve <name>'); approved servers are recorded in ~/.ai-security/mcp-allowlist.json and never prompt again"
 echo "verify any time with: sh install.sh --check --scope $scope $tools"

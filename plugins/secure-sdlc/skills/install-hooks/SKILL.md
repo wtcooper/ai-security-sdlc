@@ -33,12 +33,12 @@ settings-level install anyway only if they want it without the plugin (CI, teamm
    script, each client config, a declined sample payload and the installed client versions; exit 0
    means healthy. Relay the per-client notes the install printed — Codex needs the hook trusted via
    `/hooks`, Copilot `-p` mode needs the folder trusted, Gemini headless needs `--skip-trust`.
-6. **Report** in ≤8 lines: files written (three scripts and the stanzas), how to approve a declined
-   install (`sh <hooks dir>/aisec_consent.sh grant <id>` in the user's own terminal — the id is in the
-   gate's message, `list` shows what is pending, grants last 15 minutes and cover that exact action; ignored
-   in `block` mode), that the post-tool watcher reports MCP config changes the gate could not see, that the
-   gate declines when `jq` is missing, and that MCP servers should be vetted with the verify-ai `scan-mcp`
-   skill first.
+6. **Report** in ≤8 lines: files written (three scripts and the stanzas); that the first install of an MCP
+   server prompts in the client (Codex: the agent asks in the chat and the user replies `approve <name>`),
+   that approved servers are recorded in `~/.ai-security/mcp-allowlist.json` and never prompt again unless
+   their command or URL changes; that the post-tool watcher reports MCP config changes the gate could not
+   see; that the gate declines when `jq` is missing; and that MCP servers should be vetted with the
+   verify-ai `scan-mcp` skill first.
 
 ## Rules
 - Never write a config without the dry-run shown and confirmed; never touch user-level files

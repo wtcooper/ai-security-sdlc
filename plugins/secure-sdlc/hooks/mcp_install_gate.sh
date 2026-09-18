@@ -1,141 +1,71 @@
 #!/bin/sh
-# mcp-install gate — a business-logic rule at the pre-tool-call hook layer. When an agent is about to
-# install or reconfigure an MCP server, hand the decision to the user instead of letting the agent proceed
-# on its own. Clients ship their own risk classifiers (Claude Code auto mode, Copilot autopilot, Codex
-# approve-for-me); this layer is where an organization adds its own rules. First rule built on the pattern
-# in TEMPLATE_policy_hook.sh: normalize payload → rule → respond.
+# mcp-install gate — a business-logic rule at the pre-tool-call hook layer. When an agent is about to install
+# or reconfigure an MCP server the user has not approved before, hand the decision to the user. Clients ship
+# their own risk classifiers (Claude Code auto mode, Copilot autopilot, Codex approve-for-me); this layer is
+# where an organization adds its own rules. First rule built on the pattern in TEMPLATE_policy_hook.sh.
 #
-# Decision
-#   AISEC_MCP_GATE_MODE=ask (default): client-native consent prompt where the client enforces one — Claude
-#       Code, Copilot CLI, Copilot in VS Code, Cursor's shell hook, Gemini CLI. Elsewhere (Codex, Cursor's
-#       file-edit hook, unknown clients) the call is declined and the agent is told to stop and hand the
-#       decision back to the user.
-#   AISEC_MCP_GATE_MODE=block: always decline (exit 2), for fleets that want a hard stop. No exceptions.
-#   Consent ledger: every ask/deny records a pending action under $AISEC_CONSENT_DIR (default
-#       ~/.ai-security/consent) with a short id. The USER — in their own terminal, never through the agent —
-#       runs `sh <this dir>/aisec_consent.sh grant <id>`; the gate then allows that exact action (same
-#       command text, or same file path with the same content) until the grant expires (AISEC_CONSENT_TTL
-#       seconds, default 900). A grant covers one server: a different command, file or content asks again.
-#       The gate declines any agent call that runs aisec_consent.sh or writes under the consent directory.
-#       Headless operators pre-grant with `aisec_consent.sh grant --subject "<command>"` or
-#       `--subject "write:<path>"` (path-only: any content written to that path, deliberately broader).
-#   AISEC_HOOK_LOG=<file>: append one tab-separated line per decision (time, rule, client, decision, id,
-#       action). Telemetry goes there, never to stdout, which stays the client protocol channel.
-#   Headless sessions (claude -p, copilot -p / autopilot, gemini -p) turn "ask" into deny because nobody can
-#   answer; the deny reason carries the consent id so an operator can grant and resume.
+# The user journey
+#   1. The agent decides to install MCP server X (by CLI, by writing a config file, by a plugin).
+#   2. The gate checks the allowlist ($AISEC_MCP_ALLOWLIST, default ~/.ai-security/mcp-allowlist.json, plus a
+#      read-only project copy at .ai-security/mcp-allowlist.json). X allowlisted with the same command/URL →
+#      the call passes silently. Not allowlisted, or its command/URL changed → the user is asked.
+#   3. Clients that enforce a hook "ask" (Claude Code, Copilot CLI, VS Code, Cursor shell, Gemini) show their
+#      native prompt. Clients that cannot (Codex, Cursor file edits) get a decline that tells the agent to ask
+#      the user in the chat; the user replies "approve <name>" and the agent retries.
+#   4. The "yes" is recorded to the allowlist by the hooks themselves — the post-tool hook (mcp_config_watch.sh)
+#      when the tool ran after a prompt, or this gate when it finds the user's "approve <name>" in the session
+#      transcript. From then on the agent can install or modify X without prompting; a changed command or URL
+#      prompts again. Nobody types a terminal command; an admin may pre-drop the allowlist file via MDM.
 #
-# Failure contract: the gate cannot evaluate a call without jq or with a payload that is not a JSON object,
-# so it declines (exit 2) with the reason rather than silently allowing. A valid payload that carries no
-# command, path or content is simply not applicable and passes.
+# Modes: AISEC_MCP_GATE_MODE=ask (default) as above; =block: always decline, allowlist ignored.
+# Telemetry: AISEC_HOOK_LOG=<file>, one tab-separated line per decision (time, rule, client, decision, id, action).
+# Failure contract: no jq, or a payload that is not a JSON object → decline (exit 2) with the reason; a gate that
+# cannot evaluate never silently allows. A payload with no command, path or content is not applicable and passes.
 #
-# Triggers, and nothing else:
-#   - CLI reconfiguration: <cli> mcp add[-…]|remove|rm|login|enable|disable|reset-project-choices,
-#     <cli> import … (which imports MCP servers), and <cli> plugin|plugins install|add|i|marketplace add /
-#     <cli> extensions install|link (a plugin or extension can bundle MCP servers, and the bundle is not
-#     visible until it is installed), where <cli> is claude|codex|agent|cursor-agent|copilot|gemini by
-#     name, by path, through a wrapper, or via npx/bunx/pnpx of the published package
-#   - session-only MCP or plugin injection on a nested agent: --mcp-config, --additional-mcp-config,
-#     --add-mcp (VS Code), -c/--config mcp_servers… (Codex), --approve-mcps (Cursor), --plugin-dir, --plugin-url
-#   - writes into an agent plugin directory (a manual plugin install)
-#   - install deeplinks: cursor://…/mcp/install, vscode:mcp/install
-#   - inline interpreter code (python -c, node -e, perl -e, ruby -e, deno/bun eval, "-" from stdin) that
-#     names an MCP config file or key AND carries a write call (json.dump, open(…,'w'),
-#     writeFile, .write(, a redirect); read-only inspection scripts pass
-#   - shell writes (>, >>, tee, cp, mv, install, ln -s, rm, dd of=, curl -o, wget -O,
-#     git checkout/restore --, sed -i, perl -i) to an MCP config file
-#   - editor-tool writes (Write, Edit, MultiEdit, NotebookEdit, create, edit, write_file, replace, Codex
-#     apply_patch hunks) to an MCP config file
-#   - shared config files: a whole-file shell replacement (content unknown) always asks; an edit asks when
-#     the old or new text carries an MCP key or an MCP server field (lists below). Other edits pass — a
-#     text edit that names neither is not detectable from the payload; that boundary belongs to the
-#     client's MCP allowlist and to mcp_config_watch.sh, the post-write detector.
-# MCP config files: .mcp.json, mcp.json (Cursor / VS Code / Copilot, wherever it lives, including inside a
-#   plugin), mcp-config.json (Copilot CLI), gemini-extension.json (its mcpServers block).
-# Plugin directories (any write = a manual plugin install): ~/.claude/plugins, ~/.cursor/plugins,
-#   ~/.codex/plugins, ~/.copilot/installed-plugins, ~/.gemini/extensions.
-# Shared files: .codex/config.toml and .codex/<profile>.config.toml, ~/.claude.json, Claude Desktop's
-#   claude_desktop_config.json, every settings.json / settings.local.json (Claude, Gemini, Copilot, VS Code,
-#   Cursor), .code-workspace, devcontainer.json, plugin.json (a plugin manifest's mcpServers),
-#   installed_plugins.json, known_marketplaces.json, Cursor permissions.json / cli.json / cli-config.json.
-# MCP keys: mcp_servers, mcpServers, managedMcpServers, enabledMcpjsonServers, disabledMcpjsonServers,
-#   enabledMcpServers, disabledMcpServers, enableAllProjectMcpServers, allowedMcpServers, deniedMcpServers,
-#   allowManagedMcpServersOnly, mcpContextUris, allowMCPServers, excludeMCPServers, mcp.allowed,
-#   mcp.excluded, mcpAllowlist, chat.mcp.*, "mcp":, "servers":, and the plugin enablement keys
-#   enabledPlugins, extraKnownMarketplaces, [plugins., [marketplaces (enabling a plugin starts its servers).
-# Deliberately out of scope (not MCP installation): hook-disabling keys (disableAllHooks) and launching an
-#   agent with a redirected config directory (CODEX_HOME=… codex). A separate rule is the place for those.
-# MCP server fields: command, args, url, httpUrl, env, env_vars, headers, http_headers,
-#   bearer_token_env_var, cwd, envFile, identity, enabled, disabled, trust, type.
+# Triggers (what counts as installing or reconfiguring an MCP server), and nothing else:
+#   - <cli> mcp add[-json|-from-claude-desktop] | remove | rm | login | enable | disable | reset-project-choices,
+#     <cli> import …, <cli> plugin|plugins install|add|i|marketplace add, <cli> extensions install|link
+#     (plugins and extensions bundle MCP servers; the bundle is invisible until installed), for
+#     claude|codex|agent|cursor-agent|copilot|gemini by name, by path, via sudo/bash -c, or npx/bunx/pnpx
+#   - a nested agent started with --mcp-config, --additional-mcp-config, --add-mcp, -c/--config mcp_servers…,
+#     --approve-mcps, --plugin-dir, --plugin-url; the cursor:// and vscode: MCP install links
+#   - inline interpreter code (python -c, node -e, …) that names an MCP config and carries a write call
+#   - shell writes (>, >>, tee, cp, mv, install, ln -s, rm, dd of=, curl -o, wget -O, git checkout/restore --,
+#     sed -i, perl -i) to an MCP config file or into an agent plugin directory; heredoc bodies are parsed
+#   - editor-tool writes (Write, Edit, MultiEdit, NotebookEdit, create/edit, write_file/replace, apply_patch)
+#     to an MCP config file or a plugin directory; for edits the resulting file is computed and parsed
+#   - shared config files: a whole-file shell replacement always asks; an edit asks when the text carries an
+#     MCP key or server field and the servers it touches are not allowlisted
+# MCP config files: .mcp.json, mcp.json, mcp-config.json, gemini-extension.json. Plugin directories:
+#   ~/.claude/plugins, ~/.cursor/plugins, ~/.codex/plugins, ~/.copilot/installed-plugins, ~/.gemini/extensions.
+# Shared files: .codex/*config.toml, ~/.claude.json, claude_desktop_config.json, settings(.local).json,
+#   *.code-workspace, devcontainer.json, plugin.json, installed_plugins.json, known_marketplaces.json, Cursor
+#   permissions.json / cli.json / cli-config.json.
+# Out of scope by decision: hook-disabling keys (disableAllHooks) and launching an agent with a redirected config
+#   directory. A separate rule on the template is their place.
 #
-# Reads one PreToolUse-style JSON payload on stdin. Field names differ per client, so it accepts:
-#   Claude Code / Codex / Cursor preToolUse : .tool_input.{command,file_path,notebook_path,content,old_string,new_string,edits[]}
-#   Gemini CLI BeforeTool                  : .tool_input.{command,file_path,content,old_string,new_string}
-#   VS Code Copilot agent hooks            : .tool_input.{command,filePath,files[]}
-#   GitHub Copilot CLI                     : .toolArgs.{command,path,file_text,old_str,new_str}
-#   Cursor beforeShellExecution            : .command  (top level)
-# Needs jq.
+# Payload shapes accepted (see aisec_lib.sh): Claude Code / Codex / Cursor tool_input.*, Gemini BeforeTool,
+# VS Code tool_input.{filePath,files[]}, Copilot toolArgs.*, Cursor beforeShellExecution top-level command. Needs jq.
 set -eu
-RULE=mcp-install-gate
+. "$(dirname "$0")/aisec_lib.sh"
+aisec_init mcp-install-gate
 mode=${AISEC_MCP_GATE_MODE:-ask}
-consent_dir=${AISEC_CONSENT_DIR:-$HOME/.ai-security/consent}
-ttl=${AISEC_CONSENT_TTL:-900}
-here=$(cd "$(dirname "$0")" && pwd)
-command -v jq >/dev/null 2>&1 || { echo "$RULE: jq is not installed, so the gate cannot read this call and declines it. Install jq (brew install jq / apt install jq) and retry." >&2; exit 2; }
-payload=$(cat)
-printf '%s' "$payload" | jq -e 'type=="object" and ((.tool_input // .toolArgs // .) | type=="object")' >/dev/null 2>&1 \
-  || { echo "$RULE: the hook payload is not a JSON object, so the gate cannot evaluate this call and declines it." >&2; exit 2; }
+consent_text="An MCP server extends what the agent can do, so the user must see and approve it the first time: which server, where it comes from, what it runs. Vet unknown servers with the verify-ai 'scan-mcp' skill first."
 
-# ---- 1. normalize the payload -------------------------------------------------------------------------
-args=$(printf '%s' "$payload" | jq -c '.tool_input // .toolArgs // .')
-cmd=$(printf '%s' "$args" | jq -r '.command // empty')
-paths=$(printf '%s' "$args" | jq -r '[.file_path, .path, .filePath, .notebook_path, (.files // [] | .[] | if type=="string" then . else (.path // .filePath // .file_path) end)] | map(select(. != null and . != "")) | .[]')
-body=$(printf '%s' "$args" | jq -r '[.content, .contents, .file_text, .new_string, .new_str, .text, .new_source, ((.edits // []) | .[] | .new_string)] | map(select(. != null)) | join("\n")')
-old=$(printf '%s' "$args" | jq -r '[.old_string, .old_str, ((.edits // []) | .[] | .old_string)] | map(select(. != null)) | join("\n")')
-client=$(printf '%s' "$payload" | jq -r '
-  if has("toolName") then "copilot"
-  elif .hook_event_name == "beforeShellExecution" then "cursor-shell"
-  elif has("cursor_version") or has("conversation_id") or has("generation_id") or has("agent_message") then "cursor-tool"
-  elif has("turn_id") then "codex"
-  elif (.tool_name // "") | test("^(run_shell_command|write_file|replace|read_file|glob|grep_search|list_directory|ask_user|web_fetch)$") then "gemini"
-  elif (.tool_name // "") | test("^[a-z]+[A-Z]") then "vscode"
-  elif has("tool_use_id") or has("prompt_id") then "claude"
-  else "unknown" end')
-# Codex apply_patch arrives as a "command" that is really a patch: treat its file headers as paths and its
-# text as content, and do not match it as a shell command.
-case "$cmd" in "*** Begin Patch"*)
-  paths=$(printf '%s\n%s\n' "$paths" "$(printf '%s\n' "$cmd" | grep -Eo '^\*\*\* (Add|Update|Delete) File: .*$' | sed 's/^\*\*\* [A-Za-z]* File: //')")
-  body="$cmd"; cmd="" ;;
-esac
-
-# ---- 3. respond (defined first so the rule can call it) ------------------------------------------------
-log() { [ -z "${AISEC_HOOK_LOG:-}" ] || printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RULE" "$client" "$1" "${3:-}" "$2" >> "$AISEC_HOOK_LOG" 2>/dev/null || true; }
-digest() { if command -v shasum >/dev/null 2>&1; then printf '%s' "$1" | shasum -a 256; else printf '%s' "$1" | sha256sum; fi | cut -c1-12; }
-subject_of_cmd() { printf '%s' "$1" | tr '\n' ' ' | tr -s ' ' | sed 's/^ //; s/ $//' | cut -c1-500; }
-subject_of_path() { # write:<path>#<digest of the text being written>; ~ stands for $HOME
-  d=$(printf '%s' "$2" | tr -d '[:space:]'); d=$(digest "$d")   # whitespace-insensitive: a re-indented retry is the same content
-  printf 'write:%s#%s' "$1" "$d" | sed "s|^write:$HOME/|write:~/|"; }
-record_pending() { # record_pending <id> <subject> <what>
-  mkdir -p "$consent_dir/pending" 2>/dev/null || return 0
-  jq -n --arg id "$1" --arg s "$2" --arg w "$3" --arg c "$client" --arg cwd "$(pwd)" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{id:$id,subject:$s,what:$w,client:$c,cwd:$cwd,ts:$ts}' > "$consent_dir/pending/$1.json" 2>/dev/null || true
-}
-fresh() { [ -f "$1" ] && [ "$(jq -r '.expires // 0' "$1" 2>/dev/null)" -gt "$(date +%s)" ] 2>/dev/null; }
-granted() { # granted <id> <subject>: an unexpired grant for exactly this subject, or an operator's path-only grant (write:<path> without #digest)
-  g="$consent_dir/granted/$1.json"
-  if fresh "$g" && [ "$(jq -r '.subject' "$g" 2>/dev/null)" = "$2" ]; then return 0; fi
-  case "$2" in write:*'#'*)
-    p=${2%#*}; g="$consent_dir/granted/$(digest "$p").json"
-    fresh "$g" && [ "$(jq -r '.subject' "$g" 2>/dev/null)" = "$p" ] && return 0 ;;
-  esac
-  return 1
-}
-respond() { # respond <what this call would do> <subject>
-  id=$(digest "$2")
-  if [ "$mode" != block ] && granted "$id" "$2"; then log approved "$1" "$id"; exit 0; fi
-  consent="$RULE: this call would $1. An MCP server extends what the agent can do, so it needs the user's explicit consent — which server, where it comes from, what it can access. Vet unknown servers with the verify-ai 'scan-mcp' skill first."
-  [ "$mode" = block ] || record_pending "$id" "$2" "$1"
+# ---- respond ----------------------------------------------------------------------------------------------------
+# respond <what> <subject> <kind> <servers tsv> <plugin> <files nl-list>
+respond() {
+  id=$(digest "$2"); pf="$(pending_dir)/$id.json"
+  if [ "$mode" != block ] && [ -f "$pf" ] && user_approved_in_transcript "$pf"; then
+    record_pending_as_allowed "$pf"; log approved "$1" "$id"; exit 0
+  fi
+  if [ "$mode" = block ]; then
+    log deny "$1" "$id"; echo "$RULE: this call would $1. Not run: this environment blocks MCP installation by policy. Do not retry or try another method; tell the user." >&2; exit 2
+  fi
+  write_pending "$id" "$2" "$1" "$3" "$4" "$5" "$6"
+  names=$(printf '%s' "$4" | cut -f1 | tr '\n' ' ' | sed 's/ $//'); [ -n "$names" ] || names=${5:-"this change"}
+  r="$RULE: this call would $1. $consent_text"
   if [ "$mode" = ask ]; then
-    r="$consent Consent id $id."
     case "$client" in
       claude|vscode) log ask "$1" "$id"; jq -n --arg r "$r" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$r}}'; exit 0 ;;
       copilot)       log ask "$1" "$id"; jq -n --arg r "$r" '{permissionDecision:"ask",permissionDecisionReason:$r}'; exit 0 ;;
@@ -144,16 +74,31 @@ respond() { # respond <what this call would do> <subject>
     esac
   fi
   log deny "$1" "$id"
-  if [ "$mode" = block ]; then
-    echo "$consent Not run: this environment blocks MCP installation by policy. Do not retry or try another method; tell the user." >&2
-  else
-    echo "$consent Not run. Do not retry this call and do not attempt the same change another way. Report to the user exactly what you tried to run and why. If they approve, they can make the change themselves, or grant this exact action by running in their own terminal (not through you):  sh $here/aisec_consent.sh grant $id  — and then ask you to retry (the grant lasts ${ttl}s). Consent id $id." >&2
-  fi
+  echo "$r Not run. Stop and ask the user whether to allow it: show them the server name(s), where each comes from and what it runs. If they approve, they reply in this chat with exactly:  approve $names  — one per server if several — and then you may retry the same call once. Do not retry without that reply, and do not try another way to make the same change." >&2
   exit 2
 }
-tamper() { log deny-tamper "$1" ""; echo "$RULE: this call would $1. Consent is granted by the user in their own terminal, never by the agent. Not run; do not retry." >&2; exit 2; }
+tamper() { log deny-tamper "$1" ""; echo "$RULE: this call would $1. The MCP allowlist and the gate's state are written by the hooks after the user approves, never by the agent. Not run; do not retry." >&2; exit 2; }
 
-# ---- 2. the rule ---------------------------------------------------------------------------------------
+# decide <what-prefix> <subject> <kind> <servers tsv> <files>: pass silently when every server is allowlisted with
+# the same identity; otherwise ask for the ones that are new or changed.
+decide() {
+  [ "$mode" = block ] && respond "$1" "$2" "$3" "$4" "" "$5"
+  new=""; what=""
+  oldifs=$IFS; IFS='
+'
+  for row in $4; do IFS=$oldifs; [ -n "$row" ] || continue
+    n=${row%%	*}; i=${row#*	}; [ "$i" = "$row" ] && i=""
+    if ai=$(allowed_identity "$n"); then
+      if [ -n "$i" ] && [ "$ai" != "$i" ]; then new="$new
+$row"; what="$what, change MCP server '$n' from '$ai' to '$i'"; fi
+    else new="$new
+$row"; what="$what, install MCP server '$n'${i:+ ($i)}"; fi
+  done; IFS=$oldifs
+  if [ -z "$new" ]; then log allowed "$1 (allowlisted)" ""; return 0; fi
+  respond "$1: ${what#, }" "$2" "$3" "$(printf '%s' "$new" | sed '/^$/d')" "" "$5"
+}
+
+# ---- the rule ----------------------------------------------------------------------------------------------------
 mcp_names='(\.mcp\.json|mcp\.json|mcp-config\.json|gemini-extension\.json)'
 mcp_files="(^|/)${mcp_names}\$"
 plugin_names='(\.(claude|cursor|codex)/plugins/|\.copilot/installed-plugins/|\.gemini/extensions/)'
@@ -161,53 +106,106 @@ shared_names='(\.codex/[^/[:space:]"'"'"']*config\.toml|settings(\.local)?\.json
 shared_files="(^|/)${shared_names}\$"
 mcp_keys='mcp_servers|mcpServers|managedMcpServers|enabledMcpjsonServers|disabledMcpjsonServers|enabledMcpServers|disabledMcpServers|enableAllProjectMcpServers|allowedMcpServers|deniedMcpServers|allowManagedMcpServersOnly|mcpContextUris|allowMCPServers|excludeMCPServers|mcp\.allowed|mcp\.excluded|mcpAllowlist|chat\.mcp\.|"mcp"[[:space:]]*:|"servers"[[:space:]]*:|enabledPlugins|extraKnownMarketplaces|\[plugins\.|\[marketplaces'
 mcp_fields='(^|[[:space:]{,"'"'"'/+|-])(command|args|url|httpUrl|env|env_vars|headers|http_headers|bearer_token_env_var|cwd|envFile|identity|enabled|disabled|trust|type)["'"'"' ]*[:=]'
+identity_fields='(^|[[:space:]{,"'"'"'/+|-])(command|args|url|httpUrl)["'"'"' ]*[:=]'
 pre='(^|[;&|[:space:]"'"'"'])'
 cli='((npx|bunx|pnpx)[[:space:]]+(-y[[:space:]]+|--yes[[:space:]]+)?(@anthropic-ai/claude-code|@openai/codex|@github/copilot|@google/gemini-cli)|([^;&|[:space:]"'"'"']*/)?(claude|codex|agent|cursor-agent|copilot|gemini))'
-installers="${pre}${cli}[[:space:]]+mcp[[:space:]]+(add(-[a-z-]+)?|remove|rm|login|enable|disable|reset-project-choices)([[:space:]]|\$)"
-importers="${pre}${cli}[[:space:]]+import([[:space:]]|\$)"
-plugin_installs="${pre}${cli}[[:space:]]+(plugins?|extensions)[[:space:]]+(install|add|i|link|marketplace[[:space:]]+add)([[:space:]]|\$)"
-session_inject='--mcp-config([[:space:]=]|$)|--additional-mcp-config|--add-mcp([[:space:]=]|$)|--approve-mcps|--plugin-(dir|url)|(^|[[:space:]])(-c|--config)[[:space:]=]*["'"'"']?mcp_servers'
+adders="${pre}${cli}[[:space:]]+mcp[[:space:]]+add(-json)?([[:space:]]|\$)"
+refs="${pre}${cli}[[:space:]]+mcp[[:space:]]+(remove|rm|login|enable|disable)([[:space:]]|\$)"
+opaque_cmds="${pre}${cli}[[:space:]]+(mcp[[:space:]]+(add-from-claude-desktop|reset-project-choices)|import)([[:space:]]|\$)"
+plugin_installs="${pre}${cli}[[:space:]]+(plugins?|extensions)[[:space:]]+(install|add|i|link|marketplace[[:space:]]+add)[[:space:]]+([^[:space:]]+)"
+session_inject='--mcp-config([[:space:]=]|$)|--additional-mcp-config|--add-mcp([[:space:]=]|$)|--approve-mcps|(^|[[:space:]])(-c|--config)[[:space:]=]*["'"'"']?mcp_servers'
+plugin_inject='--plugin-(dir|url)[[:space:]=]+([^[:space:]]+)'
 deeplinks='cursor://[^[:space:]]*mcp/install|vscode(-insiders)?:mcp/install'
 interp="${pre}(python[0-9.]*|node|perl|ruby|deno|bun|php)([[:space:]]+-[A-Za-z]+)*[[:space:]]+(-c|-e|-E|--eval|eval|-)([[:space:]]|\$)"
 write_hint='json\.dump\(|open\([^)]*["'"'"'][wa]|writeFile|appendFile|createWriteStream|write_text|File\.(write|open)|\.write\(|toml\.dump|dump\(|>[[:space:]]*[^&=[:space:]]|tee[[:space:]]|-i[[:space:]]|-pi'
-replace_write="(>>?|${pre}(tee([[:space:]]+-a)?|mv|cp|install|ln[[:space:]]+-[a-zA-Z]*s[a-zA-Z]*|rm([[:space:]]+-[a-zA-Z]+)*|dd[[:space:]]+[^|;&]*of=|git[[:space:]]+(checkout|restore)[[:space:]]+[^|;&]*--))[^|;&]*"  # content not visible; file must be the destination
-sed_write="${pre}(sed[[:space:]]+-[^[:space:]]*i|perl[[:space:]]+-[^[:space:]]*i)[^;&]*"  # the expression is visible in the command
+replace_write="(>>?|${pre}(tee([[:space:]]+-a)?|mv|cp|install|ln[[:space:]]+-[a-zA-Z]*s[a-zA-Z]*|rm([[:space:]]+-[a-zA-Z]+)*|dd[[:space:]]+[^|;&]*of=|git[[:space:]]+(checkout|restore)[[:space:]]+[^|;&]*--))[^|;&]*"
+sed_write="${pre}(sed[[:space:]]+-[^[:space:]]*i|perl[[:space:]]+-[^[:space:]]*i)[^;&]*"
 fetch_write="${pre}(curl[[:space:]]+[^|;&]*(-o|--output)|wget[[:space:]]+[^|;&]*(-O|--output-document))[[:space:]=]*"
-end='["'"'"']?([[:space:]]*($|[|;&])|[[:space:]]+([0-9]*>|<<?))'   # nothing after the file, or a redirect / heredoc after it
+end='["'"'"']?([[:space:]]*($|[|;&])|[[:space:]]+([0-9]*>|<<?))'
 after='["'"'"']?([[:space:]]|$|[|;&])'
-consent_names='aisec_consent|\.ai-security/consent'
+state_names='mcp-allowlist\.json|\.ai-security/state'
 
-# check_file <path> <text>: MCP-only files and plugin dirs trigger on any write; shared files when the text touches MCP keys/fields.
-check_file() {
-  printf '%s' "$1" | grep -Eq "$consent_names" && tamper "write the consent ledger '$1'"
-  printf '%s' "$1" | grep -Eq "$mcp_files" && respond "write MCP config '$1'" "$(subject_of_path "$1" "$2")"
-  printf '%s' "$1" | grep -Eq "$plugin_names" && respond "install into an agent plugin directory ('$1'); plugins can bundle MCP servers" "$(subject_of_path "$1" "$2")"
-  if printf '%s' "$1" | grep -Eq "$shared_files" && printf '%s' "$2" | grep -Eq "$mcp_keys|$mcp_fields"; then
-    respond "write MCP server entries in '$1'" "$(subject_of_path "$1" "$2")"
+heredoc_body() { # heredoc_body <command>: the body of the first here-document, if any
+  term=$(printf '%s\n' "$1" | head -1 | sed -n 's/.*<<-\{0,1\}[[:space:]]*["'"'"']\{0,1\}\([A-Za-z_][A-Za-z0-9_]*\)["'"'"']\{0,1\}.*/\1/p')
+  [ -n "$term" ] || return 0
+  printf '%s\n' "$1" | awk -v t="$term" 'NR>1 && $0==t {exit} NR>1 {print}'
+}
+target_file() { printf '%s' "$1" | grep -Eo "[^[:space:]\"'|;&<>]*${2}" | head -1; }
+
+check_file() { # check_file <path>
+  printf '%s' "$1" | grep -Eq "$state_names" && tamper "write the MCP allowlist or gate state ('$1')"
+  if printf '%s' "$1" | grep -Eq "$plugin_names"; then
+    [ "$mode" != block ] && allowed_plugin "$1" && { log allowed "plugin path allowlisted"; return 0; }
+    respond "install into an agent plugin directory ('$1'); plugins can bundle MCP servers" "$(subject_of_path "$1")" plugin "" "$1" "$1"
+  fi
+  if printf '%s' "$1" | grep -Eq "$mcp_files"; then
+    sv=$(servers_from_file_text "$1" "$(resulting_text "$1")")
+    [ -n "$sv" ] && decide "write MCP config '$(tilde "$1")'" "$(subject_of_path "$1")" file "$sv" "$1"
+    [ -n "$sv" ] || respond "write MCP config '$(tilde "$1")' (servers not identifiable from this edit)" "$(subject_of_path "$1")" file "" "" "$1"
+    return 0
+  fi
+  if printf '%s' "$1" | grep -Eq "$shared_files" && printf '%s' "$text" | grep -Eq "$mcp_keys|$mcp_fields"; then
+    sv=$(servers_from_file_text "$1" "$(resulting_text "$1")")
+    if [ -n "$sv" ] && [ -z "$patch" ]; then decide "write MCP server entries in '$(tilde "$1")'" "$(subject_of_path "$1")" file "$sv" "$1"; return 0; fi
+    # a patch hunk or an edit that does not parse: pass only if it names allowlisted servers and no identity field
+    names=$(printf '%s' "$text" | grep -Eo '\[mcp_servers\.[^]]+\]|"[A-Za-z0-9_.-]+"[[:space:]]*:[[:space:]]*\{' | sed 's/\[mcp_servers\.//; s/\]//; s/"//g; s/[[:space:]]*:.*//' | grep -Evx 'mcpServers|servers|mcp|projects|env|env_vars|headers|http_headers|env_http_headers|oauth|tools|inputs|sandbox|auth|permissions|hooks|plugins|marketplaces' || true)
+    if [ -n "$names" ] && ! printf '%s' "$text" | grep -Eq "$identity_fields"; then
+      okall=1; for n in $names; do allowed_identity "$n" >/dev/null || okall=0; done; [ "$mode" = block ] && okall=0
+      [ $okall -eq 1 ] && { log allowed "edit to allowlisted server(s) in $(tilde "$1")" ""; return 0; }
+    fi
+    sv=$(for n in $names; do printf '%s\t\n' "$n"; done)
+    respond "write MCP server entries in '$(tilde "$1")'${names:+ ($(printf '%s' "$names" | tr '\n' ' '))}" "$(subject_of_path "$1")" file "$sv" "" "$1"
   fi
   return 0
 }
 
 if [ -n "$cmd" ]; then
   s=$(subject_of_cmd "$cmd")
-  printf '%s' "$cmd" | grep -Eq "$consent_names" && tamper "grant or edit MCP consent from inside the agent"
-  printf '%s' "$cmd" | grep -Eq "$installers" && respond "run an MCP installer command" "$s"
-  printf '%s' "$cmd" | grep -Eq "$importers" && respond "import MCP servers from another agent's config" "$s"
-  printf '%s' "$cmd" | grep -Eq "$plugin_installs" && respond "install an agent plugin or extension, which can bundle MCP servers" "$s"
-  printf '%s' "$cmd" | grep -Eq -e "$session_inject" && respond "start an agent session with injected MCP or plugin config" "$s"
-  printf '%s' "$cmd" | grep -Eq "$deeplinks" && respond "open an MCP install link" "$s"
-  if printf '%s' "$cmd" | grep -Eq "$interp" && printf '%s' "$cmd" | grep -Eq "$mcp_names|$shared_names|$plugin_names|$mcp_keys" && printf '%s' "$cmd" | grep -Eq "$write_hint"; then
-    respond "run inline script code that writes an MCP config" "$s"
+  printf '%s' "$cmd" | grep -Eq "$state_names" && tamper "edit the MCP allowlist or gate state from inside the agent"
+  if printf '%s' "$cmd" | grep -Eq "$adders"; then
+    sv=$(servers_from_mcp_cmd "$cmd")
+    if printf '%s' "$cmd" | grep -Eq 'mcp[[:space:]]+add-json'; then n=$(printf '%s' "$sv" | cut -f1 | head -1); sv=$(printf '%s\t%s' "$n" "$(add_json_identity "$cmd")" | norm_ids); fi
+    [ -n "$sv" ] && decide "run an MCP installer command" "$s" cmd "$sv" ""
+    [ -n "$sv" ] || respond "run an MCP installer command (server not identifiable)" "$s" opaque "" "" ""
   fi
-  printf '%s' "$cmd" | grep -Eq "${replace_write}${mcp_names}${end}|${sed_write}${mcp_names}|${fetch_write}[^[:space:]\"'|;&]*${mcp_names}${after}" && respond "write an MCP config file from the shell" "$s"
-  printf '%s' "$cmd" | grep -Eq "(${replace_write}|${sed_write})${plugin_names}[^[:space:]\"'|;&]*${end}|${fetch_write}[^[:space:]\"'|;&]*${plugin_names}[^[:space:]\"'|;&]*${after}" && respond "install into an agent plugin directory from the shell; plugins can bundle MCP servers" "$s"
-  printf '%s' "$cmd" | grep -Eq "${replace_write}${shared_names}${end}|${fetch_write}[^[:space:]\"'|;&]*${shared_names}${after}" && respond "replace a config file that holds MCP server entries from the shell" "$s"
+  if printf '%s' "$cmd" | grep -Eq "$refs"; then
+    sv=$(servers_from_mcp_cmd "$cmd"); n=$(printf '%s' "$sv" | cut -f1 | head -1)
+    if [ "$mode" != block ] && [ -n "$n" ] && allowed_identity "$n" >/dev/null; then log allowed "reconfigure allowlisted MCP server $n" ""
+    else respond "reconfigure MCP server${n:+ '$n'} (remove, login, enable or disable)" "$s" cmd "$(printf '%s\t' "${n:-unknown}")" "" ""; fi
+  fi
+  printf '%s' "$cmd" | grep -Eq "$opaque_cmds" && respond "import or reset MCP server configuration" "$s" opaque "" "" ""
+  if printf '%s' "$cmd" | grep -Eq "$plugin_installs"; then
+    spec=$(printf '%s' "$cmd" | grep -Eo "$plugin_installs" | head -1 | awk '{print $NF}')
+    [ "$mode" != block ] && allowed_plugin "$spec" && log allowed "plugin $spec allowlisted" "" || respond "install agent plugin or extension '$spec', which can bundle MCP servers" "$s" plugin "" "$spec" ""
+  fi
+  if printf '%s' "$cmd" | grep -Eq -e "$plugin_inject"; then
+    spec=$(printf '%s' "$cmd" | grep -Eo -e "$plugin_inject" | head -1 | sed 's/^--plugin-[a-z]*[[:space:]=]*//')
+    [ "$mode" != block ] && allowed_plugin "$spec" && log allowed "plugin $spec allowlisted" "" || respond "start an agent with plugin '$spec' loaded, which can bundle MCP servers" "$s" plugin "" "$spec" ""
+  fi
+  printf '%s' "$cmd" | grep -Eq -e "$session_inject" && respond "start an agent session with injected MCP config" "$s" opaque "" "" ""
+  printf '%s' "$cmd" | grep -Eq "$deeplinks" && respond "open an MCP install link" "$s" opaque "" "" ""
+  if printf '%s' "$cmd" | grep -Eq "$interp" && printf '%s' "$cmd" | grep -Eq "$mcp_names|$shared_names|$plugin_names|$mcp_keys" && printf '%s' "$cmd" | grep -Eq "$write_hint"; then
+    respond "run inline script code that writes an MCP config" "$s" opaque "" "" ""
+  fi
+  if printf '%s' "$cmd" | grep -Eq "${replace_write}${mcp_names}${end}|${sed_write}${mcp_names}|${fetch_write}[^[:space:]\"'|;&]*${mcp_names}${after}"; then
+    f=$(target_file "$cmd" "$mcp_names"); hb=$(heredoc_body "$cmd"); sv=""; [ -n "$hb" ] && sv=$(servers_from_file_text "$f" "$hb")
+    [ -n "$sv" ] && decide "write MCP config '$f' from the shell" "$s" file "$sv" "$f"
+    [ -n "$sv" ] || respond "write MCP config '$f' from the shell (content not visible)" "$s" file "" "" "$f"
+  fi
+  if printf '%s' "$cmd" | grep -Eq "(${replace_write}|${sed_write})${plugin_names}[^[:space:]\"'|;&]*${end}|${fetch_write}[^[:space:]\"'|;&]*${plugin_names}[^[:space:]\"'|;&]*${after}"; then
+    f=$(printf '%s' "$cmd" | grep -Eo "[^[:space:]\"'|;&<>]*${plugin_names}[^[:space:]\"'|;&<>]*" | head -1)
+    [ "$mode" != block ] && allowed_plugin "$f" && log allowed "plugin path allowlisted" "" || respond "install into an agent plugin directory ('$f') from the shell; plugins can bundle MCP servers" "$s" plugin "" "$f" "$f"
+  fi
+  if printf '%s' "$cmd" | grep -Eq "${replace_write}${shared_names}${end}|${fetch_write}[^[:space:]\"'|;&]*${shared_names}${after}"; then
+    f=$(target_file "$cmd" "$shared_names"); hb=$(heredoc_body "$cmd"); sv=""; [ -n "$hb" ] && sv=$(servers_from_file_text "$f" "$hb")
+    [ -n "$sv" ] && decide "replace config '$f' from the shell" "$s" file "$sv" "$f"
+    [ -n "$sv" ] || respond "replace a config file that holds MCP server entries ('$f') from the shell" "$s" file "" "" "$f"
+  fi
   if printf '%s' "$cmd" | grep -Eq "${sed_write}${shared_names}" && printf '%s' "$cmd" | grep -Eq "$mcp_keys|$mcp_fields"; then
-    respond "write MCP server entries from the shell" "$s"
+    f=$(target_file "$cmd" "$shared_names"); respond "edit MCP server entries in '$f' with sed" "$s" file "" "" "$f"
   fi
 fi
-text=$(printf '%s\n%s' "$body" "$old")
 oldifs=$IFS; IFS='
 '
-for path in $paths; do IFS=$oldifs; [ -n "$path" ] && check_file "$path" "$text"; done
+for path in $paths; do IFS=$oldifs; [ -n "$path" ] && check_file "$path"; done
 exit 0

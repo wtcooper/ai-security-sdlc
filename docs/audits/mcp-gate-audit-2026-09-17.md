@@ -235,28 +235,29 @@ allowlists are the preventive control for a hostile one.
 9. README/playbook: replace the client table with §3.1; state the blind spots; update `compatibility.md`.
 10. Tests: negative cases for every row above; corpus fixtures; SDK round-trip in CI (needs an API key).
 
-## 7. Implementation status (same day)
+## 7. Implementation status
 
-All ten items in §6 were implemented; the audit above is kept as the record of what was found. What
-changed, and where the implementation deliberately differs from §6:
+Implemented in two passes. The first (2026-09-17) built the coverage and a consent ledger the user granted
+from a terminal. Wade rejected the ledger: the journey is "the agent wants X, the user sees it once,
+says yes, and X is on an allowlist from then on", and no user should have to type a terminal command.
+The second pass (2026-09-18) replaced it with the allowlist design now in place:
 
-- **Scope decision.** Plugin and extension installs, plugin-directory writes and plugin enablement keys
-  **are gated**: a plugin can bundle MCP servers, the bundle is invisible before install, and Wade's
-  requirement is consent for any MCP server that arrives, so the install is the consent point. Two of the
-  §6 items are not MCP installation and stay out: `disableAllHooks` (hook tampering) and config-directory
-  redirection (`CODEX_HOME=… codex`); a separate rule on the template is their home. The watcher still
-  scans the plugin directories as a second line.
-- **Consent ledger (item 7)** is `aisec_consent.sh` plus `pending/` and `granted/` records under
-  `~/.ai-security/consent`. A grant is bound to the exact command text or to the file path **and its
-  content** (whitespace-insensitive digest) after a live Codex run showed a path-only grant covering a
-  second server written to the same file. Operators may still pre-grant a path without content
-  (`--subject "write:<path>"`), which is documented as broader. `AISEC_MCP_APPROVAL` is retired.
-- **Gemini** now receives `{"decision":"ask"}`; Codex never receives `ask`.
-- **Detector (item 8)** ships log-only, with Claude Code `additionalContext` so the agent stops and reports.
-- **Interpreter rule** requires a write call in the inline code; Claude Code's read-only `python3 -c`
-  inspection of `~/.claude.json` (recorded live) passes.
-- **Tests**: 242 payload cases including the recorded corpus, the ledger and the watcher; installer
-  suite 38; `live-tests/run_claude.sh` and `run_codex.sh` are the round-trips in the assurance matrix.
+- **Allowlist** `~/.ai-security/mcp-allowlist.json` keyed by server name + identity (command/URL), plus a
+  read-only project copy. Allowlisted with the same identity → silent pass, including later edits and
+  removal. Changed identity → prompt showing both values. Plugins and extensions are allowlisted by
+  install spec (their bundled servers are invisible until installed).
+- **Recording the yes without new UI.** Prompt clients: the tool runs only after a yes, so the post-tool
+  hook records the pending servers (identities from the call, or read back from disk). Deny-only clients
+  (Codex, Cursor file edits) and headless runs: the agent asks in the chat, the user replies
+  `approve <name>`, and the retry finds that user-authored message in the session transcript (assistant
+  text, tool results and messages before the decline are ignored).
+- **No operator pre-seeding tooling** by decision: an admin who wants a fleet-wide allowlist drops the
+  file via MDM. The consent CLI was deleted.
+- **Codex sandbox** verified: hooks run outside it and can write `~/.ai-security` where the agent cannot.
+- **Scope**: plugin installs are gated (they deliver servers); hook-disabling keys and config-directory
+  redirection are not.
+- **Tests**: 274 payload cases including the recorded corpus, allowlist and chat-approval flows for both
+  transcript formats, and the watcher; live runners verified on Claude Code and Codex.
 
 Observed while implementing: bash-as-`sh` on macOS brace-expands `{"a":1,"b":2}` inside `$(...)` in a
 test script (the suite sets `set +B`); `codex exec resume` without `--dangerously-bypass-hook-trust`
