@@ -2,9 +2,17 @@
   "hooks": {
     "BeforeTool": [
       {
-        "matcher": "run_shell_command|write_file|replace|edit",
+        "matcher": "run_shell_command|write_file|replace",
         "hooks": [
           { "name": "mcp-install-gate", "type": "command", "command": "$GEMINI_PROJECT_DIR/.ai-security/hooks/mcp_install_gate.sh", "timeout": 10000 }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "run_shell_command|write_file|replace",
+        "hooks": [
+          { "name": "mcp-config-watch", "type": "command", "command": "$GEMINI_PROJECT_DIR/.ai-security/hooks/mcp_config_watch.sh", "timeout": 10000 }
         ]
       }
     ]

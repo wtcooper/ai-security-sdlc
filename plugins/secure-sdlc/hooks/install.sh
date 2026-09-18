@@ -1,6 +1,7 @@
 #!/bin/sh
-# install.sh — wire the mcp-install gate into one or more coding agents. All per-client logic lives
-# here so the same script can be run by a person, by the install-hooks skill, or by an admin/MDM job.
+# install.sh — wire the mcp-install gate (pre-tool consent), the mcp-config watch (post-tool detector) and
+# the aisec_consent ledger CLI into one or more coding agents. All per-client logic lives here so the same
+# script can be run by a person, by the install-hooks skill, or by an admin/MDM job.
 #
 # Usage: install.sh [--scope project|user|system] [--project DIR] [--dry-run|--check] <tool>... | all
 #   tools: claude-code  codex  cursor  copilot  gemini
@@ -11,9 +12,10 @@
 #                              an MDM package payload instead of writing to /). Codex's managed layer is
 #                              TOML, so for codex the script prints the requirements.toml block to add.
 #   --dry-run: print what would be written, write nothing.
-#   --check:   health check of an existing install — jq present, script present and executable, each client
-#              config references it, and the script declines a sample installer payload. Exit 1 on any failure.
+#   --check:   health check of an existing install — jq present, the three scripts present and executable, each
+#              client config references the gate, and the gate declines a sample installer payload. Exit 1 on any failure.
 # Idempotent: a config that already references mcp_install_gate.sh is left alone. Needs jq.
+SCRIPTS="mcp_install_gate.sh mcp_config_watch.sh aisec_consent.sh"
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -37,13 +39,14 @@ os=$(uname -s)
 DESTDIR=${DESTDIR:-}
 
 case "$scope" in
-  user)    script_dir="$HOME/.ai-security/hooks"; script_ref="$HOME/.ai-security/hooks/mcp_install_gate.sh" ;;
-  project) script_dir="$project/.ai-security/hooks"; script_ref=".ai-security/hooks/mcp_install_gate.sh" ;;
+  user)    script_dir="$HOME/.ai-security/hooks"; dir_ref="$HOME/.ai-security/hooks" ;;
+  project) script_dir="$project/.ai-security/hooks"; dir_ref=".ai-security/hooks" ;;
   system)
     case "$os" in Darwin|Linux) ;; *) echo "--scope system supports macOS and Linux only (Windows: see docs/playbooks)" >&2; exit 1 ;; esac
     [ "$(id -u)" -eq 0 ] || [ -n "$DESTDIR" ] || [ $dry -eq 1 ] || [ $check -eq 1 ] || { echo "--scope system needs root (or DESTDIR=<dir> to stage a package)" >&2; exit 1; }
-    script_dir="$DESTDIR/usr/local/lib/ai-security/hooks"; script_ref="/usr/local/lib/ai-security/hooks/mcp_install_gate.sh" ;;
+    script_dir="$DESTDIR/usr/local/lib/ai-security/hooks"; dir_ref="/usr/local/lib/ai-security/hooks" ;;
 esac
+script_ref="$dir_ref/mcp_install_gate.sh"
 
 # Client stanza template, rewritten for the chosen scope.
 stanza() { # stanza <tool>
@@ -54,8 +57,8 @@ stanza() { # stanza <tool>
     copilot)     f=clients/copilot.hooks.json ;;
     gemini)      f=clients/gemini.settings.json ;;
   esac
-  sed -e "s|\$GEMINI_PROJECT_DIR/.ai-security/hooks/mcp_install_gate.sh|$script_ref|g" \
-      -e "s|\"\.ai-security/hooks/mcp_install_gate.sh|\"$script_ref|g" "$HERE/$f"
+  if [ "$scope" = project ]; then cat "$HERE/$f"; else
+    sed -e "s|\$GEMINI_PROJECT_DIR/\.ai-security/hooks/|$dir_ref/|g" -e "s|\"\.ai-security/hooks/|\"$dir_ref/|g" "$HERE/$f"; fi
 }
 # Target config file per tool and scope. System paths are each vendor's machine-wide managed location.
 target() { # target <tool>
@@ -101,6 +104,15 @@ type = "command"
 command = "$script_ref"
 timeout = 10
 statusMessage = "mcp-install gate"
+
+[[hooks.PostToolUse]]
+matcher = "Bash|apply_patch|Edit|Write"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "$dir_ref/mcp_config_watch.sh"
+timeout = 10
+statusMessage = "mcp-config watch"
 # ---
 TOML
 }
@@ -122,15 +134,15 @@ notes() { # notes <tool>
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 if [ $check -eq 1 ]; then # health check: report, never write
   bad=0; say() { echo "$1"; case "$1" in FAIL*) bad=1 ;; esac; }
-  case "$script_ref" in /*) abs=$script_ref ;; *) abs="$project/$script_ref" ;; esac
-  [ -x "$abs" ] && say "ok    script present and executable: $abs" || say "FAIL  script missing or not executable: $abs"
+  case "$dir_ref" in /*) absdir=$dir_ref ;; *) absdir="$project/$dir_ref" ;; esac; abs="$absdir/mcp_install_gate.sh"
+  for sname in $SCRIPTS; do [ -x "$absdir/$sname" ] && say "ok    script present and executable: $absdir/$sname" || say "FAIL  script missing or not executable: $absdir/$sname"; done
   for t in $tools; do
     tgt=$(target "$t")
     if [ -z "$tgt" ]; then say "info  $t: system scope is TOML-managed — check /etc/codex/requirements.toml for [[hooks.PreToolUse]] with $script_ref"; continue; fi
     if [ -f "$tgt" ] && grep -q mcp_install_gate.sh "$tgt"; then say "ok    $t: $tgt references the gate"; else say "FAIL  $t: $tgt missing or does not reference the gate"; fi
   done
   if [ -x "$abs" ]; then
-    rc=0; printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | (cd "$project" && "$abs" >/dev/null 2>&1) || rc=$?
+    rc=0; printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | (cd "$project" && AISEC_CONSENT_DIR=$tmp/consent "$abs" >/dev/null 2>&1) || rc=$?
     [ $rc -eq 2 ] && say "ok    installer payload declined (exit 2)" || say "FAIL  installer payload not declined (exit $rc)"
     if printf '{"tool_input":{"command":"ls"}}' | (cd "$project" && "$abs" >/dev/null 2>&1); then say "ok    benign payload allowed"; else say "FAIL  benign payload not allowed"; fi
   fi
@@ -138,9 +150,9 @@ if [ $check -eq 1 ]; then # health check: report, never write
   exit $bad
 fi
 echo "mcp-install gate — scope: $scope, script: $script_ref"
-if [ $dry -eq 1 ]; then echo "[dry-run] would copy $HERE/mcp_install_gate.sh -> $script_dir/"; else
-  mkdir -p "$script_dir" && cp "$HERE/mcp_install_gate.sh" "$script_dir/" && chmod 755 "$script_dir/mcp_install_gate.sh"
-  echo "copied script -> $script_dir/mcp_install_gate.sh"
+if [ $dry -eq 1 ]; then echo "[dry-run] would copy $SCRIPTS -> $script_dir/"; else
+  mkdir -p "$script_dir" && for sname in $SCRIPTS; do cp "$HERE/$sname" "$script_dir/" && chmod 755 "$script_dir/$sname"; done
+  echo "copied $SCRIPTS -> $script_dir/"
 fi
 for t in $tools; do
   tgt=$(target "$t")
@@ -156,4 +168,5 @@ for t in $tools; do
   fi
   notes "$t"
 done
-echo "approve a vetted install for one session with AISEC_MCP_APPROVAL=<server name as it appears in the command>; verify any time with: sh install.sh --check --scope $scope $tools"
+echo "when the gate declines, approve that exact action yourself with: sh $dir_ref/aisec_consent.sh grant <id>   (the id is in the gate's message; sh $dir_ref/aisec_consent.sh list shows what is pending)"
+echo "verify any time with: sh install.sh --check --scope $scope $tools"

@@ -2,7 +2,10 @@
   "version": 1,
   "hooks": {
     "preToolUse": [
-      { "type": "command", "bash": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "bash|powershell|create|edit", "timeoutSec": 10 }
+      { "type": "command", "bash": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "bash|powershell|create|edit|str_replace_editor|apply_patch", "timeoutSec": 10 }
+    ],
+    "postToolUse": [
+      { "type": "command", "bash": ".ai-security/hooks/mcp_config_watch.sh", "matcher": "bash|powershell|create|edit|str_replace_editor|apply_patch", "timeoutSec": 10 }
     ]
   }
 }

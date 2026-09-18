@@ -14,7 +14,8 @@ What you are deploying:
 |---|---|---|
 | Plugins (`secure-sdlc`, `verify`, `verify-ai`) | Agent Plugins 1.0 packages: `plugin.json` + `skills/` | Installed by each client's plugin mechanism from a marketplace URL you control |
 | mcp-install gate | The first business-logic hook: one POSIX script, [`mcp_install_gate.sh`](../../plugins/secure-sdlc/hooks/mcp_install_gate.sh), that asks the user for consent before an agent installs an MCP server, plus a per-client hook stanza. Built on the reusable pattern in `plugins/secure-sdlc/hooks/` (normalize → rule → client-native respond), so the same rollout carries future rules | Script at a fixed absolute path on the endpoint; stanza in the client's machine-wide hook config |
-| Approval path | `AISEC_MCP_APPROVAL=<server name as it appears in the command>` in the agent's environment lets that one vetted install through (a trusted-operator session bypass, ignored in `block` mode; not a verified approval record) | Pair with each client's MCP allowlist (§4) so only approved servers are installable at all — the allowlist is the trust boundary, the variable is a desk-side convenience |
+| Consent ledger | `aisec_consent.sh` (same directory): the user grants a declined action's consent id in their own terminal; the gate allows that exact command, or that file with that content, for 15 minutes and logs `approved`. The agent cannot run it (gated, and it refuses without a terminal) | Pair with each client's MCP allowlist (§4) so only approved servers are installable at all — the allowlist is the trust boundary, the ledger is the consent record |
+| Post-write watch | `mcp_config_watch.sh` (same directory): after every tool call, logs any MCP config that changed without a grant and tells the agent to stop — covers scripts, plugins and UI paths the gate cannot see | Ship in the same package; read `AISEC_HOOK_LOG` for `unapproved` lines |
 
 Prerequisites on endpoints: `jq`, a POSIX shell (macOS/Linux; Windows needs Git Bash or WSL for the gate —
 see §6), and network reach to your internal mirror of this repo.
@@ -405,8 +406,8 @@ to Gemini by this repo.
 
 ## 4. Pair the gate with MCP allowlists
 
-The gate stops an *agent* from adding a server; the approval variable is a human decision at the desk,
-bound to the server it names and nothing else.
+The gate stops an *agent* from adding a server; a consent grant is a human decision at the desk, bound to
+the exact command or file content it names and nothing else.
 On managed fleets add the organization-level equivalent so the only servers that can ever load are the
 ones you vetted (verify-ai `scan-mcp` is the vetting step):
 
@@ -422,8 +423,9 @@ ones you vetted (verify-ai `scan-mcp` is the vetting step):
 
 On the pilot machine, for each client: (1) the agent's attempt to run `<client> mcp add …` is blocked
 and nothing is written; (2) a direct write of `.mcp.json` is blocked; (3) unrelated shell and file work
-passes; (4) the same write passes with `AISEC_MCP_APPROVAL=<that server's name>` set, and a different
-server still prompts; (5) with `jq` removed from `PATH` the call is declined, not allowed. The payload-level suites
+passes; (4) the same write passes after `aisec_consent.sh grant <id>` in the user's terminal, and a
+different server still prompts; (5) with `jq` removed from `PATH` the call is declined, not allowed;
+(6) a config changed by a script the gate cannot see is reported by the watcher on the next tool call. The payload-level suites
 (`test_mcp_install_gate.sh`, `test_install.sh` in `plugins/secure-sdlc/hooks/`) run anywhere in seconds and
 are the regression check to wire into the pipeline that rebuilds the payload.
 
@@ -435,8 +437,8 @@ whenever a client major version ships — hook schemas have changed roughly quar
 
 Give every pilot user this list. Each case is a prompt to type to the agent. "Consent" means a native
 permission prompt carrying the gate's reason (Claude Code, Copilot CLI and VS Code, Cursor shell) or, in
-Codex, Gemini and Cursor file edits, the agent reporting that the call was declined pending the user's
-approval — and nothing written until the user approves. `AISEC_MCP_GATE_MODE=block` makes every case a
+Codex and Cursor file edits, the agent reporting that the call was declined with a consent id and
+stopping — and nothing written until the user grants it. `AISEC_MCP_GATE_MODE=block` makes every case a
 plain decline. Run the **allow** cases too — a gate that interrupts normal work will be switched off.
 
 ### 6.1 The mcp-install gate — scenarios

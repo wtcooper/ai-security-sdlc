@@ -2,10 +2,16 @@
   "version": 1,
   "hooks": {
     "beforeShellExecution": [
-      { "command": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "mcp|config\\.toml|settings\\.json|\\.claude\\.json", "failClosed": true, "timeout": 10 }
+      { "command": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "mcp|import|config\\.toml|settings\\.json|\\.claude\\.json|claude_desktop|code-workspace|devcontainer|plugin\\.json|cursor://|vscode:|python|node|perl|ruby|deno|bun", "failClosed": true, "timeout": 10 }
     ],
     "preToolUse": [
       { "command": ".ai-security/hooks/mcp_install_gate.sh", "matcher": "Write", "failClosed": true, "timeout": 10 }
+    ],
+    "afterShellExecution": [
+      { "command": ".ai-security/hooks/mcp_config_watch.sh", "timeout": 10 }
+    ],
+    "afterFileEdit": [
+      { "command": ".ai-security/hooks/mcp_config_watch.sh", "timeout": 10 }
     ]
   }
 }

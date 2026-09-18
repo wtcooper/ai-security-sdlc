@@ -14,12 +14,12 @@ installed client versions after the health check).
 
 | Client | Version validated | How validated | Date | Evidence |
 |---|---|---|---|---|
-| Claude Code | 2.1.258 | payload suite + live headless run of the plugin-loaded gate (`--plugin-dir`), settings-file install, `ask` → deny in `-p` | 2026-09-16 | `plugins/secure-sdlc/hooks/README.md` §Verification; `docs/playbooks/mcp-install-gate.md` §3 observed results |
-| Codex CLI | 0.153.2 | payload suite + live `codex exec` with `.codex/hooks.json` (decline and approval); plugin-bundled hooks confirmed **not** loaded from the spec manifest | 2026-09-16 | same |
-| Cursor agent CLI | 2026.09.02 | payload suite only (not logged in on the test machine) | 2026-09-16 | same |
-| GitHub Copilot CLI | 1.0.82 | payload suite + `copilot plugin install` from a local marketplace; hook firing not observed (org policy blocked chat) | 2026-09-16 | same |
-| Copilot in VS Code | payload shape from the VS Code hooks reference | payload suite only | 2026-09-16 | same |
-| Gemini CLI | 0.60.0 | payload suite only (account tier not served) | 2026-09-16 | same |
+| Claude Code | 2.1.258 | payload suite + recorded corpus + `live-tests/run_claude.sh`: Agent SDK `can_use_tool` allow/deny round-trip (hook fires once, not re-run after approval), `-p` ask → deny with consent id, grant + `--continue` approved, `bypassPermissions` still gated | 2026-09-17 | `plugins/secure-sdlc/hooks/README.md` §Verification; `docs/audits/mcp-gate-audit-2026-09-17.md` |
+| Codex CLI | 0.153.2 | payload suite + recorded corpus + `live-tests/run_codex.sh`: one deny with consent id and the agent stops, grant + `codex exec resume` approved with hooks active; hook `ask` confirmed rejected (fail-open) from source, so the gate only ever denies; plugin-bundled hooks confirmed **not** loaded from the spec manifest | 2026-09-17 | same |
+| Cursor agent CLI | 2026.09.02 | payload suite only (not logged in on the test machine); `agent mcp add` confirmed absent from `--help`; `preToolUse` `ask` documented as not enforced | 2026-09-17 | same |
+| GitHub Copilot CLI | 1.0.82 | payload suite + `copilot plugin install` from a local marketplace; hook firing not observed (org policy blocked chat); timeout fail-open and repo `disableAllHooks` from the hooks reference | 2026-09-17 | same |
+| Copilot in VS Code | payload shape from the VS Code hooks reference | payload suite only | 2026-09-17 | same |
+| Gemini CLI | 0.60.0 | payload suite only (account tier not served); hook `decision: ask` confirmed implemented from source (`scheduler.ts`), undocumented | 2026-09-17 | same |
 
 ## Tools the skills orchestrate
 

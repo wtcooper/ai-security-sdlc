@@ -1,0 +1,7 @@
+claude-mcp-add-user.json	ASK	claude mcp add --scope user, Claude Code 2.1.258
+claude-heredoc-first.json	ASK	cat <<'EOF' > .mcp.json, Claude Code 2.1.258
+claude-write-installer-script.json	ALLOW	Write of a Node installer script to a scratch path: the run command names no config; documented blind spot covered by mcp_config_watch.sh
+codex-heredoc-after.json	DENY	cat > .mcp.json <<'EOF' then jq, Codex 0.153.2
+codex-apply-patch-config-toml.json	DENY	apply_patch adding [mcp_servers.context7] to ~/.codex/config.toml, Codex 0.153.2
+codex-apply-patch-mcp-json.json	DENY	apply_patch Add File .mcp.json (absolute path), Codex 0.153.2
+claude-python-readonly-inspect.json	ALLOW	python3 -c that only json.load()s ~/.claude.json: read-only inspection must not prompt

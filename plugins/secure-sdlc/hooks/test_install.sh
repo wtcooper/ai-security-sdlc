@@ -13,21 +13,24 @@ echo '{"theme":"dark","hooks":{"BeforeTool":[{"matcher":"x","hooks":[]}]}}' > $P
 [ ! -e $P/.ai-security ] && [ ! -e $P/.codex ] && ok || bad "dry-run wrote files"
 # --- project scope, all tools
 ./install.sh --project $P all >/dev/null 2>&1 || bad "install exit"
-[ -x $P/.ai-security/hooks/mcp_install_gate.sh ] && ok || bad "script not copied"
+for sname in mcp_install_gate.sh mcp_config_watch.sh aisec_consent.sh; do [ -x $P/.ai-security/hooks/$sname ] && ok || bad "$sname not copied"; done
 for f in .claude/settings.json .codex/hooks.json .cursor/hooks.json .github/hooks/ai-security.json .gemini/settings.json; do
   jq -e . $P/$f >/dev/null 2>&1 && grep -q '\.ai-security/hooks/mcp_install_gate.sh' $P/$f && ok || bad "$f missing/invalid/no gate"
 done
 jq -e '.permissions.allow[0]=="Bash(ls)"' $P/.claude/settings.json >/dev/null && ok || bad "claude settings not preserved"
 jq -e '.theme=="dark" and (.hooks.BeforeTool|length)==2' $P/.gemini/settings.json >/dev/null && ok || bad "gemini settings not merged"
-jq -e '.hooks.PreToolUse[0].matcher=="Bash|apply_patch|Edit|Write"' $P/.codex/hooks.json >/dev/null && ok || bad "codex stanza"
-jq -e '.version==1 and (.hooks.beforeShellExecution|length)==1 and (.hooks.preToolUse|length)==1' $P/.cursor/hooks.json >/dev/null && ok || bad "cursor stanza"
-jq -e '.hooks.preToolUse[0].bash==".ai-security/hooks/mcp_install_gate.sh"' $P/.github/hooks/ai-security.json >/dev/null && ok || bad "copilot stanza"
+jq -e '.hooks.PreToolUse[0].matcher=="Bash|apply_patch|Edit|Write" and (.hooks.PostToolUse[0].hooks[0].command|endswith("mcp_config_watch.sh"))' $P/.codex/hooks.json >/dev/null && ok || bad "codex stanza"
+jq -e '.hooks.PreToolUse[0].matcher=="Bash|Edit|Write|MultiEdit|NotebookEdit" and (.hooks.PostToolUse[0].hooks[0].command|endswith("mcp_config_watch.sh"))' $P/.claude/settings.json >/dev/null && ok || bad "claude stanza"
+jq -e '.version==1 and (.hooks.beforeShellExecution|length)==1 and (.hooks.preToolUse|length)==1 and (.hooks.afterFileEdit|length)==1' $P/.cursor/hooks.json >/dev/null && ok || bad "cursor stanza"
+jq -e '.hooks.preToolUse[0].bash==".ai-security/hooks/mcp_install_gate.sh" and (.hooks.postToolUse[0].bash|endswith("mcp_config_watch.sh"))' $P/.github/hooks/ai-security.json >/dev/null && ok || bad "copilot stanza"
+jq -e '(.hooks.AfterTool|length)==1' $P/.gemini/settings.json >/dev/null && ok || bad "gemini AfterTool stanza"
 # --- idempotent
 before=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json $P/.github/hooks/ai-security.json $P/.gemini/settings.json | cksum)
 ./install.sh --project $P all >/dev/null 2>&1; after=$(cat $P/.claude/settings.json $P/.codex/hooks.json $P/.cursor/hooks.json $P/.github/hooks/ai-security.json $P/.gemini/settings.json | cksum)
 [ "$before" = "$after" ] && ok || bad "second install changed files"
 # --- installed script works from the project root, as a client would run it
-(cd $P && printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | .ai-security/hooks/mcp_install_gate.sh >/dev/null 2>&1); [ $? -eq 2 ] && ok || bad "installed gate did not block"
+(cd $P && printf '{"tool_input":{"command":"claude mcp add x -- npx x"}}' | AISEC_CONSENT_DIR=$T/consent .ai-security/hooks/mcp_install_gate.sh >/dev/null 2>&1); [ $? -eq 2 ] && ok || bad "installed gate did not block"
+[ -n "$(ls $T/consent/pending 2>/dev/null)" ] && ok || bad "installed gate did not record a pending consent"
 # --- health check: passes on the installed project, fails on an empty one, never writes
 ./install.sh --check --project $P all >/dev/null 2>&1 && ok || bad "check should pass after install"
 E=$T/empty; mkdir -p $E; ./install.sh --check --project $E all >/dev/null 2>&1 && bad "check should fail on empty project" || ok
@@ -37,13 +40,15 @@ H=$T/home; mkdir -p $H; HOME=$H ./install.sh --scope user codex gemini copilot >
 [ -x $H/.ai-security/hooks/mcp_install_gate.sh ] && ok || bad "user script not copied"
 jq -e --arg p "$H/.ai-security/hooks/mcp_install_gate.sh" '.hooks.PreToolUse[0].hooks[0].command==$p' $H/.codex/hooks.json >/dev/null && ok || bad "user codex path not absolute"
 jq -e --arg p "$H/.ai-security/hooks/mcp_install_gate.sh" '.hooks.BeforeTool[0].hooks[0].command==$p' $H/.gemini/settings.json >/dev/null && ok || bad "user gemini path not absolute"
+jq -e --arg p "$H/.ai-security/hooks/mcp_config_watch.sh" '.hooks.AfterTool[0].hooks[0].command==$p' $H/.gemini/settings.json >/dev/null && ok || bad "user gemini watch path not absolute"
+[ -x $H/.ai-security/hooks/aisec_consent.sh ] && ok || bad "user consent cli not copied"
 [ -f $H/.copilot/hooks/ai-security.json ] && ok || bad "user copilot file"
 # --- system scope staged with DESTDIR (no root needed), absolute paths, codex prints TOML
 D=$T/pkg; mkdir -p $D; out=$(DESTDIR=$D ./install.sh --scope system all 2>&1) || bad "system-scope exit"
 [ -x $D/usr/local/lib/ai-security/hooks/mcp_install_gate.sh ] && ok || bad "system script not staged"
 if [ "$(uname -s)" = Darwin ]; then cc="$D/Library/Application Support/ClaudeCode/managed-settings.d/ai-security-mcp-gate.json"; cu="$D/Library/Application Support/Cursor/hooks.json"; ge="$D/Library/Application Support/GeminiCli/settings.json"; else cc=$D/etc/claude-code/managed-settings.d/ai-security-mcp-gate.json; cu=$D/etc/cursor/hooks.json; ge=$D/etc/gemini-cli/settings.json; fi
 for f in "$cc" "$cu" "$ge" $D/etc/github-copilot/policy.d/ai-security-mcp-gate.json; do jq -e . "$f" >/dev/null 2>&1 && grep -q '"/usr/local/lib/ai-security/hooks/mcp_install_gate.sh' "$f" && ok || bad "system file $f"; done
-echo "$out" | grep -q 'requirements.toml' && echo "$out" | grep -q 'managed_dir = "/usr/local/lib/ai-security/hooks"' && ok || bad "codex system TOML not printed"
+echo "$out" | grep -q 'requirements.toml' && echo "$out" | grep -q 'managed_dir = "/usr/local/lib/ai-security/hooks"' && echo "$out" | grep -q 'hooks.PostToolUse' && ok || bad "codex system TOML not printed"
 [ ! -e $D/etc/codex ] && ok || bad "codex system wrote a file"
 [ "$(uname -s)" = Darwin ] && perm=$(stat -f %Lp "$cu") || perm=$(stat -c %a "$cu"); [ "$perm" = 644 ] && ok || bad "system file mode $perm"
 # --- bad input

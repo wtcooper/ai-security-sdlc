@@ -80,7 +80,9 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   live vendor docs; starter templates are skeletons (compose + LangGraph/MCP stubs), not apps;
   hook templates are inert scripts installed only with explicit approval; the one built-in hook,
   the `hooks/` mcp-install gate, is narrow (MCP installs only), fails closed when it cannot evaluate a
-  call, and has an action-bound session bypass (`AISEC_MCP_APPROVAL=<server name>`) for headless use.
+  call, and records every ask or decline in a consent ledger the user grants from their own terminal
+  (`aisec_consent.sh grant <id>`, bound to that exact command or file content); a post-tool watcher
+  reports MCP config changes the gate could not see.
 - **CodeGuard** (CoSAI/OASIS) is already progressive-disclosure (small always-on SKILL.md, rules
   read JIT) and multi-client. We scope it to a feature and turn it into a build-plan artifact.
 - **Promptfoo** covers both benign evals and adaptive red teaming, targets arbitrary HTTP apps with
