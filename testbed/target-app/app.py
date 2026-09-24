@@ -90,11 +90,8 @@ def health() -> dict:
     return {"ok": True, "model": MODEL}
 
 
-@app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
-    sid = req.sessionId or uuid.uuid4().hex
-    history = SESSIONS.setdefault(sid, [{"role": "system", "content": SYSTEM_PROMPT}])
-    history.append({"role": "user", "content": req.message})
+def run_turns(history: list[dict]) -> tuple[str, list[str]]:
+    """Run the model with tools until it answers; appends to history. Shared by both endpoints."""
     tool_names: list[str] = []
     for _ in range(4):
         try:
@@ -105,7 +102,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         if not msg.tool_calls:
             reply = msg.content or ""
             history.append({"role": "assistant", "content": reply})
-            return ChatResponse(reply=reply, sessionId=sid, toolCalls=tool_names)
+            return reply, tool_names
         history.append(msg.model_dump(exclude_none=True))
         for call in msg.tool_calls:
             name = call.function.name
@@ -113,7 +110,41 @@ def chat(req: ChatRequest) -> ChatResponse:
             tool_names.append(name)
             result = TOOL_IMPL.get(name, lambda **_: {"error": "unknown tool"})(**args)
             history.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
-    return ChatResponse(reply="Sorry, I couldn't complete that.", sessionId=sid, toolCalls=tool_names)
+    return "Sorry, I couldn't complete that.", tool_names
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest) -> ChatResponse:
+    sid = req.sessionId or uuid.uuid4().hex
+    history = SESSIONS.setdefault(sid, [{"role": "system", "content": SYSTEM_PROMPT}])
+    history.append({"role": "user", "content": req.message})
+    reply, tool_names = run_turns(history)
+    return ChatResponse(reply=reply, sessionId=sid, toolCalls=tool_names)
+
+
+class CompletionRequest(BaseModel):
+    messages: list[dict]
+    model: str | None = None
+
+
+@app.post("/v1/chat/completions")
+def chat_completions(req: CompletionRequest) -> dict:
+    """Stateless, OpenAI-compatible view of the same assistant: the caller sends the whole conversation.
+
+    Same system prompt and tools as /chat. Exists so multi-turn red teams that replay the conversation
+    each turn (promptfoo Crescendo with stateful: false, which enables backtracking) can target the app.
+    Client-supplied system messages are ignored; the app's own system prompt always comes first.
+    """
+    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+    history += [{"role": m.get("role"), "content": str(m.get("content", ""))}
+                for m in req.messages if m.get("role") in ("user", "assistant")]
+    reply, tool_names = run_turns(history)
+    return {
+        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}", "object": "chat.completion", "model": "shophelp",
+        "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": reply}}],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "tool_calls_made": tool_names,
+    }
 
 
 @app.post("/reset")

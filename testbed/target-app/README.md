@@ -9,6 +9,11 @@ curl -s localhost:8010/health
 curl -s -X POST localhost:8010/chat -H 'content-type: application/json' \
   -d '{"message":"Where is order 1001?"}'
 # -> {"reply": "...", "sessionId": "...", "toolCalls": ["lookup_order"]}
+
+# Stateless, OpenAI-compatible view of the same assistant (same system prompt and tools); the caller
+# sends the whole conversation. Used by multi-turn red teams that need backtracking (Crescendo, stateful: false).
+curl -s -X POST localhost:8010/v1/chat/completions -H 'content-type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Where is order 1001?"}]}'
 ```
 OpenAPI: http://localhost:8010/openapi.json (usable as a Strix / promptfoo target).
 Never deploy this app.

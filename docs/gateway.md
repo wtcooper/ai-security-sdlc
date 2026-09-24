@@ -32,7 +32,8 @@ server, or a provider directly.
   Ollama), `nomic-embed-text` (embeddings), and `mock-target-*` / `mock-judge` (zero-key wiring
   proof). Real upstreams are commented, opt-in via keys in `testbed/.env`.
 - **target-app** — a small FastAPI "ShopHelp" assistant (`127.0.0.1:8010`) with a stateful
-  `/chat`, two tools and a deliberately leaky system prompt, so the red team / pentest / SAST skills
+  `/chat`, a stateless OpenAI-compatible `/v1/chat/completions` (same prompt and tools; for multi-turn red
+  teams that need backtracking), two tools and a deliberately leaky system prompt, so the red team / pentest / SAST skills
   have something real (and imperfect) to test. Never deploy it.
 
 ```bash
@@ -40,11 +41,16 @@ cd testbed && cp env.example .env && docker compose up --build
 docker compose --profile local-models up   # run Ollama in-cluster instead of on the host
 ```
 
-### Alias rule & the qwen3.5 note
+### Alias rule & local-model notes
 - No `/` or `:` in a LiteLLM `model_name` alias (`qwen3.5` → `qwen35`).
-- `qwen3.5` is a thinking model and returns **empty content** under `response_format=json_object`
-  unless thinking is disabled. The gateway routes it via `ollama_chat/qwen3.5` with `think: false`
-  so it works as a JSON grader. `gemma4` also works as a grader out of the box.
+- Every Ollama chat route uses `ollama_chat/` (Ollama's native tool calling). Through `ollama/`, LiteLLM
+  emulates tools with a JSON prompt and gemma4 invents tool names, so ShopHelp answered `{}` (fixed 2026-09-23).
+- `gemma4` and `qwen3.5` are thinking models. Routes set `reasoning_effort: none`; LiteLLM 1.95 does not
+  forward a route-level `think: false`. Thinking left on leaks "Thinking:" text into promptfoo's attacker and
+  grader JSON (promptfoo also needs `showThinking: false`, set in the red-team template) and makes calls slow.
+- Throughput: Ollama's default `OLLAMA_NUM_PARALLEL=1` serializes every request. A multi-turn red team
+  (attacker + judge + the app's own tool calls) then waits 30–60 s per call even though each call computes
+  in 2–8 s. Raise it (`launchctl setenv OLLAMA_NUM_PARALLEL 4`, restart Ollama) for faster runs.
 
 ## Ports
 `4010` avoids LiteLLM's conventional `4000` and the ai-security-governance gateway on `4001`.

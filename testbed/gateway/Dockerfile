@@ -12,7 +12,7 @@ WORKDIR /gateway
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY litellm_config.yaml mock_handlers.py ./
+COPY litellm_config.yaml mock_handlers.py ollama_hooks.py ./
 
 # No default for AISEC_GATEWAY_API_KEY. Baking one into the image gives every copy of it the same
 # known bearer token, and compose publishes this service on all interfaces — so a shipped

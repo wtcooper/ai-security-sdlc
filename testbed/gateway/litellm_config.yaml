@@ -24,27 +24,36 @@ model_list:
 
   # ---- Local Ollama models (free) --------------------------------------------
   # `ollama pull gemma4 qwen3.5` on the host. OLLAMA_API_BASE defaults to the host.
+  # gemma4 and qwen3.5 are thinking models. ollama_hooks.no_think turns thinking off per request: left on,
+  # a judge spends max_tokens reasoning and returns empty content, which promptfoo scores as a FAILED test.
+  # Routes use ollama_chat (Ollama's native tool calling); through ollama/ gemma4 invents tool names and the
+  # target app answers "{}".
   - model_name: gemma4
     litellm_params:
-      model: ollama/gemma4
+      model: ollama_chat/gemma4
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 600
+      num_ctx: 16384
+  # Same model with thinking ON (not in ollama_hooks.THINKING_ALIASES). For the red-team ATTACKER: it plans
+  # better multi-turn attacks with thinking. Give it max_tokens >= 4096 so reasoning cannot eat the answer.
+  - model_name: gemma4-reasoning
+    litellm_params:
+      model: ollama_chat/gemma4
       api_base: os.environ/OLLAMA_API_BASE
       timeout: 600
       num_ctx: 16384
   - model_name: gemma4-e2b
     litellm_params:
-      model: ollama/gemma4:e2b
+      model: ollama_chat/gemma4:e2b
       api_base: os.environ/OLLAMA_API_BASE
       timeout: 600
       num_ctx: 16384
-  # qwen3.5 is a thinking model: with response_format=json_object it returns empty content
-  # unless thinking is off. Graders (promptfoo llm-rubric) need JSON, so disable it here.
   - model_name: qwen35
     litellm_params:
       model: ollama_chat/qwen3.5
       api_base: os.environ/OLLAMA_API_BASE
       timeout: 600
       num_ctx: 16384
-      think: false
   # Embeddings for promptfoo `similar` assertions. `ollama pull nomic-embed-text`.
   - model_name: nomic-embed-text
     litellm_params:
@@ -62,6 +71,7 @@ model_list:
   #     api_key: os.environ/OPENAI_API_KEY
 
 litellm_settings:
+  callbacks: ollama_hooks.no_think
   custom_provider_map:
     - provider: mock-target
       custom_handler: mock_handlers.mock_target_llm
