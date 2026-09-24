@@ -40,6 +40,8 @@ jobs:
         run: sh tests/hooks/test_install.sh | tee results-install.txt
       - name: Skills installer suite
         run: sh scripts/test_install_skills.sh | tee results-install-skills.txt
+      - name: verify-ai-adversarial script suite
+        run: bash tests/adversarial/test_scripts.sh | tee results-adversarial.txt
       - name: Python helper tests
         run: uv run python scripts/test_helpers.py 2>&1 | tee results-helpers.txt
       - name: Security standards regressions

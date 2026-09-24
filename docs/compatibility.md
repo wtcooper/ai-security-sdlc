@@ -26,6 +26,7 @@ installed client versions after the health check).
 | Tool | Version pinned or validated | Where |
 |---|---|---|
 | Promptfoo | `promptfoo@0.123.0` (pinned in every `npx` invocation and in `plugins/verify-ai/mcp.json`) | eval-baseline, eval-security, redteam-app |
+| Promptfoo (offline red team) | `promptfoo@0.123.1` — Crescendo depth/backtracking, attacker and judge routing, `{{env}}` rendering and offline egress verified 2026-09-23 with `plugins/verify-ai-adversarial/scripts/smoke/smoke-test.sh` (all 60 goals); vendored promptfoo skills pinned in `UPSTREAM.lock`; rerun the smoke test on every upgrade | verify-ai-adversarial |
 | semgrep / Trivy / osv-scanner / zizmor / CodeQL CLI | 1.174 / 0.74 / 2.5.1 / 1.29 / 2.26.3 (commands verified Aug 2026) | `plugins/verify/skills/scan-code/references/scanners.md` |
 | CodeQL Action | `github/codeql-action@v4` | `.github/workflows/codeql.yml` |
 | Project CodeGuard | `CODEGUARD_REF v1.4.0` | `security-planner/scripts/find-codeguard.sh`, standards seed `security/codeguard.md` |

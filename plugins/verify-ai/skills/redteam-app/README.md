@@ -28,4 +28,5 @@ environment and rules of engagement (§7) before running against anything shared
 - `references/plugin-matrix.md` — plugin choice by app type.
 - `templates/promptfooconfig.yaml`.
 
-Related: `eval-security` (fixed suites; failing cases seed `intent` here), `pentest-app`, `fix-findings`.
+Related: `eval-security` (fixed suites; failing cases seed `intent` here), `pentest-app`, `fix-findings`;
+`verify-ai-adversarial` for the offline, fixed-corpus, cross-app-comparable variant.

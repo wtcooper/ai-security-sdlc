@@ -1,0 +1,460 @@
+{
+  "corpusId": "aisec-core",
+  "version": 2,
+  "description": "verify-ai-adversarial approved core corpus v2 — 60 promptfoo-generated Crescendo goals, tiers 20/20/20",
+  "promptfooVersion": "0.123.1",
+  "generatedOn": "2026-09-23",
+  "source": "generated.raw.yaml",
+  "method": "Pool: promptfoo redteam generate --remote with strategy crescendo only (gen.yaml), 178 tests, every goal written by promptfoo's goal extraction. Excluded plugins: rag-poisoning (promptfoo 0.123.1 has no local grader for it: 'Unknown grader: promptfoo:redteam:rag-poisoning', found by the full-corpus smoke run), cross-session-leak (store-then-extract pairs needing ordered, separate sessions; not meaningful under stateless Crescendo) and agentic:memory-poisoning (promptfoo does not apply Crescendo to it; its 9 basic tests were dropped with basic disabled). Tier plan: per-plugin counts below; tier 1 uses promptfoo severity-high plugins plus one prompt-extraction goal (medium in promptfoo, kept in tier 1 because hidden-context exposure applies to nearly every app). Within a plugin, goals are ranked by concreteness (references to the purpose's tools, data, roles and systems) then by dissimilarity to goals already chosen, and dealt out tier 1 first. The security team reviews the goals in the file (never pasted into chat or tickets) before approving a version.",
+  "tierPlan": {
+    "1": {
+      "indirect-prompt-injection": 3,
+      "hijacking": 1,
+      "pii:api-db": 2,
+      "pii:session": 1,
+      "bola": 2,
+      "bfla": 2,
+      "rbac": 1,
+      "shell-injection": 2,
+      "sql-injection": 2,
+      "ssrf": 1,
+      "prompt-extraction": 1,
+      "debug-access": 1,
+      "mcp": 1
+    },
+    "2": {
+      "indirect-prompt-injection": 3,
+      "hijacking": 1,
+      "pii:direct": 2,
+      "pii:session": 1,
+      "rbac": 2,
+      "mcp": 2,
+      "ssrf": 1,
+      "rag-document-exfiltration": 3,
+      "harmful:cybercrime:malicious-code": 2,
+      "excessive-agency": 1,
+      "debug-access": 1,
+      "prompt-extraction": 1
+    },
+    "3": {
+      "excessive-agency": 3,
+      "tool-discovery": 2,
+      "imitation": 2,
+      "overreliance": 2,
+      "rag-document-exfiltration": 1,
+      "harmful:cybercrime:malicious-code": 1,
+      "hijacking": 1,
+      "pii:direct": 1,
+      "bola": 1,
+      "bfla": 1,
+      "sql-injection": 1,
+      "shell-injection": 1,
+      "prompt-extraction": 1,
+      "mcp": 1,
+      "indirect-prompt-injection": 1
+    }
+  },
+  "frameworks": {
+    "indirect-prompt-injection": [
+      "LLM01",
+      "ASI01",
+      "ASI04",
+      "ASI07",
+      "MCP03",
+      "MCP06"
+    ],
+    "hijacking": [
+      "LLM01",
+      "ASI01",
+      "MCP06"
+    ],
+    "pii:direct": [
+      "LLM02",
+      "MCP10"
+    ],
+    "pii:session": [
+      "LLM02",
+      "MCP10"
+    ],
+    "pii:api-db": [
+      "LLM02",
+      "MCP01",
+      "MCP10"
+    ],
+    "debug-access": [
+      "LLM02",
+      "LLM08",
+      "MCP01"
+    ],
+    "bola": [
+      "LLM03",
+      "ASI03",
+      "MCP07"
+    ],
+    "bfla": [
+      "LLM03",
+      "ASI03",
+      "MCP02",
+      "MCP07"
+    ],
+    "rbac": [
+      "LLM03",
+      "ASI03",
+      "MCP02",
+      "MCP07"
+    ],
+    "excessive-agency": [
+      "LLM03",
+      "ASI02",
+      "ASI10"
+    ],
+    "overreliance": [
+      "LLM07",
+      "ASI09"
+    ],
+    "prompt-extraction": [
+      "LLM08"
+    ],
+    "rag-document-exfiltration": [
+      "LLM08",
+      "LLM09",
+      "MCP10"
+    ],
+    "tool-discovery": [
+      "LLM08",
+      "ASI02"
+    ],
+    "shell-injection": [
+      "LLM10",
+      "ASI05",
+      "MCP05"
+    ],
+    "sql-injection": [
+      "LLM10",
+      "ASI05",
+      "MCP05"
+    ],
+    "ssrf": [
+      "LLM10",
+      "ASI05",
+      "MCP05"
+    ],
+    "harmful:cybercrime:malicious-code": [
+      "LLM10",
+      "ASI05"
+    ],
+    "mcp": [
+      "ASI02",
+      "ASI04",
+      "MCP02",
+      "MCP03"
+    ],
+    "imitation": [
+      "ASI03",
+      "ASI07",
+      "ASI09"
+    ]
+  },
+  "select": [
+    {
+      "index": 73,
+      "tier": 1,
+      "pluginId": "indirect-prompt-injection"
+    },
+    {
+      "index": 75,
+      "tier": 1,
+      "pluginId": "indirect-prompt-injection"
+    },
+    {
+      "index": 77,
+      "tier": 1,
+      "pluginId": "indirect-prompt-injection"
+    },
+    {
+      "index": 40,
+      "tier": 1,
+      "pluginId": "hijacking"
+    },
+    {
+      "index": 97,
+      "tier": 1,
+      "pluginId": "pii:api-db"
+    },
+    {
+      "index": 99,
+      "tier": 1,
+      "pluginId": "pii:api-db"
+    },
+    {
+      "index": 129,
+      "tier": 1,
+      "pluginId": "pii:session"
+    },
+    {
+      "index": 9,
+      "tier": 1,
+      "pluginId": "bola"
+    },
+    {
+      "index": 14,
+      "tier": 1,
+      "pluginId": "bola"
+    },
+    {
+      "index": 7,
+      "tier": 1,
+      "pluginId": "bfla"
+    },
+    {
+      "index": 4,
+      "tier": 1,
+      "pluginId": "bfla"
+    },
+    {
+      "index": 140,
+      "tier": 1,
+      "pluginId": "rbac"
+    },
+    {
+      "index": 157,
+      "tier": 1,
+      "pluginId": "shell-injection"
+    },
+    {
+      "index": 161,
+      "tier": 1,
+      "pluginId": "shell-injection"
+    },
+    {
+      "index": 146,
+      "tier": 1,
+      "pluginId": "sql-injection"
+    },
+    {
+      "index": 148,
+      "tier": 1,
+      "pluginId": "sql-injection"
+    },
+    {
+      "index": 170,
+      "tier": 1,
+      "pluginId": "ssrf"
+    },
+    {
+      "index": 103,
+      "tier": 1,
+      "pluginId": "prompt-extraction"
+    },
+    {
+      "index": 34,
+      "tier": 1,
+      "pluginId": "debug-access"
+    },
+    {
+      "index": 87,
+      "tier": 1,
+      "pluginId": "mcp"
+    },
+    {
+      "index": 74,
+      "tier": 2,
+      "pluginId": "indirect-prompt-injection"
+    },
+    {
+      "index": 78,
+      "tier": 2,
+      "pluginId": "indirect-prompt-injection"
+    },
+    {
+      "index": 76,
+      "tier": 2,
+      "pluginId": "indirect-prompt-injection"
+    },
+    {
+      "index": 45,
+      "tier": 2,
+      "pluginId": "hijacking"
+    },
+    {
+      "index": 116,
+      "tier": 2,
+      "pluginId": "pii:direct"
+    },
+    {
+      "index": 117,
+      "tier": 2,
+      "pluginId": "pii:direct"
+    },
+    {
+      "index": 128,
+      "tier": 2,
+      "pluginId": "pii:session"
+    },
+    {
+      "index": 139,
+      "tier": 2,
+      "pluginId": "rbac"
+    },
+    {
+      "index": 138,
+      "tier": 2,
+      "pluginId": "rbac"
+    },
+    {
+      "index": 89,
+      "tier": 2,
+      "pluginId": "mcp"
+    },
+    {
+      "index": 88,
+      "tier": 2,
+      "pluginId": "mcp"
+    },
+    {
+      "index": 171,
+      "tier": 2,
+      "pluginId": "ssrf"
+    },
+    {
+      "index": 131,
+      "tier": 2,
+      "pluginId": "rag-document-exfiltration"
+    },
+    {
+      "index": 132,
+      "tier": 2,
+      "pluginId": "rag-document-exfiltration"
+    },
+    {
+      "index": 136,
+      "tier": 2,
+      "pluginId": "rag-document-exfiltration"
+    },
+    {
+      "index": 81,
+      "tier": 2,
+      "pluginId": "harmful:cybercrime:malicious-code"
+    },
+    {
+      "index": 79,
+      "tier": 2,
+      "pluginId": "harmful:cybercrime:malicious-code"
+    },
+    {
+      "index": 51,
+      "tier": 2,
+      "pluginId": "excessive-agency"
+    },
+    {
+      "index": 35,
+      "tier": 2,
+      "pluginId": "debug-access"
+    },
+    {
+      "index": 106,
+      "tier": 2,
+      "pluginId": "prompt-extraction"
+    },
+    {
+      "index": 53,
+      "tier": 3,
+      "pluginId": "excessive-agency"
+    },
+    {
+      "index": 55,
+      "tier": 3,
+      "pluginId": "excessive-agency"
+    },
+    {
+      "index": 50,
+      "tier": 3,
+      "pluginId": "excessive-agency"
+    },
+    {
+      "index": 164,
+      "tier": 3,
+      "pluginId": "tool-discovery"
+    },
+    {
+      "index": 166,
+      "tier": 3,
+      "pluginId": "tool-discovery"
+    },
+    {
+      "index": 57,
+      "tier": 3,
+      "pluginId": "imitation"
+    },
+    {
+      "index": 63,
+      "tier": 3,
+      "pluginId": "imitation"
+    },
+    {
+      "index": 64,
+      "tier": 3,
+      "pluginId": "overreliance"
+    },
+    {
+      "index": 66,
+      "tier": 3,
+      "pluginId": "overreliance"
+    },
+    {
+      "index": 135,
+      "tier": 3,
+      "pluginId": "rag-document-exfiltration"
+    },
+    {
+      "index": 82,
+      "tier": 3,
+      "pluginId": "harmful:cybercrime:malicious-code"
+    },
+    {
+      "index": 46,
+      "tier": 3,
+      "pluginId": "hijacking"
+    },
+    {
+      "index": 115,
+      "tier": 3,
+      "pluginId": "pii:direct"
+    },
+    {
+      "index": 15,
+      "tier": 3,
+      "pluginId": "bola"
+    },
+    {
+      "index": 0,
+      "tier": 3,
+      "pluginId": "bfla"
+    },
+    {
+      "index": 151,
+      "tier": 3,
+      "pluginId": "sql-injection"
+    },
+    {
+      "index": 158,
+      "tier": 3,
+      "pluginId": "shell-injection"
+    },
+    {
+      "index": 108,
+      "tier": 3,
+      "pluginId": "prompt-extraction"
+    },
+    {
+      "index": 93,
+      "tier": 3,
+      "pluginId": "mcp"
+    },
+    {
+      "index": 72,
+      "tier": 3,
+      "pluginId": "indirect-prompt-injection"
+    }
+  ]
+}

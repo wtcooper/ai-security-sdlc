@@ -1,0 +1,22 @@
+# promptfoo official agent skills, vendored verbatim by scripts/sync-upstream.sh. Do not edit.
+source: https://github.com/promptfoo/promptfoo/tree/d833727ce8387eb96dc67e82dfa7972cd2b07a14/plugins/promptfoo
+commit: d833727ce8387eb96dc67e82dfa7972cd2b07a14
+committed: 2026-09-23
+plugin-version: 0.1.3
+vendored: 2026-09-23
+license: MIT (LICENSE-promptfoo)
+files:
+cf0c1c7f1b12a8043324c80d72e4e35df7c9f688d2a8f0ca89a8b8f79651ec06  promptfoo-provider-setup/SKILL.md
+0f0fbe09c9ee060fa1e1ab03bc284fc6ae00286bf77e17ac151ce0ceb807b3da  promptfoo-provider-setup/agents/openai.yaml
+bc22c2bd3f97dbdaab067241d5f147983132ef24401874588ccbf9829b6cef60  promptfoo-provider-setup/references/provider-patterns.md
+2138c6a9032a341355219e19976182ad0afad86014d25f14fbf6d1fe0598b357  promptfoo-provider-setup/scripts/openapi-operation-to-config.mjs
+999d97a338e41e74784dbb0a7a57884ee0899219f2877c6c9b25c5e3dc222267  promptfoo-provider-setup/scripts/response-contract.mjs
+a07bc24468b9654ce76a547d47a2db282d07733b715db4c73a98bd63961f9550  promptfoo-provider-setup/scripts/vendor/LICENSE
+6cd26e4f20dbf81ede5cc19ef86e6a03fe95e22f34d358e0f20a83357d93b1d1  promptfoo-provider-setup/scripts/vendor/js-yaml.mjs
+e415f8aa8a4701c68307e52c44ed30d4c562f1d75acf2510c2b4ef8e753fab91  promptfoo-redteam-run/SKILL.md
+b7b9861a9a373290387c91b55384556b7acbdac7f366c120b64e8cd052dc91af  promptfoo-redteam-run/agents/openai.yaml
+1b73169dea967d83751fb798450151d1c7c0042ad92e32501cbb4a237466f291  promptfoo-redteam-run/references/redteam-run-patterns.md
+1b7328db864449e439dc9529a2b3688d841db9c44e1d79aa4e9f5f3be911a9b4  promptfoo-redteam-setup/SKILL.md
+706c63bd2f40845470b64fda8ff909d6ead42d7a700fbc72f50e4a24bcfea38e  promptfoo-redteam-setup/agents/openai.yaml
+bd097aae1c4a0d07652b1c2f07bfb5dea0c2a720fdcfc8e3e76d22c10381acce  promptfoo-redteam-setup/references/redteam-setup-patterns.md
+540f61b56218e00c7755a4e72b25edcaa9e494ede5eaef494df58cd70401aca1  promptfoo-redteam-setup/scripts/openapi-operation-to-redteam-config.mjs

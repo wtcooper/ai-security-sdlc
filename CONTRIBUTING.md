@@ -14,6 +14,7 @@ sh tests/hooks/test_mcp_install_gate.sh                             # gate paylo
 sh plugins/secure-sdlc/skills/security-guidance/references/hooks/scripts/test_opt_in_hooks.sh
 sh tests/hooks/test_install.sh                                               # hook installer
 sh scripts/test_install_skills.sh                                    # skills installer
+bash tests/adversarial/test_scripts.sh                               # verify-ai-adversarial: vendored-skill pin, corpus, config refusals, hook, classifier
 python3 scripts/test_helpers.py                                      # scan containment, run status, benchmark labels, corpus lint
 python3 plugins/secure-sdlc/skills/security-standards/scripts/lint_corpus.py plugins/secure-sdlc/skills/security-standards/seed
 ```
@@ -31,6 +32,8 @@ request:
 | `plugins/secure-sdlc/hooks/**` and `…/security-guidance/references/hooks/**` | deterministic gates that run on every tool call in every client | a payload case in the matching test suite for each new trigger and each new negative case; `docs/compatibility.md` row updated if a client version was re-verified |
 | `plugins/secure-sdlc/skills/security-standards/seed/**` | shipped policy defaults that organizations adopt | `lint_corpus.py` passes on the seed; page `updated` bumped; a note in the page's `sources` |
 | `scripts/install*.sh`, `plugins/secure-sdlc/hooks/install.sh` | write into users' and machines' config | a case in the installer suites; dry-run output in the pull request description |
+| `plugins/verify-ai-adversarial/corpus/**` | the approved attack corpus every team's scorecard is keyed on | follow `skills/redteam-offline/references/corpus-regeneration.md`: regenerate with promptfoo (Crescendo), edit `generation/selection.json`, run `generated-to-corpus.mjs`, add a manifest entry; `tests/adversarial/test_scripts.sh` and the all-tier smoke test pass; never edit an older version |
+| `plugins/verify-ai-adversarial/skills/promptfoo-*` | promptfoo's official skills, vendored verbatim | never hand-edit; `scripts/sync-upstream.sh <ref>`, review the diff, rerun the smoke test |
 
 Skill text (`SKILL.md`, `references/`) is reviewed for two things: does the instruction stay within
 the skill's declared scope, and does every security claim say what backs it (payload-tested,

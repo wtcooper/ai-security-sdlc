@@ -227,3 +227,7 @@ testbed/.venv-gateway/
 .ai-security/results/
 strix_runs/
 .ai-security/cache/
+# red-team scan dirs: configs are committed; attack transcripts and generated tests are not
+.ai-security/redteam-adversarial/**/results*.json
+.ai-security/redteam-adversarial/**/tests.generated.yaml
+.ai-security/redteam-adversarial/**/*.log

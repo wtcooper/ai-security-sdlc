@@ -1,0 +1,54 @@
+{
+  "corpora": [
+    {
+      "id": "aisec-core",
+      "version": 2,
+      "file": "core/v2/core.yaml",
+      "strategy": "crescendo",
+      "source": "promptfoo redteam generate --remote with the crescendo strategy (goals written by promptfoo), curated by scripts/generated-to-corpus.mjs from core/v2/generation/selection.json",
+      "generatedOnline": true,
+      "generatedOn": "2026-09-23",
+      "promptfooVersion": "0.123.1",
+      "tests": 60,
+      "tiers": {
+        "tier1": 20,
+        "tier2": 20,
+        "tier3": 20
+      },
+      "plugins": [
+        "bfla",
+        "bola",
+        "debug-access",
+        "excessive-agency",
+        "harmful:cybercrime:malicious-code",
+        "hijacking",
+        "imitation",
+        "indirect-prompt-injection",
+        "mcp",
+        "overreliance",
+        "pii:api-db",
+        "pii:direct",
+        "pii:session",
+        "prompt-extraction",
+        "rag-document-exfiltration",
+        "rbac",
+        "shell-injection",
+        "sql-injection",
+        "ssrf",
+        "tool-discovery"
+      ],
+      "frameworks": [
+        "OWASP Top 10 for LLM Applications (2026)",
+        "OWASP Top 10 for Agentic Applications (2026)",
+        "OWASP MCP Top 10 (2025)"
+      ],
+      "excluded": {
+        "rag-poisoning": "no local grader in promptfoo 0.123.1 (Unknown grader: promptfoo:redteam:rag-poisoning)",
+        "cross-session-leak": "store-then-extract pairs need ordered, separate sessions; not meaningful under stateless Crescendo",
+        "agentic:memory-poisoning": "promptfoo does not apply Crescendo to it"
+      },
+      "offlineRunnable": true,
+      "notes": "Tier 1 = first scan / PR gate, tiers 1-2 = release gate, all = baseline. Pool of 178 promptfoo-generated goals kept under core/v2/generation/ for re-curation without another online run."
+    }
+  ]
+}
