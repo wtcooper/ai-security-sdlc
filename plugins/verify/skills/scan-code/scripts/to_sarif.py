@@ -4,8 +4,10 @@
   python3 to_sarif.py findings.json -o out.sarif
 
 Each finding: {id,title,severity,confidence,file,line,snippet,description,remediation,category};
-optional triage fields {priority,exploitability,verification,evidence:[{tool,rule}]} are carried
-into SARIF result properties.
+optional triage fields {priority,exploitability,verification,evidence:[{tool,rule}],panel,exclusions}
+are carried into SARIF result properties, and {exploit_scenario, attack_path} into the message.
+Given gate_findings.py output (a dict with `status`), the run carries that status and the counts in
+run.properties, so an incomplete triage is never read as clean downstream.
 Severity maps to SARIF level: critical/high->error, medium->warning, low/info->note.
 """
 from __future__ import annotations
@@ -41,6 +43,10 @@ def to_sarif(findings: list[dict], tool: str = "scan-code", run_properties: dict
                 "defaultConfiguration": {"level": LEVEL.get(sev, "warning")},
             })
         msg = f.get("description", f.get("title", rid))
+        if f.get("exploit_scenario"):
+            msg += f"\n\nExploit: {f['exploit_scenario']}"
+        if isinstance(f.get("attack_path"), list) and f["attack_path"]:
+            msg += "\n\nAttack path:\n" + "\n".join(f"  {i}. {hop}" for i, hop in enumerate(f["attack_path"], 1))
         if f.get("remediation"):
             msg += f"\n\nRemediation: {f['remediation']}"
         results.append({
@@ -55,7 +61,8 @@ def to_sarif(findings: list[dict], tool: str = "scan-code", run_properties: dict
             }}],
             "properties": {"severity": sev, "confidence": f.get("confidence", ""), "category": f.get("category", ""),
                            "priority": f.get("priority", ""), "exploitability": f.get("exploitability", ""),
-                           "verification": f.get("verification", ""),
+                           "verification": f.get("verification", ""), "panel": f.get("panel", {}),
+                           "exclusions": f.get("exclusions", []),
                            "evidence": [e.get("tool", "") if isinstance(e, dict) else str(e) for e in f.get("evidence", [])]},
         })
     run = {"tool": {"driver": {"name": tool, "informationUri": "https://github.com/wtcooper/ai-security-sdlc", "rules": rules}}, "results": results}
@@ -76,7 +83,8 @@ def main() -> int:
     a = ap.parse_args()
     data = json.loads(a.findings.read_text())
     findings = data.get("findings", data) if isinstance(data, dict) else data
-    a.out.write_text(json.dumps(to_sarif(findings, a.tool), indent=2) + "\n")
+    props = {k: data[k] for k in ("status", "counts") if k in data} if isinstance(data, dict) else None
+    a.out.write_text(json.dumps(to_sarif(findings, a.tool, props or None), indent=2) + "\n")
     print(f"wrote {len(findings)} findings -> {a.out}")
     return 0
 

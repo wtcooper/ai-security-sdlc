@@ -26,8 +26,8 @@ registering both the bundled and managed recall hook in the same client: both ma
 |---|---|---|
 | Claude Code | `SessionStart`, `hookSpecificOutput.additionalContext` | Bundled or managed; startup/resume/clear/compact sources use the same registration |
 | Codex | `SessionStart`, `hookSpecificOutput.additionalContext` | Managed trust or explicitly trusted hook definition; installer prints managed TOML |
-| Cursor | `sessionStart`, `additional_context` | Asynchronous; verify first-decision timing; no compaction reinjection claim |
-| Copilot CLI | `sessionStart`, `additionalContext` | Bundled or managed; VS Code delivery requires separate live validation |
+| Cursor | `sessionStart`, `additional_context` | Bundled (via the generated `.cursor-plugin/plugin.json`; not yet live-verified) or managed; asynchronous; verify first-decision timing; no compaction reinjection claim |
+| Copilot CLI | `sessionStart`, `additionalContext` | Bundled (verified live 2026-10-05) or managed; VS Code delivery requires separate live validation |
 | Gemini CLI | `SessionStart`, `hookSpecificOutput.additionalContext` | Startup/resume/clear; no compaction reinjection claim |
 
 Sources: [Claude](https://code.claude.com/docs/en/hooks), [Codex](https://learn.chatgpt.com/docs/hooks),
@@ -235,9 +235,9 @@ trusted the hook is only visible in the client. `tests/hooks/test_install.sh` co
 | Client | Pre-tool hook | Post-tool hook | Notes |
 |---|---|---|---|
 | Claude Code | `PreToolUse` `Bash\|Edit\|Write\|MultiEdit\|NotebookEdit` | `PostToolUse` same matcher | Automatic: [hooks.json](hooks.json) registers both via `${CLAUDE_PLUGIN_ROOT}` when the plugin is enabled. |
-| Codex | `PreToolUse` `Bash\|apply_patch\|Edit\|Write` | `PostToolUse` | Manual: `install.sh codex` (or merge [clients/codex.hooks.json](clients/codex.hooks.json) into `.codex/hooks.json`); trust once via `/hooks` (automation: `codex exec --dangerously-bypass-hook-trust`). Codex 0.153 does not load hooks from a spec-manifest plugin. |
-| GitHub Copilot CLI · VS Code | `preToolUse` `bash\|powershell\|create\|edit\|str_replace_editor\|apply_patch` | `postToolUse` | Bundled at [../com.github.copilot/hooks/hooks.json](../com.github.copilot/hooks/hooks.json). `-p` needs the folder trusted or `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true`. A repo-level `disableAllHooks: true` silences user hooks; only `policy.d` hooks survive it (out of this rule's scope; deploy the policy hook on fleets). |
-| Cursor | `beforeShellExecution` (every shell command; the gate filters) + `preToolUse` `Write\|Edit\|MultiEdit\|StrReplace\|Delete` | `afterShellExecution` + `afterFileEdit` | Manual: `install.sh cursor`. Keep `failClosed: true`; the gate always emits an explicit allow/deny/ask because Cursor treats empty output as a failure. Cursor's `agent` CLI has no `mcp add`; installs are file writes, `agent mcp enable` and deeplinks, all covered. |
+| Codex | `PreToolUse` `Bash\|apply_patch\|Edit\|Write` | `PostToolUse` | Manual: `install.sh codex` (or merge [clients/codex.hooks.json](clients/codex.hooks.json) into `.codex/hooks.json`); trust once via `/hooks` (automation: `codex exec --dangerously-bypass-hook-trust`). Codex (0.153 through `main`, checked 2026-10-05) loads no hooks from an Agent Plugins–format plugin, even through `extensions["com.openai"]`. |
+| GitHub Copilot CLI · VS Code | `preToolUse` `bash\|powershell\|create\|edit\|str_replace_editor\|apply_patch` | `postToolUse` | Bundled at [../com.github.copilot/hooks/hooks.json](../com.github.copilot/hooks/hooks.json); plugin hooks fire without folder trust (live, 2026-10-05). Repo hooks from `install.sh` need the folder trusted in `-p`, or `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true`. A repo-level `disableAllHooks: true` silences user hooks; only `policy.d` hooks survive it (out of this rule's scope; deploy the policy hook on fleets). |
+| Cursor | `beforeShellExecution` (every shell command; the gate filters) + `preToolUse` `Write\|Edit\|MultiEdit\|StrReplace\|Delete` | `afterShellExecution` + `afterFileEdit` | Bundled at [../com.cursor/hooks/hooks.json](../com.cursor/hooks/hooks.json), registered by the generated `../.cursor-plugin/plugin.json` (Cursor reads it before the spec manifest; CLI plugin hooks since 2026-08-11; not live-verified, and the IDE has an open macOS plugin-hook regression). Otherwise `install.sh cursor`, not both. Keep `failClosed: true`; the gate always emits an explicit allow/deny/ask because Cursor treats empty output as a failure. Cursor's `agent` CLI has no `mcp add`; installs are file writes, `agent mcp enable` and deeplinks, all covered. |
 | Gemini CLI | `BeforeTool` `run_shell_command\|write_file\|replace` | `AfterTool` | Manual: `install.sh gemini`. Headless runs need `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`; project hooks are warn-then-auto-trusted. |
 
 Manual copy, if not using the script:
@@ -269,7 +269,7 @@ the vendor defaults in the last column apply only where a stanza is edited.
 | Claude Code 2.1.258 | yes | yes: SDK host no → nothing; yes → installed once and allowlisted; same server silent; changed command prompts; `-p` deny then `approve ctx7` in the next turn passes | enforced | deny, or routed to SDK/`--permission-prompt-tool stdio` host | 600 s (30 s on tool events), fail-open |
 | Codex CLI 0.153.2 | yes | yes: declined, agent asks; `approve context7` in chat → resume passes with hooks active and allowlists; same server silent; other server declined | **rejected, fails open** — the gate never sends it | `exec` never prompts | 600 s, fail-open |
 | Cursor agent 2026.09.02 | yes | no (CLI not logged in) | shell: enforced; file: accepted, not enforced | undocumented | undocumented; `failClosed` blocks on crash, timeout, non-zero exit and **empty output** |
-| Copilot CLI 1.0.82 | yes | no (the account has no active Copilot license) | enforced, every call | `-p` needs `--allow-all-tools`; cloud agent ask→deny | 30 s, fail-open even for policy hooks; non-zero exit fail-closed |
+| Copilot CLI 1.0.82 | yes | partial: plugin install, offline BYOK model (no licence needed), 2026-10-05 — recall delivered, first install asks and `-p` denies; approval round-trip not run | enforced, every call | `-p` needs `--allow-all-tools`; cloud agent ask→deny | 30 s, fail-open even for policy hooks; non-zero exit fail-closed |
 | Copilot in VS Code | yes | no | enforced | GUI | 30 s fail-open; matchers ignored |
 | Gemini CLI 0.60.0 | yes | no (account tier) | enforced (undocumented), overrides yolo | ask→deny | 60 s fail-open; exit 2 = deny |
 

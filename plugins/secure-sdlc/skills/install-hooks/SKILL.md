@@ -13,8 +13,10 @@ MDM job later. This skill only decides *what* to run and shows the user the resu
 If this skill was installed as a plain skill copy (no plugin root), the script is wherever the repo is
 vendored — commonly `/opt/ai-security-sdlc/plugins/secure-sdlc/hooks/install.sh` — or clone the repo.
 
-Claude Code users who enabled the `secure-sdlc` plugin already have recall and the gate active; offer the
-settings-level install anyway only if they want it without the plugin (CI, teammates, other machines).
+Claude Code, Copilot CLI and Cursor users who enabled the `secure-sdlc` plugin already have recall and the
+gate active (the plugin bundles them); offer the settings-level install for those clients only if they
+want it without the plugin (CI, teammates, other machines), never alongside it, or every hook runs twice.
+Codex and Gemini always need this install: Codex loads no hooks from spec-format plugins.
 
 ## Steps
 1. **Detect** which clients are present: `command -v claude codex agent copilot gemini` plus

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "verify",
-  "version": "0.2.0",
-  "description": "Verify the code you ship: a six-lane blind scanner ensemble (semgrep, CodeQL, Trivy, OSV-Scanner, zizmor + model-driven review) triaged into one ranked SARIF, CodeQL CI setup and read-back, and autonomous Strix DAST pentesting — results into .ai-security/results for remediation.",
+  "version": "0.3.0",
+  "description": "Verify the code you ship: a seven-lane blind scanner ensemble (semgrep, CodeQL, Trivy, OSV-Scanner, zizmor, an open-ended model review and a threat-model-driven source-to-sink model audit) whose serious candidates face a blind three-lens verification panel and a computed gate, triaged into one ranked SARIF with a coverage receipt; CodeQL CI setup and read-back; and autonomous Strix DAST pentesting — results into .ai-security/results for remediation.",
   "author": {
     "name": "Wade Cooper",
     "email": "wadetcooper@gmail.com"

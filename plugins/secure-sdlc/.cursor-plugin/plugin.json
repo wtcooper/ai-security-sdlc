@@ -1,0 +1,24 @@
+{
+  "name": "secure-sdlc",
+  "version": "0.2.0",
+  "description": "Entry point for the ai-security-sdlc toolkit: SDLC orientation and secure agent setup with starter templates and opt-in hooks (security-guidance), the shared app security profile, an index-routed security-standards knowledge corpus, intent-to-spec-to-plan security planning with CodeGuard-backed Secure Build Plans, and remediation that closes findings back into standards and plans, plus a pattern for business-logic hooks at the pre-tool-call layer whose first rule, the mcp-install gate, asks the user for consent before an agent installs an MCP server, and an install-hooks skill that wires it into Codex, Cursor, Copilot and Gemini.",
+  "author": {
+    "name": "Wade Cooper",
+    "email": "wadetcooper@gmail.com"
+  },
+  "homepage": "https://github.com/wtcooper/ai-security-sdlc",
+  "repository": "https://github.com/wtcooper/ai-security-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "ai-sdlc",
+    "secure-by-design",
+    "planning",
+    "codeguard",
+    "knowledge-base",
+    "remediation",
+    "agent-setup"
+  ],
+  "skills": "./skills/",
+  "hooks": "./com.cursor/hooks/hooks.json"
+}

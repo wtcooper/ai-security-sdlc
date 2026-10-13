@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "promptfoo": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "promptfoo@0.123.0",
+        "mcp",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}

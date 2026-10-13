@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/standards_recall.sh cursor", "timeout": 10 }
+    ],
+    "beforeShellExecution": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/mcp_install_gate.sh", "failClosed": true, "timeout": 10 }
+    ],
+    "preToolUse": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/mcp_install_gate.sh", "matcher": "Write|Edit|MultiEdit|StrReplace|Delete", "failClosed": true, "timeout": 10 }
+    ],
+    "afterShellExecution": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/mcp_config_watch.sh", "timeout": 10 }
+    ],
+    "afterFileEdit": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/mcp_config_watch.sh", "timeout": 10 }
+    ]
+  }
+}

@@ -1,7 +1,8 @@
 # Scanner lanes
 
-Six independent lanes. Each runs blind — one sub-agent per lane, given only this section, the scope
-and its output path. Never pass one lane's results to another; correlation happens only in triage.
+Seven independent lanes. Each runs blind: one sub-agent per lane (lane 7 fans out into several),
+given only this section, the scope and its output path. Never pass one lane's results to another;
+correlation happens only in triage.
 
 Commands below were run and verified against semgrep 1.174, Trivy 0.74, osv-scanner 2.5.1,
 zizmor 1.29 and CodeQL 2.26.3 (Aug 2026). If a flag is rejected, check the tool's `--help` before
@@ -12,8 +13,11 @@ Conventions used below:
 - **A non-zero exit usually means "findings", not "failure".** Always judge by the output file.
 - **A missing tool is never a silent skip.** `preflight.sh` lists what is missing with a ready-to-run
   install command; the orchestrator asks the user before dispatching. Only after the user declines
-  does a lane return `status: unavailable` — and that declined lane is named in the report's coverage
-  section. Preflight itself never blocks the scan.
+  is the lane skipped, and that declined lane is named in the report's coverage section. Preflight
+  itself never blocks the scan.
+- **A lane that does not run still leaves a receipt**: write
+  `{"tool": "<lane>", "status": "declined"|"not-applicable", "findings": []}` to `$RAW/<lane>.json`
+  so `normalize.py` and `coverage.json` show the gap by name.
 - Exclude vendored/build trees (`node_modules`, `vendor`, `dist`, `.venv`, `target`) unless the user
   asked to include them.
 
@@ -80,7 +84,7 @@ osv-scanner scan source --recursive --format sarif --output-file "$RAW/osv.sarif
 ```bash
 zizmor --format sarif --persona=auditor --offline "$SCOPE/.github/workflows" > "$RAW/zizmor.sarif"
 ```
-- Only applies when `.github/workflows` exists; otherwise `status: not-applicable`.
+- Only applies when `.github/workflows` exists; otherwise write the `not-applicable` receipt.
 - Finds template injection into `run:`, `pull_request_target` misuse, unpinned/mutable actions,
   excessive `GITHUB_TOKEN` permissions, artifact/cache poisoning — CI compromise paths no code
   scanner looks at.
@@ -96,8 +100,19 @@ defines (`id, title, severity, confidence, file, line, snippet, description, rem
   business-logic abuse, unsafe trust in a component's output, missing controls rather than wrong
   ones, and app-specific flows a query pack was never written for.
 - Run it blind like the others: do not read any other lane's output, and do not narrow to a CWE list.
-- On a large repo, fan out inside this lane by area (per subtree or per category) and merge — that
-  is still one lane.
+- On a large repo, fan out inside this lane by area (per subtree) and merge. That is still one lane.
+
+## 7. llm-threat-audit — threat-model-driven, source → sink discovery
+Follow [threat-audit.md](threat-audit.md): one read-only inventory/threat-model pass, then one
+read-only discovery pass per component × category cell from [categories.md](categories.md) (the
+`scan-code-discovery` agent where the client loads plugin agents), then a sweep at high/max effort.
+Each return is saved verbatim under `$RAW/llm-threat-audit/`.
+- Every candidate must name `source`, `sink` and `attack_path` with `file:line` anchors;
+  `normalize.py` rejects any that do not, and lists them with that reason.
+- Each pass records `files_opened`; those receipts, together with the inventory's scanned/skipped
+  partition, become `coverage.json`.
+- Blind like the rest: it does not see `llm-code-scan` or any CLI output, and it does not apply
+  exclusions. That is the panel's job.
 
 ---
 

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      { "type": "command", "bash": "\"${PLUGIN_ROOT}\"/hooks/promptfoo_offline_gate.sh", "matcher": "bash|powershell", "timeoutSec": 10 }
+    ]
+  }
+}

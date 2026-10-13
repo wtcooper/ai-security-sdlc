@@ -82,4 +82,12 @@ echo "$out" | grep -q 'hooks.SessionStart' && echo "$out" | grep -q 'standards_r
 # --- bad input
 ./install.sh --project $P >/dev/null 2>&1 && bad "no-tool should fail" || ok
 ./install.sh --project $P --scope nope codex >/dev/null 2>&1 && bad "bad scope should fail" || ok
+# --- plugin-bundled registrations (the plugin-install route) equal the installer templates, plugin-root paths aside
+same() {  # $1 bundled file, $2 client template, $3 plugin-root prefix the bundle uses
+  jq -S --arg p "$3/hooks/" 'walk(if type == "string" then sub("^\\.ai-security/hooks/"; $p) else . end)' "clients/$2" > $T/want.json
+  jq -S . "../$1" | cmp -s - $T/want.json && ok || bad "$1 drifted from clients/$2"; }
+same hooks/hooks.json claude-code.settings.json '"${CLAUDE_PLUGIN_ROOT}"'
+same com.github.copilot/hooks/hooks.json copilot.hooks.json '"${PLUGIN_ROOT}"'
+same com.cursor/hooks/hooks.json cursor.hooks.json '"${CURSOR_PLUGIN_ROOT}"'
+jq -e '.hooks == "./com.cursor/hooks/hooks.json"' ../.cursor-plugin/plugin.json >/dev/null && ok || bad ".cursor-plugin/plugin.json does not point Cursor at com.cursor/hooks"
 echo "install.sh tests: $pass passed, $fail failed"; [ $fail -eq 0 ]

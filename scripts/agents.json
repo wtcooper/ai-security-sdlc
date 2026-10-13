@@ -1,0 +1,24 @@
+{
+  "_comment": "Sub-agents generated into each plugin by sync_manifests.py. The body is the concatenation of `sources` (paths relative to the plugin); edit those files, never the generated agents. `cut` drops each source from that heading on.",
+  "agents": [
+    {
+      "plugin": "verify",
+      "name": "scan-code-discovery",
+      "description": "Read-only discovery pass for the scan-code skill's llm-threat-audit lane: the inventory and threat model, one component x category cell, or a sweep. Proposes candidates that name an attacker-controlled source, a sink and every hop between them with file:line anchors, records the files it opened, and never judges its own candidates. Use only when dispatched by the scan-code skill.",
+      "sources": [
+        {"path": "skills/scan-code/references/threat-audit.md"},
+        {"path": "skills/scan-code/references/categories.md"}
+      ]
+    },
+    {
+      "plugin": "verify",
+      "name": "scan-code-verifier",
+      "description": "Blind, read-only verification of one scan-code candidate through one lens (reachability, impact, defenses or red-team). Defaults to FALSE_POSITIVE, cites file:line for every step, and returns a JSON verdict that gate_findings.py tallies; never sees the reporting tools, vote counts or other lenses. Use only when dispatched by the scan-code skill.",
+      "sources": [
+        {"path": "skills/scan-code/references/verification-panel.md"},
+        {"path": "skills/scan-code/references/exclusions.md", "cut": "## Growing this file"},
+        {"path": "skills/scan-code/references/severity-rubric.md"}
+      ]
+    }
+  ]
+}

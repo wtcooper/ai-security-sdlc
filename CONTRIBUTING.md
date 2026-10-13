@@ -19,7 +19,7 @@ python3 scripts/test_helpers.py                                      # scan cont
 python3 plugins/secure-sdlc/skills/security-standards/scripts/lint_corpus.py plugins/secure-sdlc/skills/security-standards/seed
 ```
 
-Edited a `plugin.json`? Regenerate the marketplaces: `uv run python scripts/sync_manifests.py`.
+Edited a `plugin.json`, `scripts/agents.json` or a reference file an agent is built from? Regenerate: `uv run python scripts/sync_manifests.py`.
 
 ## Ownership and review
 

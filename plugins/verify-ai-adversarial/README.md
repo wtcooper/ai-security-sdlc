@@ -30,7 +30,7 @@ also install the separate `promptfoo@promptfoo` plugin, because the skill names 
 | `corpus/` (approved goals) | Generating goals needs promptfoo's cloud. Teams must run offline and comparably. |
 | `scripts/verify-offline.sh` + `net_wrapper.cjs` | Sets promptfoo's offline flags. Refuses cloud commands. Blocks every request to a host outside the allow-list, including the telemetry beacon promptfoo sends even when telemetry is off, and exits 3 on any unexpected attempt. |
 | `scripts/corpus-tests.mjs` | Writes the corpus tests with Crescendo settings from the app's config. It refuses remote-only strategies, `maxTurns` > 10, and a missing purpose or attacker. |
-| `hooks/promptfoo_offline_gate.sh` | Blocks `--remote`, cloud login, `share`, `validate target`, `redteam run/generate`, and any eval outside the wrapper. Enforcement, not prose. |
+| `hooks/promptfoo_offline_gate.sh` | Blocks `--remote`, cloud login, `share`, `validate target`, `redteam run/generate`, and any eval outside the wrapper. Enforcement, not prose. Active on plugin install in Claude Code (`hooks/hooks.json`), Copilot CLI (`com.github.copilot/hooks/hooks.json`, verified live 2026-10-05) and Cursor (`com.cursor/hooks/hooks.json` via the generated `.cursor-plugin/plugin.json`, not live-verified). Codex loads no hooks from spec plugins. |
 | `skills/redteam-offline/templates/redteam.yaml` | One config with every setting. Optional toggles are commented and explained. |
 | `templates/guardrail-transform.js` + `to-messages.js` (optional) | Grades HTTP 400/403 and canned-text guardrail blocks instead of counting them as transport errors. A 401 is always an error. |
 | `scripts/summarize-results.mjs` (optional) | Per-plugin pass/fail/blocked/error and cross-app comparison. |

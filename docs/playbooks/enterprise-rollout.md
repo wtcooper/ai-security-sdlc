@@ -40,8 +40,8 @@ one of three methods; pick per client and per asset:
 |---|---|---|---|---|---|---|
 | Claude Code | server-managed settings or `managed-settings.json`/`.d`, profile, HKLM (`hooks` key) | yes — plugin `hooks/hooks.json`, active on enable | `~/.claude/settings.json` or `.claude/settings.json` + script | Organization settings › Plugins (server-side sync); managed `extraKnownMarketplaces` registers only | `/plugin install` from your marketplace or a vendored `directory` | `~/.claude/skills/`, `.claude/skills/`, enterprise `<managed dir>/.claude/skills/` |
 | Codex | `requirements.toml` `[hooks]` (file, MDM profile, cloud bundle) | no — not loaded from a spec manifest | `~/.codex/hooks.json` or `.codex/hooks.json` + script, trusted via `/hooks` | marketplace allowlist only | `codex plugin add` from a git or local marketplace | `~/.agents/skills/`, `.agents/skills/`, `/etc/codex/skills/` |
-| Cursor | Team hooks (dashboard) or enterprise `hooks.json` at a system path | no — needs a Cursor manifest this repo does not ship | `~/.cursor/hooks.json` or `.cursor/hooks.json` + script | Team Marketplace, install mode **Required** | dashboard, or plugin dirs in `~/.cursor/plugins/local` | `~/.cursor/skills/`, `.cursor/skills/`, `.agents/skills/` |
-| Copilot (CLI + VS Code) | CLI: policy hooks `policy.d/*.json` / HKLM (hooks are not an enterprise managed-settings key); VS Code: no managed hook layer documented, only an org policy that can disable hooks | bundled at `com.github.copilot/hooks/hooks.json` (unverified live) | `~/.copilot/hooks/ai-security.json` or `.github/hooks/ai-security.json` + script — read by both the CLI and VS Code | enterprise `enabledPlugins` (endpoint fetches the marketplace) | `copilot plugin install` from a git or local marketplace | `~/.copilot/skills/`, `.github/skills/`, `.agents/skills/` |
+| Cursor | Team hooks (dashboard) or enterprise `hooks.json` at a system path | yes — `com.cursor/hooks/hooks.json` via the generated `.cursor-plugin/plugin.json` (not live-verified; the IDE has an open macOS plugin-hook regression) | `~/.cursor/hooks.json` or `.cursor/hooks.json` + script | Team Marketplace, install mode **Required** | dashboard, or plugin dirs in `~/.cursor/plugins/local` | `~/.cursor/skills/`, `.cursor/skills/`, `.agents/skills/` |
+| Copilot (CLI + VS Code) | CLI: policy hooks `policy.d/*.json` / HKLM (hooks are not an enterprise managed-settings key); VS Code: no managed hook layer documented, only an org policy that can disable hooks | bundled at `com.github.copilot/hooks/hooks.json` (verified live in the CLI, 2026-10-05) | `~/.copilot/hooks/ai-security.json` or `.github/hooks/ai-security.json` + script — read by both the CLI and VS Code | enterprise `enabledPlugins` (endpoint fetches the marketplace) | `copilot plugin install` from a git or local marketplace | `~/.copilot/skills/`, `.github/skills/`, `.agents/skills/` |
 | Gemini CLI | system `settings.json` `hooks` | n/a — no extension shipped | `~/.gemini/settings.json` or `.gemini/settings.json` + script | none (admin controls cover extensions/MCP/skills toggles only) | n/a | `~/.gemini/skills/`, `.gemini/skills/`, `.agents/skills/` |
 
 Rule of thumb: hook via **managed** wherever the client has a managed layer (all five do), skills via
@@ -275,8 +275,8 @@ codex plugin add secure-sdlc@ai-security-sdlc && codex plugin add verify@ai-secu
 Without repo access: `codex plugin marketplace add /opt/ai-security-sdlc` from the payload, or skip plugins
 and copy skills (`install_skills.sh --scope system codex` → `/etc/codex/skills`, or per user → `~/.agents/skills`).
 
-Do not rely on the plugin's bundled `hooks/hooks.json` in Codex: 0.153 does not load hooks from an
-Agent Plugins manifest, and plugin hooks would need per-user trust anyway. The managed hook above is the
+Do not rely on the plugin's bundled `hooks/hooks.json` in Codex: 0.153 (and `main`, checked 2026-10-05) does
+not load hooks from an Agent Plugins manifest, and plugin hooks would need per-user trust anyway. The managed hook above is the
 enforcement path. Verify by restarting Codex and reading the startup config summary; `codex plugin list`
 shows installed plugins.
 
@@ -330,8 +330,8 @@ cloud agent within about an hour. Relevant keys: `enabledPlugins` (`"secure-sdlc
 — **installs** the plugin), `extraKnownMarketplaces`, `strictKnownMarketplaces`, `allowedMcpServers`,
 `deniedMcpServers`, `permissions.allow|ask|deny`, `permissions.disableBypassPermissionsMode: "disable"`,
 `sandbox`. **Hooks are not a managed-settings key**, so the gate goes in as a policy hook (B). The
-plugin's `com.github.copilot/hooks/hooks.json` also ships the gate for Agent Plugins installs, but it is
-not yet verified live in this repo (asOf 2026-09-15,
+plugin's `com.github.copilot/hooks/hooks.json` also ships the gate for Agent Plugins installs, verified
+live in Copilot CLI 1.0.82 on 2026-10-05 with an offline BYOK model (asOf 2026-09-15,
 https://docs.github.com/en/copilot/reference/enterprise-managed-settings-reference).
 
 **VS Code users.** Copilot agent hooks in VS Code load from the same places as the CLI's user and
@@ -552,8 +552,9 @@ See "Add your own rule" in `plugins/secure-sdlc/hooks/README.md`.
   Copilot policy hooks want a `powershell` command; Codex has `command_windows`. A PowerShell port is
   not shipped yet. `install.sh --scope system` is macOS/Linux only; on Windows place the files from the
   tables above by hand or via Intune/Group Policy.
-- **Copilot** (CLI and VS Code) and **Gemini** hook firing is verified at payload level only in this repo (org
-  policy and account tier blocked live runs); **Cursor** CLI handling of enterprise hooks is undocumented.
+- **Copilot CLI** plugin-bundled hook firing is verified live (2026-10-05, offline BYOK model); **VS Code**
+  and **Gemini** at payload level only (licence and account tier blocked live runs); **Cursor** CLI handling of
+  enterprise hooks is undocumented, and its plugin-bundled hooks are not live-verified.
 - **Claude Code** managed `enabledPlugins` does not install plugins; only Organization settings › Plugins
   or a scripted `claude plugin install` does (§2.1).
 - **Codex** plugin-bundled hooks are not loaded from the Agent Plugins manifest; managed hooks are the

@@ -26,9 +26,15 @@
 - **Packaging.** Every plugin is an Agent Plugins 1.0 spec `plugin.json` (`$schema`, closed
   schema) + `skills/` (+ `mcp.json` where needed) — clients read these directly; install and
   skill discovery were smoke-tested without per-client wrappers (2026-08-22). Per-plugin
-  `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `gemini-extension.json` manifests are no
-  longer shipped (Gemini CLI extension support was dropped with them);
-  `scripts/sync_manifests.py` now generates only the two root marketplaces.
+  `.claude-plugin/`, `.codex-plugin/`, `gemini-extension.json` manifests are no longer shipped
+  (Gemini CLI extension support was dropped with them). The spec makes only skills and `mcp.json`
+  portable, so `scripts/sync_manifests.py` generates the rest: three root marketplaces (Claude/Copilot,
+  Codex, Cursor), a `.cursor-plugin/plugin.json` per plugin (Cursor loads agents, hooks and MCP only
+  from its own manifest), `.mcp.json` beside `mcp.json` (Claude Code reads no other name), and the
+  read-only `scan-code` sub-agents declared in `scripts/agents.json`, whose bodies are concatenated
+  from the skill's reference files, so the prompt a generic sub-agent reads and the one a plugin agent
+  carries cannot diverge. Client hook and agent files live in reverse-domain folders
+  (`com.github.copilot/`, `com.cursor/`); Codex loads no hooks or agents from spec plugins at all.
 - **Shared state on disk.**
   - `.ai-security/profile.md` — the app security profile (written by `security-profile`).
   - `.ai-security/knowledge/` — optional custom project policy, exceptions and lessons;
@@ -95,12 +101,15 @@ All model calls go through an OpenAI-compatible endpoint selected by `AISEC_*` e
   stateful sessions, and ships its own Claude Code skills + MCP.
 - **Strix** is an actively maintained autonomous pentester that validates findings with PoCs and
   emits SARIF.
-- **CodeQL** is the standard for CI SAST. `scan-code` runs it as one of six blind, parallel lanes —
+- **CodeQL** is the standard for CI SAST. `scan-code` runs it as one of seven blind, parallel lanes —
   semgrep (pattern/taint SAST), CodeQL (deep dataflow), Trivy (dep CVEs + IaC misconfig + secrets),
-  OSV-Scanner (OSV database), zizmor (GitHub Actions/CI compromise paths) and an open-ended
-  model-driven review for the unknown-unknowns a fixed query set misses. The lanes never see each
-  other's output, so cross-tool agreement is real evidence; the orchestrating agent then verifies
-  against the code and ranks by severity × exploitability rather than shipping six raw tool dumps.
+  OSV-Scanner (OSV database), zizmor (GitHub Actions/CI compromise paths), an open-ended
+  model-driven review for the unknown-unknowns a fixed query set misses, and a threat-model-driven
+  model audit that runs one pass per component × category and must name source, sink and path. The
+  lanes never see each other's output, so cross-tool agreement is real evidence. Serious candidates
+  then go to a blind panel of read-only verifiers (reachability, impact, defenses) that never see the
+  tool names or vote counts, and `gate_findings.py` computes verdict and priority, so the producer is
+  never the judge and no model decides what ships.
 - **The profile is app-type agnostic.** `security-profile` reads the code and records entry points,
   data flows, sinks, boundaries and dependency surface — no app-type taxonomy — so `scan-code` and
   the other testing skills are never limited to pathways someone declared up front.

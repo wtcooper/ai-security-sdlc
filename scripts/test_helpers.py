@@ -6,6 +6,9 @@
 Covers the 2026-09-16 review findings: scan-code input containment (symlinks, resolved paths, bad
 diff base, ignored files outside git), run status for broken or partial scans in both normalizers,
 Promptfoo provider errors kept apart from findings, b3 L3 rows excluded, and the standards lint.
+Also the scan-code verification gate: votes are tallied in code, partial panels never confirm,
+false positives are dismissed with a reason (never dropped), exclusions cap at P3, and coverage
+receipts flag unaccounted paths.
 """
 from __future__ import annotations
 import io, json, os, subprocess, sys, tempfile, unittest, unittest.mock, contextlib
@@ -18,7 +21,7 @@ EVAL = ROOT / "plugins/verify-ai/skills/eval-security/scripts"
 STD = ROOT / "plugins/secure-sdlc/skills/security-standards"
 for p in (SCAN, FIX, EVAL, STD / "scripts"):
     sys.path.insert(0, str(p))
-import run_scan, normalize, normalize_findings, fetch_benchmarks, lint_corpus  # noqa: E402
+import run_scan, normalize, normalize_findings, fetch_benchmarks, lint_corpus, gate_findings, to_sarif  # noqa: E402
 
 
 def git(root: Path, *args: str) -> None:
@@ -122,6 +125,26 @@ class Normalizers(unittest.TestCase):
         rc, out = self.run_normalize("--format", "table")
         self.assertEqual(rc, 0); self.assertIn("COMPLETE", out); self.assertIn("(ran, no findings)", out)
 
+    def test_threat_audit_without_source_is_rejected_not_dropped(self):
+        lane = self.raw / "llm-threat-audit"; lane.mkdir()
+        good = {"id": "a", "title": "t", "severity": "high", "file": "a.py", "line": 3,
+                "source": {"file": "a.py", "line": 1}, "sink": {"file": "a.py", "line": 3}, "attack_path": ["x"]}
+        bad = {"id": "b", "title": "smell", "severity": "high", "file": "a.py", "line": 9}
+        (lane / "api--injection.json").write_text(json.dumps({"tool": "llm-threat-audit", "files_opened": ["a.py", "b.py"], "findings": [good, bad]}))
+        (lane / "inventory.json").write_text(json.dumps({"tool": "llm-threat-audit", "findings": [], "files_opened": ["a.py"],
+                                                          "inventory": {"scanned": [{"path": "src"}], "skipped": [{"path": "docs", "reason": "documentation"}]}}))
+        (self.raw / "zizmor.json").write_text(json.dumps({"tool": "zizmor", "status": "not-applicable", "findings": []}))
+        outp = Path(self.tmp.name) / "n.json"
+        rc, _ = self.run_normalize("-o", str(outp))
+        doc = json.loads(outp.read_text())
+        self.assertEqual(rc, 0, doc["errors"])   # not-applicable is a named gap, not a failure
+        self.assertEqual([f["rule"] for f in doc["findings"]], ["a"])
+        self.assertEqual(doc["findings"][0]["attack_path"], ["x"])
+        self.assertEqual(len(doc["rejected"]), 1); self.assertIn("source", doc["rejected"][0]["reason"])
+        self.assertEqual(doc["coverage"]["files_opened"], {"llm-threat-audit": 2})
+        self.assertEqual(doc["lanes"]["zizmor.json"]["status"], "not-applicable")
+        self.assertIn("llm-threat-audit/api--injection.json", doc["lanes"])
+
     def test_fix_findings_errors_are_separate(self):
         res = Path(self.tmp.name) / "results"; (res / "code-scan").mkdir(parents=True); (res / "redteam").mkdir()
         (res / "code-scan" / "bad.sarif").write_text("nope")
@@ -138,6 +161,148 @@ class Normalizers(unittest.TestCase):
     def test_fix_findings_missing_dir_fails(self):
         with self.assertRaises(SystemExit):
             normalize_findings.collect(Path(self.tmp.name) / "nope")
+
+
+class Gate(unittest.TestCase):
+    LENSES = ("reachability", "impact", "defenses")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.d = Path(self.tmp.name)
+        self.panel = self.d / "panel"; self.panel.mkdir()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def vote(self, cid, lens, verdict, rnd=1, **kw):
+        name = f"{cid}.{lens}" + (f".r{rnd}" if rnd > 1 else "") + ".json"
+        (self.panel / name).write_text(json.dumps({"candidate_id": cid, "lens": lens, "round": rnd, "verdict": verdict, "reasoning": f"{lens} says", **kw}))
+
+    def panel_of(self, cid, *verdicts, **kw):
+        for lens, v in zip(self.LENSES, verdicts):
+            self.vote(cid, lens, "TRUE_POSITIVE" if v else "FALSE_POSITIVE", **kw)
+
+    def run_gate(self, cands, *args):
+        (self.d / "triage.json").write_text(json.dumps({"candidates": cands}))
+        out = io.StringIO()
+        argv = ["gate_findings.py", str(self.d / "triage.json"), "--panel-dir", str(self.panel), "-o", str(self.d / "f.json"), *args]
+        with contextlib.redirect_stdout(out), unittest.mock.patch("sys.argv", argv):
+            rc = gate_findings.main()
+        return rc, json.loads((self.d / "f.json").read_text()), out.getvalue()
+
+    @staticmethod
+    def cand(cid, sev="high", expl="remote-unauth", **kw):
+        return {"id": cid, "title": cid, "severity": sev, "exploitability": expl, "file": "a.py", "line": 1, **kw}
+
+    def test_majority_confirms_and_priority_is_computed(self):
+        self.panel_of("F1", 1, 1, 0); self.panel_of("F2", 1, 1, 1)
+        rc, doc, _ = self.run_gate([self.cand("F1"), self.cand("F2", expl="remote-auth")])
+        self.assertEqual(rc, 0)
+        by = {f["id"]: f for f in doc["findings"]}
+        self.assertEqual((by["F1"]["verification"], by["F1"]["priority"]), ("confirmed", "P0"))
+        self.assertEqual((by["F2"]["verification"], by["F2"]["priority"]), ("confirmed", "P1"))
+        self.assertEqual(by["F1"]["panel"], {"true": 2, "false": 1, "voters": 3, "rounds": 1})
+
+    def test_false_positive_is_dismissed_with_reason_not_dropped(self):
+        self.panel_of("F1", 0, 1, 0)
+        rc, doc, _ = self.run_gate([self.cand("F1")])
+        self.assertEqual(rc, 0); self.assertEqual(doc["findings"], [])
+        self.assertEqual(len(doc["dismissed"]), 1)
+        self.assertIn("reachability says", doc["dismissed"][0]["gate_reason"])
+        self.assertEqual(doc["counts"]["false_positive"], 1)
+
+    def test_partial_panel_never_confirms_and_marks_run_incomplete(self):
+        self.vote("F1", "reachability", "TRUE_POSITIVE"); self.vote("F1", "impact", "TRUE_POSITIVE")
+        rc, doc, out = self.run_gate([self.cand("F1")])
+        self.assertEqual(rc, 1); self.assertEqual(doc["status"], "incomplete")
+        f = doc["findings"][0]
+        self.assertEqual(f["verification"], "unconfirmed"); self.assertIn("partial panel", f["gate_reason"])
+        self.assertEqual(f["priority"], "P1")   # unconfirmed high, remote-unauth: needs a human, not buried
+
+    def test_duplicate_lens_is_not_independent(self):
+        self.vote("F1", "reachability", "TRUE_POSITIVE")
+        (self.panel / "F1.reachability.copy.json").write_text((self.panel / "F1.reachability.json").read_text())
+        self.vote("F1", "impact", "TRUE_POSITIVE")
+        rc, doc, _ = self.run_gate([self.cand("F1")])
+        self.assertEqual(rc, 1); self.assertIn("duplicate", doc["findings"][0]["gate_reason"])
+
+    def test_missing_panel_below_threshold_is_fine_above_is_not(self):
+        rc, doc, _ = self.run_gate([self.cand("F1", sev="low")])
+        self.assertEqual(rc, 0); self.assertEqual(doc["findings"][0]["priority"], "P3")
+        rc, doc, out = self.run_gate([self.cand("F2", sev="critical")])
+        self.assertEqual(rc, 1); self.assertIn("needs a full panel", out)
+
+    def test_exclusion_caps_at_p3_but_keeps_finding(self):
+        self.vote("F1", "reachability", "TRUE_POSITIVE")
+        self.vote("F1", "impact", "TRUE_POSITIVE", exclusion_applied="denial of service")
+        self.vote("F1", "defenses", "TRUE_POSITIVE")
+        rc, doc, _ = self.run_gate([self.cand("F1")])
+        f = doc["findings"][0]
+        self.assertEqual((f["verification"], f["priority"], f["exclusions"]), ("confirmed", "P3", ["denial of service"]))
+
+    def test_split_rounds_and_red_team_leave_it_unconfirmed(self):
+        self.panel_of("F1", 1, 1, 0); self.panel_of("F1", 0, 0, 1, rnd=2)
+        self.panel_of("F2", 1, 1, 1); self.vote("F2", "red-team", "FALSE_POSITIVE")
+        rc, doc, _ = self.run_gate([self.cand("F1"), self.cand("F2")])
+        self.assertEqual(rc, 0)   # a split or a red-team challenge is a decided outcome, not a broken run
+        by = {f["id"]: f for f in doc["findings"]}
+        self.assertIn("disagree", by["F1"]["gate_reason"]); self.assertEqual(by["F1"]["verification"], "unconfirmed")
+        self.assertIn("red team", by["F2"]["gate_reason"]); self.assertEqual(by["F2"]["verification"], "unconfirmed")
+
+    def test_single_lens_low_effort(self):
+        self.vote("F1", "reachability", "TRUE_POSITIVE")
+        rc, doc, _ = self.run_gate([self.cand("F1")], "--lenses", "reachability", "--min-votes", "1", "--panel-min-severity", "high")
+        self.assertEqual(rc, 0); self.assertEqual(doc["findings"][0]["verification"], "confirmed")
+
+    def test_out_of_scope_and_bad_exploitability(self):
+        rc, doc, out = self.run_gate([self.cand("F1", out_of_scope="pre-existing, untouched by the diff"),
+                                      self.cand("F2", sev="low", expl="remote")])
+        self.assertEqual(len(doc["out_of_scope"]), 1); self.assertEqual(rc, 1); self.assertIn("exploitability", out)
+
+    def test_coverage_flags_unaccounted_paths_and_incomplete_lanes(self):
+        scope = self.d / "repo"; (scope / "src").mkdir(parents=True); (scope / "vendor").mkdir(); (scope / ".git").mkdir()
+        norm = {"status": "complete", "lanes": {"semgrep.sarif": {"status": "ok", "findings": 0}}, "errors": [],
+                "coverage": {"inventory": {"scanned": [{"path": "src"}], "skipped": []}, "files_opened": {}}}
+        (self.d / "n.json").write_text(json.dumps(norm))
+        args = ("--normalized", str(self.d / "n.json"), "--coverage", str(self.d / "c.json"), "--scope-root", str(scope))
+        rc, doc, _ = self.run_gate([], *args)
+        cov = json.loads((self.d / "c.json").read_text())
+        self.assertEqual(rc, 1); self.assertEqual(cov["unaccounted"], ["vendor"]); self.assertEqual(cov["status"], "incomplete")
+        norm["coverage"]["inventory"]["skipped"] = [{"path": "vendor", "reason": "vendored"}]; norm["status"] = "incomplete"; norm["errors"] = ["codeql.sarif: unparseable"]
+        (self.d / "n.json").write_text(json.dumps(norm))
+        rc, doc, _ = self.run_gate([], *args)
+        self.assertEqual(rc, 1); self.assertIn("codeql.sarif", " ".join(doc["errors"]))
+
+    def test_sarif_carries_run_status_and_attack_path(self):
+        doc = {"status": "incomplete", "counts": {"candidates": 1},
+               "findings": [{"id": "F1", "title": "t", "severity": "high", "file": "a.py", "line": 2, "description": "d",
+                             "attack_path": ["body.id", "query()"], "exploit_scenario": "send id=2", "panel": {"true": 3}}]}
+        (self.d / "f.json").write_text(json.dumps(doc))
+        argv = ["to_sarif.py", str(self.d / "f.json"), "-o", str(self.d / "o.sarif")]
+        with contextlib.redirect_stdout(io.StringIO()), unittest.mock.patch("sys.argv", argv):
+            to_sarif.main()
+        run = json.loads((self.d / "o.sarif").read_text())["runs"][0]
+        self.assertEqual(run["properties"]["status"], "incomplete")
+        msg = run["results"][0]["message"]["text"]
+        self.assertTrue(msg.startswith("d")); self.assertIn("1. body.id", msg); self.assertIn("Exploit: send id=2", msg)
+
+
+class Packaging(unittest.TestCase):
+    """Generated sub-agents stay read-only in every client format, and stay in sync with their sources."""
+
+    def test_generated_agents_are_read_only(self):
+        spec = json.loads((ROOT / "scripts/agents.json").read_text())["agents"]
+        self.assertTrue(spec)
+        for a in spec:
+            claude = (ROOT / "plugins" / a["plugin"] / "agents" / f"{a['name']}.md").read_text().split("---")[1]
+            copilot = (ROOT / "plugins" / a["plugin"] / "com.github.copilot/agents" / f"{a['name']}.agent.md").read_text().split("---")[1]
+            self.assertIn("\ntools: Read, Glob, Grep\n", claude)
+            self.assertIn("\npermissionMode: readonly\n", claude)   # the only read-only switch Cursor honours for plugin agents
+            tools = json.loads(next(l for l in copilot.splitlines() if l.startswith("tools:")).split(":", 1)[1])
+            self.assertFalse({"edit", "write", "shell", "bash", "execute", "powershell"} & {t.lower() for t in tools}, tools)
+
+    def test_generated_files_in_sync(self):
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/sync_manifests.py"), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 class Benchmarks(unittest.TestCase):

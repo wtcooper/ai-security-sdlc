@@ -4,18 +4,24 @@
   python3 normalize.py <raw-dir> -o normalized.json [--format table]
 
 Reads `*.sarif` (semgrep, trivy, osv-scanner, zizmor, codeql) and `*.json` files that already
-contain a findings array (the LLM scan) from <raw-dir>. Emits:
-  {"status": "complete"|"incomplete", "lanes": {name: {"status": "ok"|"error"|"incomplete", "findings": n, "error"?: str}},
-   "errors": [...], "findings": [...], "clusters": [{"key", "tools": [...], "findings": [idx, ...]}]}
+contain a findings array (the model lanes) anywhere under <raw-dir>. Emits:
+  {"status": "complete"|"incomplete", "lanes": {relpath: {"status": "ok"|"error"|"incomplete"|
+   "not-applicable"|"declined", "findings": n, "error"?: str}}, "errors": [...], "findings": [...],
+   "rejected": [...], "coverage": {"inventory": {...}, "files_opened": {tool: n}},
+   "clusters": [{"key", "tools": [...], "findings": [idx, ...]}]}
 A lane output that cannot be parsed is an error, not an empty lane; a lane whose own run properties
 say `incomplete` keeps its findings but is flagged. Either way the run status becomes `incomplete`
 and the exit code is 1, so a broken or partial lane can never read as clean. An empty <raw-dir> is
-`incomplete` too.
+`incomplete` too. A findings JSON whose status is `not-applicable` or `declined` records that lane
+as a named coverage gap without failing the run.
 
 Each finding: {tool, rule, title, severity, confidence, file, line, snippet, description,
-remediation, category, cwe[]}. Clusters group findings that point at the same place (same file,
-lines within 5) or the same CWE in the same file — that overlap is the cross-tool evidence the
-triage step ranks on. No model calls, no network.
+remediation, category, cwe[]} plus, when the lane supplied them, {source, sink, attack_path,
+preconditions, exploit_scenario}. An `llm-threat-audit` candidate without a named source, sink and
+path is moved to `rejected` with the reason (a code smell, not a vulnerability), never dropped.
+Model-lane receipts (`inventory`, `files_opened`) are summed into `coverage`. Clusters group
+findings that point at the same place (same file, lines within 5) — that overlap is the cross-tool
+evidence the triage step ranks on. No model calls, no network.
 """
 from __future__ import annotations
 import argparse, json, re, sys
@@ -23,6 +29,9 @@ from collections import defaultdict
 from pathlib import Path
 
 LEVEL_SEV = {"error": "high", "warning": "medium", "note": "low", "none": "info"}
+SKIPPED = ("not-applicable", "declined")      # a named coverage gap, not a failure
+ATTACK_PATH = ("source", "sink", "attack_path", "preconditions", "exploit_scenario")
+NEEDS_PATH = "llm-threat-audit"                # discovery that must name source -> sink
 
 
 def sev_from_score(score: str) -> str | None:
@@ -91,7 +100,7 @@ def from_sarif(path: Path) -> tuple[list[dict], str | None]:
     return out, note
 
 
-def from_findings_json(path: Path) -> tuple[list[dict], str | None]:
+def from_findings_json(path: Path, receipts: dict | None = None) -> tuple[list[dict], str | None]:
     try:
         doc = json.loads(path.read_text())
     except Exception as e:
@@ -101,11 +110,19 @@ def from_findings_json(path: Path) -> tuple[list[dict], str | None]:
         raise LaneError("no findings array")
     note = doc.get("status") if isinstance(doc, dict) and doc.get("status") not in (None, "complete") else None
     tool = doc.get("tool") if isinstance(doc, dict) else None
+    if receipts is not None and isinstance(doc, dict):
+        t = (tool or path.stem).lower()
+        if isinstance(doc.get("files_opened"), list):
+            receipts["files_opened"].setdefault(t, set()).update(map(str, doc["files_opened"]))
+        if isinstance(doc.get("inventory"), dict):
+            for k in ("scanned", "skipped"):
+                receipts["inventory"].setdefault(k, []).extend(doc["inventory"].get(k) or [])
     out = []
     for f in items:
         if not isinstance(f, dict):
             continue
-        out.append({
+        extra = {k: f[k] for k in ATTACK_PATH if f.get(k)}
+        out.append({**extra, 
             "tool": (f.get("tool") or tool or path.stem).lower(),
             "rule": f.get("id") or f.get("rule") or f.get("category", ""),
             "title": (f.get("title") or "")[:160],
@@ -156,36 +173,52 @@ def main() -> int:
     ap.add_argument("--format", choices=["json", "table"], default="json")
     a = ap.parse_args()
     findings: list[dict] = []
+    rejected: list[dict] = []
     lanes: dict[str, dict] = {}
     errors: list[str] = []
+    receipts: dict = {"inventory": {}, "files_opened": {}}
     for p in sorted(a.raw_dir.rglob("*")) if a.raw_dir.is_dir() else []:
         if p.suffix not in (".sarif", ".json"):
             continue
+        name = str(p.relative_to(a.raw_dir))
         try:
-            got, note = from_sarif(p) if p.suffix == ".sarif" else from_findings_json(p)
+            got, note = from_sarif(p) if p.suffix == ".sarif" else from_findings_json(p, receipts)
         except LaneError as e:
-            lanes[p.name] = {"status": "error", "findings": 0, "error": str(e)}
-            errors.append(f"{p.name}: {e}")
+            lanes[name] = {"status": "error", "findings": 0, "error": str(e)}
+            errors.append(f"{name}: {e}")
             continue
-        lanes[p.name] = {"status": "ok", "findings": len(got)}   # a lane that ran clean must stay visible, not vanish
-        if note:   # partial lane: keep its findings, never let it count as clean coverage
-            lanes[p.name] = {"status": "incomplete", "findings": len(got), "error": f"lane reported status '{note}'"}
-            errors.append(f"{p.name}: lane reported status '{note}' — its coverage is partial")
-        findings += got
+        lanes[name] = {"status": "ok", "findings": len(got)}   # a lane that ran clean must stay visible, not vanish
+        if note in SKIPPED:
+            lanes[name] = {"status": note, "findings": len(got)}
+        elif note:   # partial lane: keep its findings, never let it count as clean coverage
+            lanes[name] = {"status": "incomplete", "findings": len(got), "error": f"lane reported status '{note}'"}
+            errors.append(f"{name}: lane reported status '{note}' — its coverage is partial")
+        for f in got:
+            missing = [k for k in ("source", "sink", "attack_path") if not f.get(k)] if f["tool"] == NEEDS_PATH else []
+            if missing:
+                rejected.append({**f, "reason": f"no named {', '.join(missing)}: a code smell, not a vulnerability"})
+            else:
+                findings.append(f)
     if not lanes:
         errors.append(f"no lane output found under {a.raw_dir}")
     status = "complete" if not errors else "incomplete"
     findings.sort(key=lambda f: (SEV_ORDER.get(f["severity"], 5), f["file"], f["line"]))
-    doc = {"status": status, "lanes": lanes, "errors": errors, "findings": findings, "clusters": cluster(findings)}
+    coverage = {"inventory": receipts["inventory"],
+                "files_opened": {t: len(v) for t, v in sorted(receipts["files_opened"].items())}}
+    doc = {"status": status, "lanes": lanes, "errors": errors, "findings": findings, "rejected": rejected,
+           "coverage": coverage, "clusters": cluster(findings)}
     if a.out:
         a.out.write_text(json.dumps(doc, indent=2) + "\n")
     if a.format == "table" or not a.out:
         print(f"{status.upper()}: {len(findings)} findings from {len(lanes)} lane output(s)")
         for name, l in sorted(lanes.items(), key=lambda kv: -kv[1]["findings"]):
-            tag = f"   ({l['status'].upper()}: {l['error']})" if l["status"] != "ok" else ("   (ran, no findings)" if l["findings"] == 0 else "")
+            tag = (f"   ({l['status'].upper()}: {l['error']})" if l.get("error") else f"   ({l['status'].upper()})"
+                   if l["status"] != "ok" else ("   (ran, no findings)" if l["findings"] == 0 else ""))
             print(f"  {name:<24} {l['findings']}{tag}")
         for e in errors:
             print(f"  ! {e}")
+        if rejected:
+            print(f"{len(rejected)} {NEEDS_PATH} candidate(s) rejected for a missing source/sink/path")
         multi = [c for c in doc["clusters"] if c["corroboration"] > 1]
         print(f"{len(multi)} locations corroborated by >1 tool")
         for c in multi[:20]:

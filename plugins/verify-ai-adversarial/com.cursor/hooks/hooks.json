@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/promptfoo_offline_gate.sh", "failClosed": true, "timeout": 10 }
+    ]
+  }
+}

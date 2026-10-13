@@ -114,6 +114,16 @@ hk ALLOW 'npx promptfoo redteam generate -c corpus/core/v3/generation/gen.yaml -
 hk ALLOW 'grep -r promptfoo-redteam-run skills/'
 hk ALLOW 'ls -la'
 check "hook registered for Bash PreToolUse" 'jq -e ".hooks.PreToolUse[0].matcher == \"Bash\"" "$P/hooks/hooks.json" >/dev/null'
+# Copilot CLI (camelCase registration) sends toolArgs; Cursor's beforeShellExecution sends command and needs an explicit allow
+hp() { printf '%s' "$2" | sh "$H" > "$W/hk.out" 2>/dev/null && rc=0 || rc=$?; }
+hp x "$(jq -nc --arg c 'npx promptfoo share' '{toolName:"bash",toolArgs:{command:$c}}')"; check "copilot toolArgs object denied" '[ "$rc" = 2 ]'
+hp x "$(jq -nc --arg c 'npx promptfoo share' '{toolName:"bash",toolArgs:({command:$c}|tojson)}')"; check "copilot toolArgs string denied" '[ "$rc" = 2 ]'
+hp x "$(jq -nc --arg c 'npx promptfoo --version' '{toolName:"bash",toolArgs:{command:$c}}')"; check "copilot allowed command passes silently" '[ "$rc" = 0 ] && [ ! -s "$W/hk.out" ]'
+hp x "$(jq -nc --arg c 'npx promptfoo auth login' '{hook_event_name:"beforeShellExecution",command:$c}')"; check "cursor shell command denied" '[ "$rc" = 2 ]'
+hp x "$(jq -nc --arg c 'npx promptfoo validate config -c r.yaml' '{hook_event_name:"beforeShellExecution",command:$c}')"; check "cursor promptfoo allow is explicit" '[ "$rc" = 0 ] && jq -e ".permission == \"allow\"" "$W/hk.out" >/dev/null'
+hp x '{"hook_event_name":"beforeShellExecution","command":"ls -la"}'; check "cursor unrelated command allow is explicit" '[ "$rc" = 0 ] && jq -e ".permission == \"allow\"" "$W/hk.out" >/dev/null'
+check "copilot bundle registers the gate" 'jq -e ".version == 1 and .hooks.preToolUse[0].bash == \"\\\"\${PLUGIN_ROOT}\\\"/hooks/promptfoo_offline_gate.sh\"" "$P/com.github.copilot/hooks/hooks.json" >/dev/null'
+check "cursor bundle registers the gate fail-closed" 'jq -e ".version == 1 and .hooks.beforeShellExecution[0].failClosed == true and (.hooks.beforeShellExecution[0].command | endswith(\"/hooks/promptfoo_offline_gate.sh\"))" "$P/com.cursor/hooks/hooks.json" >/dev/null'
 
 # --- guardrail-transform.js -----------------------------------------------------------------------------
 T="$P/skills/redteam-offline/templates/guardrail-transform.js"
